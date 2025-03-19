@@ -9,7 +9,77 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      source_schemas: {
+        Row: {
+          api_version: string
+          created_at: string | null
+          schema: Json
+          source_id: string
+        }
+        Insert: {
+          api_version: string
+          created_at?: string | null
+          schema: Json
+          source_id: string
+        }
+        Update: {
+          api_version?: string
+          created_at?: string | null
+          schema?: Json
+          source_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "source_schemas_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sources: {
+        Row: {
+          config: Json
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          last_sync_at: string | null
+          last_validated_at: string | null
+          name: string
+          source_type: Database["public"]["Enums"]["source_type"]
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          config: Json
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          last_validated_at?: string | null
+          name: string
+          source_type: Database["public"]["Enums"]["source_type"]
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          last_validated_at?: string | null
+          name?: string
+          source_type?: Database["public"]["Enums"]["source_type"]
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +88,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      source_type: "shopify" | "woocommerce" | "ftp_sftp" | "custom_api"
     }
     CompositeTypes: {
       [_ in never]: never
