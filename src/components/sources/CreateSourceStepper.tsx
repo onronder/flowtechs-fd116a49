@@ -36,6 +36,7 @@ export default function CreateSourceStepper({ existingSource, onCancel }: Create
     credentials: existingSource?.config || {},
     validationResult: null
   });
+  const [isValidating, setIsValidating] = useState(false);
   
   const { toast } = useToast();
 
@@ -51,8 +52,16 @@ export default function CreateSourceStepper({ existingSource, onCancel }: Create
   
   const handleCredentialsSubmit = async (credentials: any) => {
     try {
+      setIsValidating(true);
+      
+      // Log for debugging
+      console.log("Validating credentials:", {
+        sourceType: sourceData.type,
+        credentials: { ...credentials, accessToken: "REDACTED" }
+      });
+      
       // Validate connection
-      const response = await fetch("/api/edge/validateSourceConnection", {
+      const response = await fetch("/api/validateSourceConnection", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -61,7 +70,14 @@ export default function CreateSourceStepper({ existingSource, onCancel }: Create
         }),
       });
       
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Validation error response:", errorText);
+        throw new Error(`Validation failed: ${response.status} ${response.statusText}`);
+      }
+      
       const result = await response.json();
+      console.log("Validation result:", result);
       
       if (result.success) {
         setSourceData(prev => ({ 
@@ -81,9 +97,13 @@ export default function CreateSourceStepper({ existingSource, onCancel }: Create
       console.error("Error validating connection:", error);
       toast({
         title: "Error",
-        description: "An error occurred while validating the connection.",
+        description: error instanceof Error 
+          ? error.message 
+          : "An error occurred while validating the connection.",
         variant: "destructive"
       });
+    } finally {
+      setIsValidating(false);
     }
   };
   
@@ -149,6 +169,7 @@ export default function CreateSourceStepper({ existingSource, onCancel }: Create
             initialData={sourceData.credentials}
             onSubmit={handleCredentialsSubmit}
             onBack={() => setCurrentStep("info")}
+            isSubmitting={isValidating}
           />
         )}
         

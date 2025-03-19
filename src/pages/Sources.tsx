@@ -65,6 +65,10 @@ const Sources = () => {
         }),
       });
       
+      if (!response.ok) {
+        throw new Error(`Connection test failed: ${response.status} ${response.statusText}`);
+      }
+      
       const result = await response.json();
       
       if (result.success) {
@@ -100,7 +104,9 @@ const Sources = () => {
       console.error("Error testing source:", error);
       toast({
         title: "Error",
-        description: "An error occurred while testing the connection.",
+        description: error instanceof Error 
+          ? error.message 
+          : "An error occurred while testing the connection.",
         variant: "destructive",
       });
     }

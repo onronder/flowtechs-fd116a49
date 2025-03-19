@@ -36,11 +36,15 @@ interface ShopifyCredentialsFormProps {
   };
   onSubmit: (data: z.infer<typeof formSchema>) => void;
   onBack: () => void;
+  isSubmitting?: boolean;
 }
 
-export default function ShopifyCredentialsForm({ initialData = {}, onSubmit, onBack }: ShopifyCredentialsFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
+export default function ShopifyCredentialsForm({ 
+  initialData = {}, 
+  onSubmit, 
+  onBack, 
+  isSubmitting = false 
+}: ShopifyCredentialsFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -51,12 +55,8 @@ export default function ShopifyCredentialsForm({ initialData = {}, onSubmit, onB
   });
   
   const handleSubmit = async (data: z.infer<typeof formSchema>) => {
-    setIsSubmitting(true);
-    
-    try {
+    if (!isSubmitting) {
       await onSubmit(data);
-    } finally {
-      setIsSubmitting(false);
     }
   };
   

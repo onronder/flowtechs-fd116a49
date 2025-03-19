@@ -3,16 +3,24 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
   
   try {
     const { sourceType, config } = await req.json();
+    
+    console.log("Request received:", JSON.stringify({ 
+      method: req.method, 
+      sourceType, 
+      config: { ...config, accessToken: "REDACTED" } 
+    }));
     
     // Handle different source types
     switch (sourceType) {
@@ -26,24 +34,25 @@ serve(async (req) => {
         return await validateCustomApiConnection(config);
       default:
         return new Response(
-          JSON.stringify({ error: `Unsupported source type: ${sourceType}` }),
+          JSON.stringify({ success: false, error: `Unsupported source type: ${sourceType}` }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
         );
     }
   } catch (error) {
+    console.error("Error processing request:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ success: false, error: error.message }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }
 });
 
 async function validateShopifyConnection(config: any) {
-  const { storeName, clientId, accessToken } = config;
+  const { storeName, accessToken } = config;
   
   if (!storeName || !accessToken) {
     return new Response(
-      JSON.stringify({ error: "Missing required Shopify configuration" }),
+      JSON.stringify({ success: false, error: "Missing required Shopify configuration" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
     );
   }
@@ -52,25 +61,43 @@ async function validateShopifyConnection(config: any) {
   let apiVersion = "2023-07"; // Fallback version
   
   try {
-    const versionResponse = await fetch(`https://${storeName}.myshopify.com/admin/api/versions`, {
+    console.log(`Attempting to fetch API versions for store: ${storeName}`);
+    const versionEndpoint = `https://${storeName}.myshopify.com/admin/api/versions`;
+    console.log(`Version endpoint: ${versionEndpoint}`);
+    
+    const versionResponse = await fetch(versionEndpoint, {
       headers: {
-        "X-Shopify-Access-Token": accessToken
+        "X-Shopify-Access-Token": accessToken,
+        "Content-Type": "application/json"
       }
     });
     
-    if (versionResponse.ok) {
+    if (!versionResponse.ok) {
+      console.error(`Version endpoint response not OK: ${versionResponse.status} ${versionResponse.statusText}`);
+      const responseText = await versionResponse.text();
+      console.error(`Response body: ${responseText.substring(0, 500)}...`);
+      
+      // If we can't get the version, we'll try the connection with the fallback version
+      console.log(`Proceeding with fallback API version: ${apiVersion}`);
+    } else {
       const versionData = await versionResponse.json();
+      console.log("API versions response:", JSON.stringify(versionData));
+      
       if (versionData.supported_versions && versionData.supported_versions.length > 0) {
         apiVersion = versionData.supported_versions[0].handle;
+        console.log(`Latest API version detected: ${apiVersion}`);
       }
     }
   } catch (error) {
     console.error("Failed to auto-detect API version:", error);
     // Continue with fallback version
+    console.log(`Proceeding with fallback API version: ${apiVersion}`);
   }
   
   // Test connection with detected or fallback version
   const shopifyEndpoint = `https://${storeName}.myshopify.com/admin/api/${apiVersion}/graphql.json`;
+  console.log(`GraphQL endpoint: ${shopifyEndpoint}`);
+  
   const testQuery = `
     query {
       shop {
@@ -83,6 +110,7 @@ async function validateShopifyConnection(config: any) {
   `;
   
   try {
+    console.log("Making GraphQL request to Shopify");
     const response = await fetch(shopifyEndpoint, {
       method: "POST",
       headers: {
@@ -92,9 +120,27 @@ async function validateShopifyConnection(config: any) {
       body: JSON.stringify({ query: testQuery })
     });
     
+    console.log(`GraphQL response status: ${response.status}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`GraphQL error response: ${errorText.substring(0, 500)}...`);
+      
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Connection failed: ${response.status} ${response.statusText}` 
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
+    }
+    
     const result = await response.json();
+    console.log("GraphQL response data:", JSON.stringify(result));
     
     if (result.errors) {
+      console.error("GraphQL errors:", JSON.stringify(result.errors));
+      
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -110,6 +156,8 @@ async function validateShopifyConnection(config: any) {
       api_version: apiVersion
     };
     
+    console.log("Connection successful, returning updated config");
+    
     // Connection successful
     return new Response(
       JSON.stringify({ 
@@ -120,6 +168,8 @@ async function validateShopifyConnection(config: any) {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
+    console.error("Error connecting to Shopify:", error);
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
