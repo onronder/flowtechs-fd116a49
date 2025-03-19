@@ -1,8 +1,9 @@
 
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Source } from "@/hooks/useSources";
 
-export async function testSourceConnection(sourceId: string, sourceData: any, toast: ReturnType<typeof useToast>["toast"]) {
+export async function testSourceConnection(sourceId: string, sourceData: Source, toast: ReturnType<typeof useToast>["toast"]) {
   try {
     toast({
       title: "Testing connection...",
