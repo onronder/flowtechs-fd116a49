@@ -1,9 +1,10 @@
 
 import SourceCard from "./SourceCard";
 import { PlusCircle } from "lucide-react";
+import { Source } from "@/hooks/useSources";
 
 interface SourcesGridProps {
-  sources: any[];
+  sources: Source[];
   onTest: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;

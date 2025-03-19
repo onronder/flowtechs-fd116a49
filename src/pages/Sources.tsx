@@ -1,156 +1,42 @@
 
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { Source, useSources } from "@/hooks/useSources";
 import SourcesGrid from "@/components/sources/SourcesGrid";
 import EmptySourcesState from "@/components/sources/EmptySourcesState";
 import CreateSourceStepper from "@/components/sources/CreateSourceStepper";
+import { testSourceConnection, deleteSource } from "@/utils/sourceUtils";
+import { useToast } from "@/hooks/use-toast";
 
 const Sources = () => {
-  const [sources, setSources] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { sources, loading, fetchSources } = useSources();
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [sourceToEdit, setSourceToEdit] = useState<any>(null);
+  const [sourceToEdit, setSourceToEdit] = useState<Source | null>(null);
   const { toast } = useToast();
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchSources();
-  }, []);
-
-  async function fetchSources() {
-    try {
-      setLoading(true);
-      
-      const { data, error } = await supabase
-        .from("sources")
-        .select("*")
-        .order("created_at", { ascending: false });
-      
-      if (error) throw error;
-      
-      setSources(data || []);
-    } catch (error) {
-      console.error("Error fetching sources:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load sources. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }
-
+  // Source action handlers
   async function handleTestSource(id: string) {
     const sourceToTest = sources.find(s => s.id === id);
     if (!sourceToTest) return;
     
-    try {
-      toast({
-        title: "Testing connection...",
-        description: "Please wait while we test your source connection.",
-      });
-      
-      // Test connection based on source type
-      const response = await fetch(`${window.location.origin}/api/validateSourceConnection`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sourceType: sourceToTest.source_type,
-          config: sourceToTest.config,
-        }),
-      });
-      
-      // Log response for debugging
-      console.log("Test connection response status:", response.status);
-      const responseText = await response.text();
-      console.log("Raw response:", responseText);
-      
-      let result;
-      try {
-        result = JSON.parse(responseText);
-      } catch (e) {
-        console.error("Failed to parse response as JSON:", e);
-        throw new Error("Invalid response format from server");
-      }
-      
-      if (result.success) {
-        toast({
-          title: "Connection Successful",
-          description: `Successfully connected to ${sourceToTest.name}`,
-        });
-        
-        // Update source if API version changed
-        if (sourceToTest.source_type === "shopify" && 
-            result.config.api_version !== sourceToTest.config.api_version) {
-          
-          await supabase
-            .from("sources")
-            .update({ 
-              config: result.config,
-              last_validated_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            })
-            .eq("id", id);
-          
-          // Refresh source list
-          fetchSources();
-        }
-      } else {
-        toast({
-          title: "Connection Failed",
-          description: result.error || "Failed to connect to the source.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error testing source:", error);
-      toast({
-        title: "Error",
-        description: error instanceof Error 
-          ? error.message 
-          : "An error occurred while testing the connection.",
-        variant: "destructive",
-      });
+    const shouldRefresh = await testSourceConnection(id, sourceToTest, toast);
+    if (shouldRefresh) {
+      fetchSources();
     }
   }
 
   async function handleDeleteSource(id: string) {
-    if (confirm("Are you sure you want to delete this source? This action cannot be undone.")) {
-      try {
-        const { error } = await supabase
-          .from("sources")
-          .delete()
-          .eq("id", id);
-        
-        if (error) throw error;
-        
-        toast({
-          title: "Source Deleted",
-          description: "The source has been deleted successfully.",
-        });
-        
-        // Refresh source list
-        fetchSources();
-      } catch (error) {
-        console.error("Error deleting source:", error);
-        toast({
-          title: "Error",
-          description: "Failed to delete the source. Please try again.",
-          variant: "destructive",
-        });
-      }
+    const success = await deleteSource(id, toast);
+    if (success) {
+      fetchSources();
     }
   }
 
   function handleEditSource(id: string) {
-    const sourceToEdit = sources.find(s => s.id === id);
-    if (sourceToEdit) {
-      setSourceToEdit(sourceToEdit);
+    const source = sources.find(s => s.id === id);
+    if (source) {
+      setSourceToEdit(source);
       setShowCreateForm(true);
     }
   }

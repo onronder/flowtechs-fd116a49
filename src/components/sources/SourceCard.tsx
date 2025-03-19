@@ -2,6 +2,7 @@
 import { formatDistance } from "date-fns";
 import { Calendar, Tag, Database, Clock, Activity, Edit, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Source } from "@/hooks/useSources";
 
 // Source-specific icons
 import ShopifyIcon from "@/components/icons/ShopifyIcon";
@@ -10,7 +11,7 @@ import FtpIcon from "@/components/icons/FtpIcon";
 import ApiIcon from "@/components/icons/ApiIcon";
 
 interface SourceCardProps {
-  source: any;
+  source: Source;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onTest: (id: string) => void;
@@ -54,7 +55,7 @@ export default function SourceCard({ source, onEdit, onDelete, onTest }: SourceC
   };
   
   // Get source-specific details to display
-  const getSourceDetails = (source: any) => {
+  const getSourceDetails = (source: Source) => {
     switch (source.source_type) {
       case "shopify":
         return {
