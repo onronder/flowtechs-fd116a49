@@ -1,4 +1,3 @@
-
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -14,7 +13,6 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
 import { 
   Accordion,
   AccordionContent,
@@ -54,9 +52,9 @@ export default function ShopifyCredentialsForm({
     },
   });
   
-  const handleSubmit = async (data: z.infer<typeof formSchema>) => {
+  const handleSubmit = (data: z.infer<typeof formSchema>) => {
     if (!isSubmitting) {
-      await onSubmit(data);
+      onSubmit(data);
     }
   };
   
@@ -153,7 +151,7 @@ export default function ShopifyCredentialsForm({
         />
         
         <div className="flex justify-between">
-          <Button type="button" variant="outline" onClick={onBack}>
+          <Button type="button" variant="outline" onClick={onBack} disabled={isSubmitting}>
             Back
           </Button>
           <Button type="submit" disabled={isSubmitting}>

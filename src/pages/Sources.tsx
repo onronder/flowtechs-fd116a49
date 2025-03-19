@@ -56,7 +56,7 @@ const Sources = () => {
       });
       
       // Test connection based on source type
-      const response = await fetch("/api/validateSourceConnection", {
+      const response = await fetch(`${window.location.origin}/api/validateSourceConnection`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -65,11 +65,18 @@ const Sources = () => {
         }),
       });
       
-      if (!response.ok) {
-        throw new Error(`Connection test failed: ${response.status} ${response.statusText}`);
-      }
+      // Log response for debugging
+      console.log("Test connection response status:", response.status);
+      const responseText = await response.text();
+      console.log("Raw response:", responseText);
       
-      const result = await response.json();
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (e) {
+        console.error("Failed to parse response as JSON:", e);
+        throw new Error("Invalid response format from server");
+      }
       
       if (result.success) {
         toast({

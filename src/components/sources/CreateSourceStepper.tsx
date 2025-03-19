@@ -60,8 +60,8 @@ export default function CreateSourceStepper({ existingSource, onCancel }: Create
         credentials: { ...credentials, accessToken: "REDACTED" }
       });
       
-      // Validate connection
-      const response = await fetch("/api/validateSourceConnection", {
+      // Use the direct Supabase function URL for validation
+      const response = await fetch(`${window.location.origin}/api/validateSourceConnection`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -70,14 +70,20 @@ export default function CreateSourceStepper({ existingSource, onCancel }: Create
         }),
       });
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Validation error response:", errorText);
-        throw new Error(`Validation failed: ${response.status} ${response.statusText}`);
-      }
+      console.log("Response status:", response.status);
       
-      const result = await response.json();
-      console.log("Validation result:", result);
+      // For debugging - log the raw response
+      const responseText = await response.text();
+      console.log("Raw response:", responseText);
+      
+      // Try to parse the response as JSON
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (e) {
+        console.error("Failed to parse response as JSON:", e);
+        throw new Error(`Invalid response format: ${responseText.substring(0, 100)}...`);
+      }
       
       if (result.success) {
         setSourceData(prev => ({ 
@@ -86,6 +92,11 @@ export default function CreateSourceStepper({ existingSource, onCancel }: Create
           validationResult: result 
         }));
         setCurrentStep("validate");
+        
+        toast({
+          title: "Connection Successful",
+          description: "Successfully connected to the data source."
+        });
       } else {
         toast({
           title: "Connection Failed",
