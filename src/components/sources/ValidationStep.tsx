@@ -4,7 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useRouter } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+
+// Define source type to match database enum
+type SourceType = "shopify" | "woocommerce" | "ftp_sftp" | "custom_api";
 
 interface ValidationStepProps {
   sourceData: {
@@ -21,7 +24,7 @@ interface ValidationStepProps {
 export default function ValidationStep({ sourceData, onBack, existingId }: ValidationStepProps) {
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
-  const router = useRouter();
+  const navigate = useNavigate();
 
   const handleSave = async () => {
     try {
@@ -38,8 +41,9 @@ export default function ValidationStep({ sourceData, onBack, existingId }: Valid
         return;
       }
 
+      // Create source config with proper typing
       const sourceConfig = {
-        source_type: sourceData.type,
+        source_type: sourceData.type as SourceType,
         name: sourceData.name,
         description: sourceData.description,
         config: sourceData.credentials,
@@ -66,7 +70,7 @@ export default function ValidationStep({ sourceData, onBack, existingId }: Valid
         // Create new source
         response = await supabase
           .from("sources")
-          .insert([sourceConfig]);
+          .insert(sourceConfig);
       }
 
       if (response.error) {
@@ -80,7 +84,7 @@ export default function ValidationStep({ sourceData, onBack, existingId }: Valid
           : "Your source has been created successfully.",
       });
 
-      router.navigate("/sources");
+      navigate("/sources");
     } catch (error) {
       console.error("Error saving source:", error);
       toast({
