@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { fetchSourceSchema } from "@/api/sourceApi";
 
 // Define source type to match database enum
 type SourceType = "shopify" | "woocommerce" | "ftp_sftp" | "custom_api";
@@ -29,6 +30,12 @@ export default function ValidationStep({ sourceData, onBack, existingId }: Valid
   const handleSave = async () => {
     try {
       setIsSaving(true);
+      
+      // Log for debugging
+      console.log("Saving source data:", {
+        ...sourceData,
+        credentials: { ...sourceData.credentials, accessToken: sourceData.credentials?.accessToken ? "REDACTED" : undefined }
+      });
 
       const userData = await supabase.auth.getUser();
       
@@ -41,40 +48,71 @@ export default function ValidationStep({ sourceData, onBack, existingId }: Valid
         return;
       }
 
-      // Create source config with proper typing
-      const sourceConfig = {
-        source_type: sourceData.type as SourceType,
+      // Create source record with proper typing
+      const sourceRecord = {
         name: sourceData.name,
-        description: sourceData.description,
+        description: sourceData.description || null,
+        source_type: sourceData.type as SourceType,
         config: sourceData.credentials,
         user_id: userData.data.user.id,
         is_active: true,
-        last_validated_at: new Date().toISOString(),
+        last_validated_at: new Date().toISOString()
       };
 
-      let response;
+      console.log("Inserting source record:", {
+        ...sourceRecord,
+        config: { ...sourceRecord.config, accessToken: sourceRecord.config?.accessToken ? "REDACTED" : undefined }
+      });
+
+      let sourceId;
       
       if (existingId) {
         // Update existing source
-        response = await supabase
+        const { data: updateData, error: updateError } = await supabase
           .from("sources")
           .update({
-            name: sourceConfig.name,
-            description: sourceConfig.description,
-            config: sourceConfig.config,
+            name: sourceRecord.name,
+            description: sourceRecord.description,
+            config: sourceRecord.config,
             updated_at: new Date().toISOString(),
-            last_validated_at: sourceConfig.last_validated_at,
+            last_validated_at: sourceRecord.last_validated_at,
           })
-          .eq("id", existingId);
+          .eq("id", existingId)
+          .select();
+        
+        if (updateError) {
+          console.error("Error updating source:", updateError);
+          throw updateError;
+        }
+        
+        sourceId = existingId;
+        console.log("Source updated successfully:", updateData);
       } else {
         // Create new source
-        response = await supabase
+        const { data: insertData, error: insertError } = await supabase
           .from("sources")
-          .insert(sourceConfig);
+          .insert(sourceRecord)
+          .select();
+        
+        if (insertError) {
+          console.error("Error inserting source:", insertError);
+          throw insertError;
+        }
+        
+        sourceId = insertData?.[0]?.id;
+        console.log("Source created successfully, ID:", sourceId, "Data:", insertData);
       }
 
-      if (response.error) {
-        throw response.error;
+      // If this is a Shopify source, fetch and cache the schema
+      if (sourceData.type === "shopify" && sourceId) {
+        console.log("Fetching schema for Shopify source:", sourceId);
+        try {
+          const schemaResult = await fetchSourceSchema(sourceId, true);
+          console.log("Schema fetch result:", schemaResult);
+        } catch (schemaError) {
+          console.error("Error fetching schema:", schemaError);
+          // Continue anyway - don't block source creation if schema fetch fails
+        }
       }
 
       toast({
@@ -89,7 +127,7 @@ export default function ValidationStep({ sourceData, onBack, existingId }: Valid
       console.error("Error saving source:", error);
       toast({
         title: "Error",
-        description: `Failed to ${existingId ? 'update' : 'create'} the source. Please try again.`,
+        description: `Failed to ${existingId ? 'update' : 'create'} the source. Please try again. Error: ${error.message || "Unknown error"}`,
         variant: "destructive",
       });
     } finally {

@@ -14,6 +14,8 @@ serve(async (req) => {
   
   try {
     const { sourceId, forceUpdate = false } = await req.json();
+    console.log(`Processing fetchSourceSchema request for sourceId: ${sourceId}, forceUpdate: ${forceUpdate}`);
+    
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
@@ -27,7 +29,12 @@ serve(async (req) => {
       .eq("id", sourceId)
       .single();
       
-    if (sourceError) throw sourceError;
+    if (sourceError) {
+      console.error("Error fetching source:", sourceError);
+      throw sourceError;
+    }
+
+    console.log(`Source found: type=${source.source_type}, name=${source.name}`);
     
     // Check if we need to update the schema
     if (!forceUpdate) {
@@ -40,6 +47,7 @@ serve(async (req) => {
         .single();
       
       if (existingSchema) {
+        console.log(`Schema already exists for version ${source.config.api_version}, created at ${existingSchema.created_at}`);
         // Schema already exists
         return new Response(
           JSON.stringify({ 
@@ -61,6 +69,7 @@ serve(async (req) => {
         throw new Error(`Schema fetching not implemented for source type: ${source.source_type}`);
     }
   } catch (error) {
+    console.error("Error in fetchSourceSchema:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
@@ -70,6 +79,8 @@ serve(async (req) => {
 
 async function fetchShopifySchema(source: any, supabaseClient: any) {
   const config = source.config;
+  console.log(`Fetching Shopify schema for store: ${config.storeName}, API version: ${config.api_version}`);
+  
   const shopifyEndpoint = `https://${config.storeName}.myshopify.com/admin/api/${config.api_version}/graphql.json`;
   
   // Introspection query to fetch schema
@@ -106,6 +117,8 @@ async function fetchShopifySchema(source: any, supabaseClient: any) {
   `;
   
   try {
+    console.log(`Making GraphQL introspection request to Shopify API: ${shopifyEndpoint}`);
+    
     const response = await fetch(shopifyEndpoint, {
       method: "POST",
       headers: {
@@ -118,8 +131,11 @@ async function fetchShopifySchema(source: any, supabaseClient: any) {
     const result = await response.json();
     
     if (result.errors) {
+      console.error("GraphQL errors:", result.errors);
       throw new Error(result.errors[0].message);
     }
+    
+    console.log("GraphQL schema fetched successfully, saving to database");
     
     // Save schema to database
     const { error: insertError } = await supabaseClient
@@ -130,7 +146,10 @@ async function fetchShopifySchema(source: any, supabaseClient: any) {
         schema: result.data
       });
       
-    if (insertError) throw insertError;
+    if (insertError) {
+      console.error("Error inserting schema:", insertError);
+      throw insertError;
+    }
     
     // Update last_validated_at in sources table
     const { error: updateError } = await supabaseClient
@@ -140,7 +159,12 @@ async function fetchShopifySchema(source: any, supabaseClient: any) {
       })
       .eq("id", source.id);
       
-    if (updateError) throw updateError;
+    if (updateError) {
+      console.error("Error updating source validation timestamp:", updateError);
+      throw updateError;
+    }
+    
+    console.log("Schema stored successfully");
     
     return new Response(
       JSON.stringify({ 
@@ -150,6 +174,7 @@ async function fetchShopifySchema(source: any, supabaseClient: any) {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
+    console.error("Error in fetchShopifySchema:", error);
     return new Response(
       JSON.stringify({ error: `Schema fetch failed: ${error.message}` }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
