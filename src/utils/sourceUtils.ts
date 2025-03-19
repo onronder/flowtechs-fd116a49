@@ -1,7 +1,7 @@
 
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { Source } from "@/hooks/useSources";
+import { testSourceConnection as apiTestSourceConnection, deleteSource as apiDeleteSource } from "@/api/sourceApi";
 
 export async function testSourceConnection(sourceId: string, sourceData: Source, toast: ReturnType<typeof useToast>["toast"]) {
   try {
@@ -10,28 +10,7 @@ export async function testSourceConnection(sourceId: string, sourceData: Source,
       description: "Please wait while we test your source connection.",
     });
     
-    // Test connection based on source type
-    const response = await fetch(`${window.location.origin}/api/validateSourceConnection`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sourceType: sourceData.source_type,
-        config: sourceData.config,
-      }),
-    });
-    
-    // Log response for debugging
-    console.log("Test connection response status:", response.status);
-    const responseText = await response.text();
-    console.log("Raw response:", responseText);
-    
-    let result;
-    try {
-      result = JSON.parse(responseText);
-    } catch (e) {
-      console.error("Failed to parse response as JSON:", e);
-      throw new Error("Invalid response format from server");
-    }
+    const result = await apiTestSourceConnection(sourceId, sourceData);
     
     if (result.success) {
       toast({
@@ -39,27 +18,11 @@ export async function testSourceConnection(sourceId: string, sourceData: Source,
         description: `Successfully connected to ${sourceData.name}`,
       });
       
-      // Update source if API version changed
-      if (sourceData.source_type === "shopify" && 
-          result.config.api_version !== sourceData.config.api_version) {
-        
-        await supabase
-          .from("sources")
-          .update({ 
-            config: result.config,
-            last_validated_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", sourceId);
-        
-        return true; // Indicate that sources should be refreshed
-      }
-      
-      return false; // No refresh needed
+      return result.updated; // Indicate whether sources should be refreshed
     } else {
       toast({
         title: "Connection Failed",
-        description: result.error || "Failed to connect to the source.",
+        description: "Failed to connect to the source.",
         variant: "destructive",
       });
       return false;
@@ -80,12 +43,7 @@ export async function testSourceConnection(sourceId: string, sourceData: Source,
 export async function deleteSource(sourceId: string, toast: ReturnType<typeof useToast>["toast"]) {
   if (confirm("Are you sure you want to delete this source? This action cannot be undone.")) {
     try {
-      const { error } = await supabase
-        .from("sources")
-        .delete()
-        .eq("id", sourceId);
-      
-      if (error) throw error;
+      await apiDeleteSource(sourceId);
       
       toast({
         title: "Source Deleted",

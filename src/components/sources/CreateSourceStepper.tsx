@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -12,6 +11,7 @@ import SourceTypeSelection from "./SourceTypeSelection";
 import BasicInfoForm from "./BasicInfoForm";
 import ShopifyCredentialsForm from "./ShopifyCredentialsForm";
 import ValidationStep from "./ValidationStep";
+import { validateSourceConnection } from "@/api/sourceApi";
 
 const steps = [
   { id: "type", title: "Source Type" },
@@ -60,30 +60,8 @@ export default function CreateSourceStepper({ existingSource, onCancel }: Create
         credentials: { ...credentials, accessToken: "REDACTED" }
       });
       
-      // Use the direct Supabase function URL for validation
-      const response = await fetch(`${window.location.origin}/api/validateSourceConnection`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sourceType: sourceData.type,
-          config: credentials
-        }),
-      });
-      
-      console.log("Response status:", response.status);
-      
-      // For debugging - log the raw response
-      const responseText = await response.text();
-      console.log("Raw response:", responseText);
-      
-      // Try to parse the response as JSON
-      let result;
-      try {
-        result = JSON.parse(responseText);
-      } catch (e) {
-        console.error("Failed to parse response as JSON:", e);
-        throw new Error(`Invalid response format: ${responseText.substring(0, 100)}...`);
-      }
+      // Use the API service to validate connection
+      const result = await validateSourceConnection(sourceData.type, credentials);
       
       if (result.success) {
         setSourceData(prev => ({ 
