@@ -27,6 +27,15 @@ interface ExportOptions {
   saveToStorage?: boolean;
 }
 
+// Helper function to get the current user's ID
+async function getCurrentUserId() {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) {
+    throw new Error("User not authenticated");
+  }
+  return data.user.id;
+}
+
 // Fetch user datasets
 export async function fetchUserDatasets() {
   try {
@@ -34,36 +43,27 @@ export async function fetchUserDatasets() {
       .from("user_datasets")
       .select(`
         *,
-        source:source_id(*)
+        source:source_id(*),
+        last_execution:dataset_executions(
+          id,
+          status,
+          start_time,
+          end_time,
+          row_count,
+          execution_time_ms
+        )
       `)
       .order("created_at", { ascending: false });
       
     if (error) throw error;
     
-    // Get the last execution for each dataset separately
-    const datasetsWithExecution = await Promise.all(
-      data.map(async (dataset) => {
-        const { data: executions, error: execError } = await supabase
-          .from("dataset_executions")
-          .select("*")
-          .eq("dataset_id", dataset.id)
-          .order("created_at", { ascending: false })
-          .limit(1);
-        
-        if (execError) console.error("Error fetching executions:", execError);
-        
-        const lastExecution = executions?.[0] || null;
-        
-        return {
-          ...dataset,
-          last_execution_id: lastExecution?.id,
-          last_execution_time: lastExecution?.end_time,
-          last_row_count: lastExecution?.row_count
-        };
-      })
-    );
-    
-    return datasetsWithExecution;
+    // Process the data to add some computed properties
+    return data.map(dataset => ({
+      ...dataset,
+      last_execution_id: dataset.last_execution?.[0]?.id,
+      last_execution_time: dataset.last_execution?.[0]?.end_time,
+      last_row_count: dataset.last_execution?.[0]?.row_count
+    }));
   } catch (error) {
     console.error("Error fetching datasets:", error);
     throw error;
@@ -105,6 +105,12 @@ export async function fetchDependentTemplates() {
   }
 }
 
+// Add this function to match the import in NewDatasetModal.tsx
+export async function fetchDatasetTemplates() {
+  // Just return predefined templates for now
+  return fetchPredefinedTemplates();
+}
+
 // Fetch Shopify GraphQL schema
 export async function fetchShopifySchema(sourceId: string) {
   try {
@@ -138,6 +144,8 @@ export async function validateCustomQuery(sourceId: string, queryData: any) {
 // Create predefined dataset
 export async function createPredefinedDataset(datasetData: PredefinedDataset) {
   try {
+    const userId = await getCurrentUserId();
+    
     const { data, error } = await supabase
       .from("user_datasets")
       .insert({
@@ -145,7 +153,8 @@ export async function createPredefinedDataset(datasetData: PredefinedDataset) {
         description: datasetData.description,
         source_id: datasetData.sourceId,
         dataset_type: "predefined",
-        template_id: datasetData.templateId
+        template_id: datasetData.templateId,
+        user_id: userId
       })
       .select();
       
@@ -160,6 +169,8 @@ export async function createPredefinedDataset(datasetData: PredefinedDataset) {
 // Create dependent dataset
 export async function createDependentDataset(datasetData: DependentDataset) {
   try {
+    const userId = await getCurrentUserId();
+    
     const { data, error } = await supabase
       .from("user_datasets")
       .insert({
@@ -167,7 +178,8 @@ export async function createDependentDataset(datasetData: DependentDataset) {
         description: datasetData.description,
         source_id: datasetData.sourceId,
         dataset_type: "dependent",
-        template_id: datasetData.templateId
+        template_id: datasetData.templateId,
+        user_id: userId
       })
       .select();
       
@@ -182,6 +194,8 @@ export async function createDependentDataset(datasetData: DependentDataset) {
 // Create custom dataset
 export async function createCustomDataset(datasetData: CustomDataset) {
   try {
+    const userId = await getCurrentUserId();
+    
     const { data, error } = await supabase
       .from("user_datasets")
       .insert({
@@ -193,7 +207,8 @@ export async function createCustomDataset(datasetData: CustomDataset) {
         custom_fields: datasetData.selectedFields,
         parameters: {
           resourceType: datasetData.resourceType
-        }
+        },
+        user_id: userId
       })
       .select();
       
@@ -203,6 +218,11 @@ export async function createCustomDataset(datasetData: CustomDataset) {
     console.error("Error creating custom dataset:", error);
     throw error;
   }
+}
+
+// Add this function to match the import in PredefinedDatasetForm.tsx
+export async function createDatasetFromTemplate(datasetData: PredefinedDataset) {
+  return createPredefinedDataset(datasetData);
 }
 
 // Execute dataset
