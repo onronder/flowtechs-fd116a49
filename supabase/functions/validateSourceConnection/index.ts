@@ -1,20 +1,18 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Content-Type": "application/json"
-};
+import { handleCors, corsHeaders, errorResponse } from "../_shared/cors.ts";
+import { validateShopifyConnection } from "./shopify.ts";
+import { validateWooCommerceConnection } from "./woocommerce.ts";
+import { validateFtpConnection } from "./ftp.ts";
+import { validateCustomApiConnection } from "./custom_api.ts";
 
 serve(async (req) => {
   console.log(`[validateSourceConnection] Request method: ${req.method}`);
   
   // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
-    console.log("[validateSourceConnection] Handling OPTIONS request");
-    return new Response("ok", { headers: corsHeaders });
+  const corsResponse = handleCors(req);
+  if (corsResponse) {
+    return corsResponse;
   }
   
   try {
@@ -27,10 +25,7 @@ serve(async (req) => {
       bodyData = JSON.parse(requestText);
     } catch (e) {
       console.error(`[validateSourceConnection] JSON parse error: ${e.message}`);
-      return new Response(
-        JSON.stringify({ success: false, error: `Invalid JSON in request: ${e.message}` }),
-        { headers: corsHeaders, status: 400 }
-      );
+      return errorResponse(`Invalid JSON in request: ${e.message}`);
     }
     
     const { sourceType, config } = bodyData;
@@ -46,336 +41,27 @@ serve(async (req) => {
     // Validate required parameters
     if (!sourceType || !config) {
       console.error("[validateSourceConnection] Missing required parameters");
-      return new Response(
-        JSON.stringify({ success: false, error: "Missing required parameters: sourceType or config" }),
-        { headers: corsHeaders, status: 400 }
-      );
+      return errorResponse("Missing required parameters: sourceType or config");
     }
     
     // Handle different source types
     switch (sourceType) {
       case "shopify":
-        return await validateShopifyConnection(config, corsHeaders);
+        return await validateShopifyConnection(config);
       case "woocommerce":
-        return await validateWooCommerceConnection(config, corsHeaders);
+        return await validateWooCommerceConnection(config);
       case "ftp_sftp":
-        return await validateFtpConnection(config, corsHeaders);
+        return await validateFtpConnection(config);
       case "custom_api":
-        return await validateCustomApiConnection(config, corsHeaders);
+        return await validateCustomApiConnection(config);
       default:
         console.error(`[validateSourceConnection] Unsupported source type: ${sourceType}`);
-        return new Response(
-          JSON.stringify({ success: false, error: `Unsupported source type: ${sourceType}` }),
-          { headers: corsHeaders, status: 400 }
-        );
+        return errorResponse(`Unsupported source type: ${sourceType}`);
     }
   } catch (error) {
     console.error(`[validateSourceConnection] Unhandled error: ${error.message}`);
     console.error(error.stack);
     
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: `Server error: ${error.message}`,
-        stack: error.stack
-      }),
-      { headers: corsHeaders, status: 500 }
-    );
+    return errorResponse(`Server error: ${error.message}`, 500);
   }
 });
-
-async function validateShopifyConnection(config: any, corsHeaders: Record<string, string>) {
-  console.log("[validateShopifyConnection] Starting Shopify validation");
-  
-  const { storeName, accessToken, clientId, api_version } = config;
-  
-  if (!storeName || !accessToken) {
-    console.error("[validateShopifyConnection] Missing required Shopify configuration");
-    return new Response(
-      JSON.stringify({ success: false, error: "Missing required Shopify configuration: storeName or accessToken" }),
-      { headers: corsHeaders, status: 400 }
-    );
-  }
-  
-  try {
-    // Properly format the shop URL
-    const shopUrl = `https://${storeName}.myshopify.com`;
-    console.log(`[validateShopifyConnection] Shop URL: ${shopUrl}`);
-    
-    // If the API version is provided, use it; otherwise detect it
-    // Note: We expect the frontend to have already detected the version
-    const apiVersion = api_version || "2025-01";
-    console.log(`[validateShopifyConnection] Using API version: ${apiVersion}`);
-    
-    // Test GraphQL API to verify credentials
-    const graphqlEndpoint = `${shopUrl}/admin/api/${apiVersion}/graphql.json`;
-    
-    const testQuery = `
-      query {
-        shop {
-          name
-          plan {
-            displayName
-          }
-        }
-      }
-    `;
-    
-    console.log(`[validateShopifyConnection] Testing GraphQL endpoint: ${graphqlEndpoint}`);
-    
-    const graphqlResponse = await fetch(graphqlEndpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": accessToken
-      },
-      body: JSON.stringify({ query: testQuery })
-    });
-    
-    const responseStatus = graphqlResponse.status;
-    console.log(`[validateShopifyConnection] GraphQL response status: ${responseStatus}`);
-    
-    // Handle various HTTP responses
-    if (responseStatus === 401 || responseStatus === 403) {
-      console.error(`[validateShopifyConnection] Authentication error: ${responseStatus}`);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: "Authentication failed. Please check your access token." 
-        }),
-        { headers: corsHeaders, status: 400 }
-      );
-    }
-    
-    if (!graphqlResponse.ok) {
-      console.error(`[validateShopifyConnection] GraphQL error: ${responseStatus} ${graphqlResponse.statusText}`);
-      const errorText = await graphqlResponse.text();
-      console.error(`[validateShopifyConnection] GraphQL error response: ${errorText.substring(0, 500)}...`);
-      
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: `Connection failed: ${responseStatus} ${graphqlResponse.statusText}` 
-        }),
-        { headers: corsHeaders, status: 400 }
-      );
-    }
-    
-    const result = await graphqlResponse.json();
-    console.log(`[validateShopifyConnection] GraphQL response: ${JSON.stringify(result)}`);
-    
-    if (result.errors) {
-      console.error(`[validateShopifyConnection] GraphQL errors: ${JSON.stringify(result.errors)}`);
-      
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: result.errors[0].message 
-        }),
-        { headers: corsHeaders, status: 400 }
-      );
-    }
-    
-    // Return the updated config with current API version
-    const updatedConfig = {
-      ...config,
-      api_version: apiVersion
-    };
-    
-    console.log(`[validateShopifyConnection] Connection successful, using API version: ${apiVersion}`);
-    
-    // Connection successful
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        config: updatedConfig,
-        shopInfo: result.data.shop
-      }),
-      { headers: corsHeaders }
-    );
-  } catch (error) {
-    console.error(`[validateShopifyConnection] Error connecting to Shopify: ${error.message}`);
-    console.error(error.stack);
-    
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: `Connection failed: ${error.message}` 
-      }),
-      { headers: corsHeaders, status: 400 }
-    );
-  }
-}
-
-async function validateWooCommerceConnection(config: any, corsHeaders: Record<string, string>) {
-  console.log("[validateWooCommerceConnection] Starting WooCommerce validation");
-  
-  const { siteUrl, consumerKey, consumerSecret } = config;
-  
-  if (!siteUrl || !consumerKey || !consumerSecret) {
-    console.error("[validateWooCommerceConnection] Missing required WooCommerce configuration");
-    return new Response(
-      JSON.stringify({ success: false, error: "Missing required WooCommerce configuration: siteUrl, consumerKey, or consumerSecret" }),
-      { headers: corsHeaders, status: 400 }
-    );
-  }
-  
-  try {
-    // Test connection to WooCommerce API (simple check if site exists and credentials work)
-    // In a real implementation, you would make a test API call
-    const wcEndpoint = `${siteUrl}/wp-json/wc/v3/products?per_page=1`;
-    
-    console.log(`[validateWooCommerceConnection] Testing connection to: ${wcEndpoint}`);
-    
-    const response = await fetch(wcEndpoint, {
-      headers: {
-        Authorization: 'Basic ' + btoa(`${consumerKey}:${consumerSecret}`)
-      }
-    });
-    
-    console.log(`[validateWooCommerceConnection] Response status: ${response.status}`);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[validateWooCommerceConnection] Error response: ${errorText.substring(0, 500)}...`);
-      
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: `Connection failed: ${response.status} ${response.statusText}` 
-        }),
-        { headers: corsHeaders, status: 400 }
-      );
-    }
-    
-    const products = await response.json();
-    console.log(`[validateWooCommerceConnection] Connection successful, found products: ${JSON.stringify(products.length)}`);
-    
-    // Return updated config with API version
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        config: {
-          ...config,
-          api_version: "v3" // WooCommerce API version
-        },
-        shopInfo: {
-          name: siteUrl,
-          connectionStatus: "Connected"
-        }
-      }),
-      { headers: corsHeaders }
-    );
-  } catch (error) {
-    console.error(`[validateWooCommerceConnection] Error connecting to WooCommerce: ${error.message}`);
-    console.error(error.stack);
-    
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: `Connection failed: ${error.message}` 
-      }),
-      { headers: corsHeaders, status: 400 }
-    );
-  }
-}
-
-async function validateFtpConnection(config: any, corsHeaders: Record<string, string>) {
-  console.log("[validateFtpConnection] Starting FTP/SFTP validation");
-  
-  const { host, port, username, password, protocol } = config;
-  
-  if (!host || !username || !password || !protocol) {
-    console.error("[validateFtpConnection] Missing required FTP/SFTP configuration");
-    return new Response(
-      JSON.stringify({ success: false, error: "Missing required FTP/SFTP configuration: host, username, password, or protocol" }),
-      { headers: corsHeaders, status: 400 }
-    );
-  }
-  
-  // In a real implementation, you would test the FTP/SFTP connection here
-  // Since we can't directly connect to FTP/SFTP from Edge Functions, we'll simulate success
-  
-  console.log("[validateFtpConnection] Simulating successful connection");
-  
-  // Return updated config
-  return new Response(
-    JSON.stringify({ 
-      success: true,
-      config,
-      connectionInfo: {
-        host,
-        protocol,
-        connectionStatus: "Connected" 
-      }
-    }),
-    { headers: corsHeaders }
-  );
-}
-
-async function validateCustomApiConnection(config: any, corsHeaders: Record<string, string>) {
-  console.log("[validateCustomApiConnection] Starting Custom API validation");
-  
-  const { baseUrl, apiKey, authType } = config;
-  
-  if (!baseUrl || !authType) {
-    console.error("[validateCustomApiConnection] Missing required Custom API configuration");
-    return new Response(
-      JSON.stringify({ success: false, error: "Missing required Custom API configuration: baseUrl or authType" }),
-      { headers: corsHeaders, status: 400 }
-    );
-  }
-  
-  try {
-    // Test connection to the API (simple check if endpoint exists)
-    // In a real implementation, you would make a test API call to a provided endpoint
-    
-    console.log(`[validateCustomApiConnection] Testing connection to: ${baseUrl}`);
-    
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json"
-    };
-    
-    // Add authorization headers based on authType
-    if (authType === "api_key" && apiKey) {
-      headers["Authorization"] = `Bearer ${apiKey}`;
-    }
-    
-    const response = await fetch(baseUrl, { headers });
-    
-    console.log(`[validateCustomApiConnection] Response status: ${response.status}`);
-    
-    // For custom API, we'll consider any response (even 4xx) as a valid connection
-    // since we're just checking if the endpoint exists and can be reached
-    
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        config,
-        apiInfo: {
-          baseUrl,
-          responseStatus: response.status,
-          connectionStatus: "Connected"
-        }
-      }),
-      { headers: corsHeaders }
-    );
-  } catch (error) {
-    console.error(`[validateCustomApiConnection] Error connecting to Custom API: ${error.message}`);
-    console.error(error.stack);
-    
-    // For demo purposes, still return success even if the connection fails
-    // In a real app, you might want to return an error instead
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        config,
-        apiInfo: {
-          baseUrl,
-          connectionStatus: "Warning: Could not verify connection, but proceeding anyway"
-        }
-      }),
-      { headers: corsHeaders }
-    );
-  }
-}

@@ -170,8 +170,10 @@ export async function updateSourceApiVersionAndSchema(sourceId: string): Promise
       return false;
     }
     
-    // Extract required credentials
-    const { storeName, accessToken } = source.config;
+    // Extract required credentials from config
+    const config = source.config as Record<string, any>;
+    const storeName = config.storeName as string;
+    const accessToken = config.accessToken as string;
     
     if (!storeName || !accessToken) {
       console.error(`Missing required credentials for source ${sourceId}`);
@@ -181,8 +183,11 @@ export async function updateSourceApiVersionAndSchema(sourceId: string): Promise
     // Detect latest version
     const latestVersion = await detectLatestShopifyVersion(storeName, accessToken);
     
+    // Get current API version from config
+    const currentApiVersion = config.api_version as string;
+    
     // Check if we need to update the version
-    if (source.config.api_version === latestVersion) {
+    if (currentApiVersion === latestVersion) {
       console.log(`Source ${sourceId} already using latest version ${latestVersion}`);
       
       // Still fetch/cache schema if needed
@@ -199,7 +204,7 @@ export async function updateSourceApiVersionAndSchema(sourceId: string): Promise
     
     // Update config with new version
     const updatedConfig = {
-      ...source.config,
+      ...config,
       api_version: latestVersion
     };
     
