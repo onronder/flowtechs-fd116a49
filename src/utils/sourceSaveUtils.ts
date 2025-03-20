@@ -59,8 +59,10 @@ export async function saveSource(
         throw error;
       }
       
+      // Properly handle the data response - it's a JSON object, not a string
+      const responseData = data as Record<string, any>;
       result = { sourceId: existingId, success: true };
-      console.log("Source updated successfully:", data);
+      console.log("Source updated successfully:", responseData);
     } else {
       // Create new source using database function
       const { data, error } = await supabase.rpc('insert_source', {
@@ -75,8 +77,10 @@ export async function saveSource(
         throw error;
       }
       
-      const sourceId = data?.id;
-      console.log("Source created successfully, ID:", sourceId, "Data:", data);
+      // Properly handle the data response - it's a JSON object, not a string
+      const responseData = data as Record<string, any>;
+      const sourceId = responseData.id as string;
+      console.log("Source created successfully, ID:", sourceId, "Data:", responseData);
       result = { sourceId, success: true };
     }
 
