@@ -23,7 +23,7 @@ type ToastProps = {
 };
 
 /**
- * Saves a source to Supabase database
+ * Saves a source to Supabase database using database functions
  */
 export async function saveSource(
   sourceData: SourceData, 
@@ -43,85 +43,48 @@ export async function saveSource(
       }
     });
 
-    const userData = await supabase.auth.getUser();
-    
-    if (!userData.data.user) {
-      if (toast) {
-        toast({
-          title: "Authentication required",
-          description: "You must be logged in to create a source.",
-          variant: "destructive",
-        });
-      }
-      throw new Error("User not authenticated");
-    }
-
-    // Create source record with proper typing
-    const sourceRecord = {
-      name: sourceData.name,
-      description: sourceData.description || null,
-      source_type: sourceData.type as SourceType,
-      config: sourceData.credentials,
-      user_id: userData.data.user.id,
-      is_active: true,
-      last_validated_at: new Date().toISOString()
-    };
-
-    console.log("Inserting source record:", {
-      ...sourceRecord,
-      config: { 
-        ...sourceRecord.config, 
-        accessToken: sourceRecord.config?.accessToken ? "REDACTED" : undefined,
-        apiKey: sourceRecord.config?.apiKey ? "REDACTED" : undefined,
-        password: sourceRecord.config?.password ? "REDACTED" : undefined,
-        consumerSecret: sourceRecord.config?.consumerSecret ? "REDACTED" : undefined 
-      }
-    });
-
-    let sourceId;
+    let result;
     
     if (existingId) {
-      // Update existing source
-      const { data: updateData, error: updateError } = await supabase
-        .from("sources")
-        .update({
-          name: sourceRecord.name,
-          description: sourceRecord.description,
-          config: sourceRecord.config,
-          updated_at: new Date().toISOString(),
-          last_validated_at: sourceRecord.last_validated_at,
-        })
-        .eq("id", existingId)
-        .select();
+      // Update existing source using database function
+      const { data, error } = await supabase.rpc('update_source', {
+        p_id: existingId,
+        p_name: sourceData.name,
+        p_description: sourceData.description || null,
+        p_config: sourceData.credentials
+      });
       
-      if (updateError) {
-        console.error("Error updating source:", updateError);
-        throw updateError;
+      if (error) {
+        console.error("Error updating source:", error);
+        throw error;
       }
       
-      sourceId = existingId;
-      console.log("Source updated successfully:", updateData);
+      result = { sourceId: existingId, success: true };
+      console.log("Source updated successfully:", data);
     } else {
-      // Create new source
-      const { data: insertData, error: insertError } = await supabase
-        .from("sources")
-        .insert(sourceRecord)
-        .select();
+      // Create new source using database function
+      const { data, error } = await supabase.rpc('insert_source', {
+        p_name: sourceData.name,
+        p_description: sourceData.description || null,
+        p_source_type: sourceData.type,
+        p_config: sourceData.credentials
+      });
       
-      if (insertError) {
-        console.error("Error inserting source:", insertError);
-        throw insertError;
+      if (error) {
+        console.error("Error inserting source:", error);
+        throw error;
       }
       
-      sourceId = insertData?.[0]?.id;
-      console.log("Source created successfully, ID:", sourceId, "Data:", insertData);
+      const sourceId = data?.id;
+      console.log("Source created successfully, ID:", sourceId, "Data:", data);
+      result = { sourceId, success: true };
     }
 
     // If this is a Shopify source, fetch and cache the schema
-    if (sourceData.type === "shopify" && sourceId) {
-      console.log("Fetching schema for Shopify source:", sourceId);
+    if (sourceData.type === "shopify" && result.sourceId) {
+      console.log("Fetching schema for Shopify source:", result.sourceId);
       try {
-        const schemaResult = await fetchSourceSchema(sourceId, true);
+        const schemaResult = await fetchSourceSchema(result.sourceId, true);
         console.log("Schema fetch result:", schemaResult);
       } catch (schemaError) {
         console.error("Error fetching schema:", schemaError);
@@ -129,7 +92,7 @@ export async function saveSource(
       }
     }
 
-    return { sourceId, success: true };
+    return result;
   } catch (error) {
     console.error("Error saving source:", error);
     throw error;

@@ -85,7 +85,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      insert_source: {
+        Args: {
+          p_name: string
+          p_description: string
+          p_source_type: string
+          p_config: Json
+        }
+        Returns: Json
+      }
+      update_source: {
+        Args: {
+          p_id: string
+          p_name: string
+          p_description: string
+          p_config: Json
+        }
+        Returns: Json
+      }
     }
     Enums: {
       source_type: "shopify" | "woocommerce" | "ftp_sftp" | "custom_api"
