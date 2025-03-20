@@ -7,6 +7,7 @@ import DatasetCard from "@/components/datasets/DatasetCard";
 import EmptyDatasetsState from "@/components/datasets/EmptyDatasetsState";
 import { fetchUserDatasets } from "@/api/datasetsApi";
 import NewDatasetModal from "@/components/datasets/NewDatasetModal";
+import LoadingSpinner from "@/components/ui/loading-spinner";
 
 export default function Datasets() {
   const [datasets, setDatasets] = useState([]);
@@ -51,7 +52,7 @@ export default function Datasets() {
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="animate-pulse rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <LoadingSpinner size="lg" />
         </div>
       ) : datasets.length === 0 ? (
         <EmptyDatasetsState onCreateNew={() => setShowNewModal(true)} />

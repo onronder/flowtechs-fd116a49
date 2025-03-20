@@ -15,13 +15,28 @@ export async function fetchUserDatasets() {
     .from("user_datasets")
     .select(`
       *,
-      source:source_id(id, name, source_type)
+      source:source_id(id, name, source_type),
+      last_execution:dataset_executions(
+        id,
+        status,
+        start_time,
+        end_time,
+        row_count,
+        execution_time_ms
+      )
     `)
-    .eq("user_id", user.user.id);
+    .eq("user_id", user.user.id)
+    .order("created_at", { ascending: false });
   
   if (error) throw error;
   
-  return data || [];
+  // Process the data to add some computed properties
+  return data.map(dataset => ({
+    ...dataset,
+    last_execution_id: dataset.last_execution?.[0]?.id,
+    last_execution_time: dataset.last_execution?.[0]?.end_time,
+    last_row_count: dataset.last_execution?.[0]?.row_count
+  }));
 }
 
 /**
@@ -32,7 +47,8 @@ export async function fetchPredefinedTemplates() {
     .from("query_templates")
     .select("*")
     .eq("type", "predefined")
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .order("display_name", { ascending: true });
   
   if (error) throw error;
   
@@ -46,7 +62,8 @@ export async function fetchDependentTemplates() {
   const { data, error } = await supabase
     .from("dependent_query_templates")
     .select("*")
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .order("display_name", { ascending: true });
   
   if (error) throw error;
   
