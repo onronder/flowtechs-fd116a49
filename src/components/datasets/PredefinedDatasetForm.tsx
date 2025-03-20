@@ -241,7 +241,7 @@ export default function PredefinedDatasetForm({
             <div className="mt-2 p-3 bg-muted rounded-md">
               <h4 className="font-medium mb-1">Data fields included:</h4>
               <ul className="list-disc list-inside">
-                {getFieldList(templates.find(t => t.id === selectedTemplate)).map((field: string) => (
+                {template && Array.isArray(template.field_list) && template.field_list.map((field) => (
                   <li key={field}>{field}</li>
                 ))}
               </ul>

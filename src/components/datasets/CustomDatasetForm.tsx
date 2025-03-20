@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,11 +9,11 @@ import { createCustomDataset, validateCustomQuery, fetchShopifySchema } from "@/
 import { ChevronLeft, Loader2, Code } from "lucide-react";
 
 // Import components from the CustomQueryBuilder directory
-import ResourceSelector from "./CustomQueryBuilder/ResourceSelector";
-import FieldSelector from "./CustomQueryBuilder/FieldSelector";
-import QueryPreview from "./CustomQueryBuilder/QueryPreview";
-import ResultPreview from "./CustomQueryBuilder/ResultPreview";
-import CustomQueryBuilder from "./CustomQueryBuilder/CustomQueryBuilder";
+import ResourceSelector from "./customQueryBuilder/ResourceSelector";
+import FieldSelector from "./customQueryBuilder/FieldSelector";
+import QueryPreview from "./customQueryBuilder/QueryPreview";
+import ResultPreview from "./customQueryBuilder/ResultPreview";
+import CustomQueryBuilder from "./customQueryBuilder/CustomQueryBuilder";
 
 interface CustomDatasetFormProps {
   source: any;

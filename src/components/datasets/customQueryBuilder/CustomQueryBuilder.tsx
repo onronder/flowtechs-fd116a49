@@ -1,17 +1,14 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
-import { fetchShopifySchema, validateCustomQuery } from "@/api/datasetsApi";
 import { useToast } from "@/hooks/use-toast";
+import { fetchShopifySchema, validateCustomQuery } from "@/api/datasetsApi";
 import { ChevronLeft, Loader2 } from "lucide-react";
-
-// Import components from the CustomQueryBuilder directory
 import ResourceSelector from "./ResourceSelector";
 import FieldSelector from "./FieldSelector";
 import QueryPreview from "./QueryPreview";
 import ResultPreview from "./ResultPreview";
+import LoadingSpinner from "@/components/ui/loading-spinner";
 
 interface CustomQueryBuilderProps {
   source: any;
@@ -20,132 +17,199 @@ interface CustomQueryBuilderProps {
   isLoading?: boolean;
 }
 
-export default function CustomQueryBuilder({
-  source,
-  onSave,
-  onCancel,
-  isLoading = false
-}: CustomQueryBuilderProps) {
-  const [activeTab, setActiveTab] = useState("resource");
+export default function CustomQueryBuilder({ source, onSave, onCancel, isLoading = false }: CustomQueryBuilderProps) {
+  const [step, setStep] = useState<'resource' | 'fields' | 'preview'>('resource');
+  const [schema, setSchema] = useState<any>(null);
+  const [rootTypes, setRootTypes] = useState<any[]>([]);
   const [selectedResource, setSelectedResource] = useState<any>(null);
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [generatedQuery, setGeneratedQuery] = useState("");
-  const [previewData, setPreviewData] = useState<any>(null);
-  const [schema, setSchema] = useState<any>(null);
-  const [resources, setResources] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [queryResults, setQueryResults] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [validating, setValidating] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    // This feature is currently under development
-    // We'll display placeholder implementation for now
-  }, []);
+    fetchSchema();
+  }, [source.id]);
 
-  const handleResourceSelect = (resource: any) => {
-    setSelectedResource(resource);
-    setActiveTab("fields");
-  };
+  async function fetchSchema() {
+    try {
+      setLoading(true);
+      const data = await fetchShopifySchema(source.id);
+      
+      setSchema(data);
+      
+      // Extract root types (those that can be directly queried)
+      const roots = data.types?.filter((type: any) => 
+        type.name.endsWith('Connection') || 
+        ['Product', 'Order', 'Customer', 'Collection'].includes(type.name)
+      ) || [];
+      
+      setRootTypes(roots);
+    } catch (error) {
+      console.error("Error fetching schema:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load Shopify schema. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const handleFieldsSelect = (fields: string[]) => {
-    setSelectedFields(fields);
-    // Generate query based on selected resource and fields
-    setActiveTab("preview");
-  };
+  async function generateAndValidateQuery() {
+    if (!selectedResource || selectedFields.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one field.",
+        variant: "destructive"
+      });
+      return;
+    }
 
-  const handleValidateQuery = async () => {
-    // This feature is currently under development
-    toast({
-      title: "Not implemented",
-      description: "This feature is currently under development.",
+    try {
+      setValidating(true);
+      
+      // Generate a GraphQL query based on selected fields
+      // This is a simplified version - a real implementation would be more robust
+      const resourceName = selectedResource.name.endsWith('Connection') 
+        ? selectedResource.name.replace('Connection', 's').toLowerCase() 
+        : `${selectedResource.name.toLowerCase()}s`;
+        
+      const fieldSelections = selectedFields.map(field => {
+        // Handle nested fields (dot notation in our selection)
+        if (field.includes('.')) {
+          const parts = field.split('.');
+          let result = parts[parts.length - 1];
+          
+          // Work backwards to create nested selection
+          for (let i = parts.length - 2; i >= 0; i--) {
+            result = `${parts[i]} { ${result} }`;
+          }
+          return result;
+        }
+        return field;
+      }).join('\n      ');
+
+      const query = `query {
+  ${resourceName}(first: 10) {
+    edges {
+      node {
+        ${fieldSelections}
+      }
+    }
+  }
+}`;
+
+      setGeneratedQuery(query);
+      
+      // Validate the query with the backend
+      const validationResult = await validateCustomQuery(source.id, { query });
+      
+      if (validationResult.valid) {
+        setQueryResults(validationResult.results || { edges: [] });
+        setStep('preview');
+      } else {
+        toast({
+          title: "Query Error",
+          description: validationResult.error || "The generated query is invalid.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error validating query:", error);
+      toast({
+        title: "Error",
+        description: "Failed to validate the query. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setValidating(false);
+    }
+  }
+
+  function handleComplete() {
+    onSave({
+      query: generatedQuery,
+      fields: selectedFields,
+      resourceType: selectedResource.name
     });
-  };
+  }
 
-  const handleSave = () => {
-    // This feature is currently under development
-    toast({
-      title: "Not implemented",
-      description: "This feature is currently under development.",
-    });
-  };
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <LoadingSpinner size="lg" />
+        <span className="ml-3">Loading schema...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="resource">1. Select Resource</TabsTrigger>
-          <TabsTrigger value="fields" disabled={!selectedResource}>2. Select Fields</TabsTrigger>
-          <TabsTrigger value="preview" disabled={!selectedFields.length}>3. Preview & Save</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="resource" className="py-4">
-          <p className="text-muted-foreground mb-6">
-            This feature is currently under development.
-          </p>
-          <div className="py-12 border-2 border-dashed rounded-md text-center">
-            <p className="text-muted-foreground">Resource selection will be available soon.</p>
+      {step === 'resource' && (
+        <>
+          <ResourceSelector 
+            resources={rootTypes} 
+            onSelect={(resource) => {
+              setSelectedResource(resource);
+              setStep('fields');
+            }} 
+          />
+          <div className="flex justify-between pt-4">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Back
+            </Button>
           </div>
-        </TabsContent>
-        
-        <TabsContent value="fields" className="py-4">
-          <p className="text-muted-foreground mb-6">
-            This feature is currently under development.
-          </p>
-          <div className="py-12 border-2 border-dashed rounded-md text-center">
-            <p className="text-muted-foreground">Field selection will be available soon.</p>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="preview" className="py-4">
-          <p className="text-muted-foreground mb-6">
-            This feature is currently under development.
-          </p>
-          <div className="py-12 border-2 border-dashed rounded-md text-center">
-            <p className="text-muted-foreground">Query preview will be available soon.</p>
-          </div>
-        </TabsContent>
-      </Tabs>
+        </>
+      )}
       
-      <div className="flex justify-between pt-6">
-        <Button variant="outline" onClick={onCancel}>
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          Back
-        </Button>
-        
-        {activeTab === "preview" ? (
-          <Button 
-            disabled={isLoading} 
-            onClick={handleSave}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Save and Create Dataset"
-            )}
-          </Button>
-        ) : (
-          <Button 
-            onClick={() => {
-              if (activeTab === "resource" && !selectedResource) {
-                toast({
-                  title: "Feature under development",
-                  description: "Resource selection will be available soon.",
-                });
-              } else if (activeTab === "fields" && !selectedFields.length) {
-                toast({
-                  title: "Feature under development",
-                  description: "Field selection will be available soon.",
-                });
-              }
-            }}
-          >
-            Next Step
-          </Button>
-        )}
-      </div>
+      {step === 'fields' && selectedResource && (
+        <>
+          <FieldSelector 
+            resource={selectedResource}
+            schema={schema}
+            selectedFields={selectedFields}
+            onFieldsChange={setSelectedFields}
+          />
+          <div className="flex justify-between pt-4">
+            <Button type="button" variant="outline" onClick={() => setStep('resource')}>
+              Back to Resources
+            </Button>
+            <Button 
+              onClick={generateAndValidateQuery}
+              disabled={validating || selectedFields.length === 0}
+            >
+              {validating ? "Validating..." : "Preview Query"}
+            </Button>
+          </div>
+        </>
+      )}
+      
+      {step === 'preview' && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <h4 className="font-medium mb-2">Generated Query</h4>
+              <QueryPreview query={generatedQuery} />
+            </div>
+            <div>
+              <h4 className="font-medium mb-2">Sample Results</h4>
+              <ResultPreview data={queryResults} resourceType={selectedResource?.name} />
+            </div>
+          </div>
+          <div className="flex justify-between pt-4">
+            <Button type="button" variant="outline" onClick={() => setStep('fields')}>
+              Modify Query
+            </Button>
+            <Button onClick={handleComplete} disabled={isLoading}>
+              {isLoading ? "Creating..." : "Create Dataset"}
+            </Button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
