@@ -1,8 +1,5 @@
 
-/**
- * Helper functions for dataset type styling and formatting
- */
-
+// Helper function to get type-specific icon and color
 export function getDatasetTypeStyles(type: string) {
   switch (type) {
     case 'predefined':
