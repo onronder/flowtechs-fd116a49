@@ -12,6 +12,8 @@ import {
   Sun
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 type NotificationType = {
   id: number;
@@ -30,6 +32,8 @@ export function Topbar() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const { toast } = useToast();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
@@ -46,6 +50,25 @@ export function Topbar() {
       title: `${newTheme.charAt(0).toUpperCase() + newTheme.slice(1)} mode activated`,
       duration: 2000,
     });
+  };
+  
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Logged out",
+        description: "You have been logged out successfully."
+      });
+      setUserMenuOpen(false);
+      navigate("/auth/signin");
+    } catch (error) {
+      console.error("Error signing out:", error);
+      toast({
+        title: "Error",
+        description: "Failed to sign out. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -112,15 +135,15 @@ export function Topbar() {
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
               <User size={16} className="text-primary" />
             </div>
-            <span className="text-sm font-medium">John Doe</span>
+            <span className="text-sm font-medium">{user?.email || "User"}</span>
             <ChevronDown size={16} />
           </button>
           
           {userMenuOpen && (
             <div className="absolute right-0 mt-2 w-56 bg-card border border-border shadow-lg rounded-md py-1 z-50 animate-scale-in">
               <div className="px-4 py-2 border-b border-border">
-                <p className="text-sm font-medium">John Doe</p>
-                <p className="text-xs text-muted-foreground">john@example.com</p>
+                <p className="text-sm font-medium">{user?.email}</p>
+                <p className="text-xs text-muted-foreground">{user?.id}</p>
               </div>
               <div className="py-1">
                 <button className="flex items-center gap-2 w-full px-4 py-2 text-sm hover:bg-muted transition-colors text-left">
@@ -132,7 +155,10 @@ export function Topbar() {
                   <span>Help</span>
                 </button>
                 <div className="border-t border-border my-1"></div>
-                <button className="flex items-center gap-2 w-full px-4 py-2 text-sm hover:bg-muted transition-colors text-left">
+                <button 
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 w-full px-4 py-2 text-sm hover:bg-muted transition-colors text-left"
+                >
                   <LogOut size={16} className="text-danger" />
                   <span className="text-danger">Log out</span>
                 </button>

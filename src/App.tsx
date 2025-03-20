@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -5,6 +6,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
+import { AuthProvider } from "@/context/AuthContext";
+import { AuthRoute } from "@/components/auth/AuthRoute";
 
 // Main pages
 import Dashboard from "./pages/Dashboard";
@@ -41,40 +44,42 @@ const App = () => {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            {/* Redirect root to dashboard */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            
-            {/* App routes with Layout */}
-            <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
-            <Route path="/sources" element={<Layout><Sources /></Layout>} />
-            <Route path="/datasets" element={<Layout><Datasets /></Layout>} />
-            <Route path="/transformations" element={<Layout><Transformations /></Layout>} />
-            <Route path="/destinations" element={<Layout><Destinations /></Layout>} />
-            <Route path="/jobs" element={<Layout><Jobs /></Layout>} />
-            <Route path="/data-storage" element={<Layout><DataStorage /></Layout>} />
-            <Route path="/ai-insights" element={<Layout><AIInsights /></Layout>} />
-            <Route path="/help" element={<Layout><Help /></Layout>} />
-            <Route path="/settings" element={<Layout><Settings /></Layout>} />
-            
-            {/* Auth routes */}
-            <Route path="/auth/signin" element={<SignIn />} />
-            <Route path="/auth/signup" element={<SignUp />} />
-            <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-            <Route path="/auth/reset-password" element={<ResetPassword />} />
-            <Route path="/auth/verify" element={<Verify />} />
-            
-            {/* 404 page */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              {/* Public auth routes */}
+              <Route path="/auth/signin" element={<SignIn />} />
+              <Route path="/auth/signup" element={<SignUp />} />
+              <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+              <Route path="/auth/reset-password" element={<ResetPassword />} />
+              <Route path="/auth/verify" element={<Verify />} />
+              
+              {/* Redirect root to dashboard */}
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              
+              {/* Protected app routes with Layout */}
+              <Route path="/dashboard" element={<AuthRoute><Layout><Dashboard /></Layout></AuthRoute>} />
+              <Route path="/sources" element={<AuthRoute><Layout><Sources /></Layout></AuthRoute>} />
+              <Route path="/datasets" element={<AuthRoute><Layout><Datasets /></Layout></AuthRoute>} />
+              <Route path="/transformations" element={<AuthRoute><Layout><Transformations /></Layout></AuthRoute>} />
+              <Route path="/destinations" element={<AuthRoute><Layout><Destinations /></Layout></AuthRoute>} />
+              <Route path="/jobs" element={<AuthRoute><Layout><Jobs /></Layout></AuthRoute>} />
+              <Route path="/data-storage" element={<AuthRoute><Layout><DataStorage /></Layout></AuthRoute>} />
+              <Route path="/ai-insights" element={<AuthRoute><Layout><AIInsights /></Layout></AuthRoute>} />
+              <Route path="/help" element={<AuthRoute><Layout><Help /></Layout></AuthRoute>} />
+              <Route path="/settings" element={<AuthRoute><Layout><Settings /></Layout></AuthRoute>} />
+              
+              {/* 404 page */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </AuthProvider>
   );
 };
 

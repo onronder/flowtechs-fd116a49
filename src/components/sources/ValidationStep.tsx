@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { SourceData, SourceType } from "@/utils/sourceSaveUtils";
+import { useAuth } from "@/context/AuthContext";
+import { SourceData, saveSource } from "@/utils/sourceSaveUtils";
 import SourceInfoDisplay from "./SourceInfoDisplay";
 import SourceValidationDetails from "./SourceValidationDetails";
-import { supabase } from "@/integrations/supabase/client";
 
 interface ValidationStepProps {
   sourceData: SourceData;
@@ -19,107 +19,45 @@ export default function ValidationStep({ sourceData, onBack, existingId }: Valid
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const handleSave = async () => {
     try {
+      // Ensure user is authenticated
+      if (!user) {
+        toast({
+          title: "Authentication required",
+          description: "You must be logged in to create a source",
+          variant: "destructive"
+        });
+        navigate("/auth/signin");
+        return;
+      }
+
       setIsSaving(true);
       console.log("=== SAVING SOURCE START ===");
       
-      if (existingId) {
-        // Update existing source using database function
-        console.log("Updating source with ID:", existingId);
-        
-        const { data, error } = await supabase.rpc('update_source', {
-          p_id: existingId,
-          p_name: sourceData.name,
-          p_description: sourceData.description || null,
-          p_config: sourceData.credentials
-        });
-        
-        console.log("Update function result:", data, error);
-        
-        if (error) throw error;
-        
-        console.log("=== UPDATING SOURCE COMPLETE ===");
-        
-        toast({
-          title: "Source updated",
-          description: "Your source has been updated successfully."
-        });
-      } else {
-        // Create new source using database function
-        console.log("Creating new source");
-        
-        const { data, error } = await supabase.rpc('insert_source', {
-          p_name: sourceData.name,
-          p_description: sourceData.description || null,
-          p_source_type: sourceData.type,
-          p_config: sourceData.credentials
-        });
-        
-        console.log("Insert function result:", data, error);
-        
-        if (error) throw error;
-        
+      const result = await saveSource(sourceData, existingId, toast);
+      
+      if (result?.success) {
         console.log("=== SAVING SOURCE COMPLETE ===");
         
         toast({
-          title: "Source created",
-          description: "Your source has been created successfully."
+          title: existingId ? "Source updated" : "Source created",
+          description: "Your source has been saved successfully."
         });
+        
+        navigate("/sources");
       }
-      
-      navigate("/sources");
     } catch (error) {
       console.error("Error saving source:", error);
       toast({
         title: "Error",
-        description: `Failed to ${existingId ? 'update' : 'create'} the source: ${error.message}`,
+        description: `Failed to ${existingId ? 'update' : 'create'} the source: ${error instanceof Error ? error.message : "Unknown error"}`,
         variant: "destructive"
       });
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const checkRlsPolicies = async () => {
-    try {
-      console.log("=== CHECKING RLS POLICIES ===");
-      
-      // Try to read from the table first
-      const { data: readData, error: readError } = await supabase
-        .from('sources')
-        .select('id')
-        .limit(1);
-        
-      console.log("Read test:", { data: readData, error: readError });
-      
-      // Try to create a minimal record
-      const { data: insertData, error: insertError } = await supabase
-        .from('sources')
-        .insert({
-          name: 'Test',
-          source_type: 'shopify',
-          config: {},
-          user_id: '00000000-0000-0000-0000-000000000000'
-        })
-        .select();
-        
-      console.log("Insert test:", { data: insertData, error: insertError });
-      
-      console.log("=== RLS CHECK COMPLETE ===");
-      
-      toast({
-        title: "RLS Check Complete",
-        description: "Check console for results",
-      });
-    } catch (e) {
-      console.error("RLS check error:", e);
-      toast({
-        title: "RLS Check Error",
-        description: e instanceof Error ? e.message : "Unknown error",
-        variant: "destructive"
-      });
     }
   };
 
@@ -149,14 +87,9 @@ export default function ValidationStep({ sourceData, onBack, existingId }: Valid
       </div>
 
       <div className="flex justify-between pt-4">
-        <div className="flex gap-2">
-          <Button type="button" variant="outline" onClick={onBack}>
-            Back
-          </Button>
-          <Button type="button" variant="outline" onClick={checkRlsPolicies}>
-            Check RLS
-          </Button>
-        </div>
+        <Button type="button" variant="outline" onClick={onBack}>
+          Back
+        </Button>
         <Button onClick={handleSave} disabled={isSaving}>
           {isSaving ? (
             <>
