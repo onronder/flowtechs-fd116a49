@@ -1,4 +1,4 @@
-
+// src/api/sourceTypes/shopifySourceApi.ts
 import { supabase } from "@/integrations/supabase/client";
 import { Source } from "@/hooks/useSources";
 import { detectLatestShopifyVersion } from "@/utils/shopifyApi";
@@ -110,6 +110,7 @@ export async function testShopifyConnection(sourceId: string, source: Source) {
         // Also update the schema when the API version changes
         try {
           console.log(`Fetching updated schema for source ${sourceId} with new API version ${result.config.api_version}`);
+          // Fix: Import and use fetchSourceSchema with correct arguments
           await fetchSourceSchema(sourceId, true);
         } catch (schemaError) {
           console.error("Error updating schema after API version change:", schemaError);
@@ -127,6 +128,7 @@ export async function testShopifyConnection(sourceId: string, source: Source) {
       if (lastValidatedAt < sevenDaysAgo) {
         console.log(`Schema is older than 7 days (last update: ${lastValidatedAt.toISOString()}), refreshing`);
         try {
+          // Fix: Use fetchSourceSchema with correct arguments
           await fetchSourceSchema(sourceId, true);
           
           // Update last_validated_at timestamp
@@ -152,5 +154,5 @@ export async function testShopifyConnection(sourceId: string, source: Source) {
   }
 }
 
-// Import the fetchSourceSchema function from the main API to avoid circular dependencies
+// Import the fetchSourceSchema function from the main API
 import { fetchSourceSchema } from "../sourceApi";
