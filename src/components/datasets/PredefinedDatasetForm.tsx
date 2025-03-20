@@ -1,55 +1,49 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ChevronLeft } from "lucide-react";
+import { createDatasetFromTemplate } from "@/api/datasetsApi";
 import { useToast } from "@/hooks/use-toast";
-import { createPredefinedDataset } from "@/api/datasetsApi";
-import { ChevronLeft, Loader2 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-interface DatasetTemplate {
-  id: string;
-  name: string;
-  description: string;
-  preview_image?: string;
-}
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface PredefinedDatasetFormProps {
   source: any;
-  templates: DatasetTemplate[];
+  templates: any[];
   onBack: () => void;
   onComplete: () => void;
 }
 
-export default function PredefinedDatasetForm({ source, templates, onBack, onComplete }: PredefinedDatasetFormProps) {
+export default function PredefinedDatasetForm({ 
+  source, 
+  templates,
+  onBack, 
+  onComplete 
+}: PredefinedDatasetFormProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [selectedTemplate, setSelectedTemplate] = useState<DatasetTemplate | null>(null);
+  const [templateId, setTemplateId] = useState("");
   const [creating, setCreating] = useState(false);
-  const [error, setError] = useState("");
-  
   const { toast } = useToast();
 
-  const handleTemplateSelect = () => {
-    if (selectedTemplate) {
-      setSelectedTemplate(null);
-    } else {
-      setSelectedTemplate(templates[0]);
-    }
-  };
-
-  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setDescription(e.target.value);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     
-    if (!name.trim() || !selectedTemplate) {
+    if (!name.trim()) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields.",
+        description: "Please enter a dataset name.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!templateId) {
+      toast({
+        title: "Error",
+        description: "Please select a template.",
         variant: "destructive"
       });
       return;
@@ -58,122 +52,100 @@ export default function PredefinedDatasetForm({ source, templates, onBack, onCom
     try {
       setCreating(true);
       
-      const result = await createPredefinedDataset({
+      const result = await createDatasetFromTemplate({
         name,
         description,
-        sourceId: source.id,
-        templateId: selectedTemplate.id
+        source_id: source.id,
+        template_id: templateId
       });
       
-      if (result.success) {
+      // Check for success based on response structure
+      if (result && !('error' in result)) {
         toast({
           title: "Success",
-          description: "Dataset created successfully."
+          description: "Dataset created successfully!"
         });
+        
         onComplete();
       } else {
-        setError(result.error || "Failed to create dataset.");
         toast({
           title: "Error",
-          description: result.error || "Failed to create dataset.",
+          description: 'error' in result ? String(result.error) : "Failed to create dataset.",
           variant: "destructive"
         });
       }
     } catch (error) {
       console.error("Error creating dataset:", error);
-      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
-      setError(errorMessage);
       toast({
         title: "Error",
-        description: errorMessage,
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive"
       });
     } finally {
       setCreating(false);
     }
-  };
+  }
 
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-medium">Create Dataset from Template</h3>
-      <p className="text-muted-foreground">
-        Choose a pre-built template to quickly create a dataset.
-      </p>
+      <div>
+        <h3 className="text-lg font-medium">Create From Template</h3>
+        <p className="text-muted-foreground">
+          Create a dataset using a predefined template for {source.name}
+        </p>
+      </div>
       
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="name">Dataset Name</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Enter a name for your dataset"
-              required
-            />
-          </div>
-          
-          <div>
-            <Label htmlFor="description">Description (Optional)</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={handleDescriptionChange}
-              placeholder="Describe what this dataset will be used for"
-              rows={3}
-            />
-          </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="name">Dataset Name</Label>
+          <Input 
+            id="name" 
+            value={name} 
+            onChange={e => setName(e.target.value)}
+            placeholder="Enter dataset name"
+            required
+          />
         </div>
         
-        <div>
-          <Label className="mb-2 block">Select a Template</Label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {templates.map((template) => (
-              <Card 
-                key={template.id}
-                className={`cursor-pointer transition-all ${
-                  selectedTemplate?.id === template.id 
-                    ? 'border-primary ring-2 ring-primary/20' 
-                    : 'hover:border-primary/50'
-                }`}
-                onClick={() => setSelectedTemplate(template)}
-              >
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{template.name}</CardTitle>
-                  <CardDescription className="text-xs">{template.description}</CardDescription>
-                </CardHeader>
-                {template.preview_image && (
-                  <CardContent className="pt-0">
-                    <img 
-                      src={template.preview_image} 
-                      alt={template.name} 
-                      className="rounded border h-24 w-full object-cover"
-                    />
-                  </CardContent>
-                )}
-              </Card>
-            ))}
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="description">Description (Optional)</Label>
+          <Textarea 
+            id="description" 
+            value={description} 
+            onChange={e => setDescription(e.target.value)}
+            placeholder="Enter a description for this dataset"
+            rows={3}
+          />
         </div>
         
-        {error && (
-          <div className="text-sm text-destructive">{error}</div>
-        )}
+        <div className="space-y-2">
+          <Label htmlFor="template">Select Template</Label>
+          <Select value={templateId} onValueChange={setTemplateId}>
+            <SelectTrigger id="template">
+              <SelectValue placeholder="Select a template" />
+            </SelectTrigger>
+            <SelectContent>
+              {templates.map(template => (
+                <SelectItem key={template.id} value={template.id}>
+                  {template.name}
+                </SelectItem>
+              ))}
+              {templates.length === 0 && (
+                <SelectItem value="none" disabled>
+                  No templates available
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
         
-        <div className="flex justify-between">
+        <div className="flex justify-between pt-4">
           <Button type="button" variant="outline" onClick={onBack}>
             <ChevronLeft className="h-4 w-4 mr-1" />
             Back
           </Button>
-          <Button type="submit" disabled={creating || !selectedTemplate}>
-            {creating ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              "Create Dataset"
-            )}
+          <Button type="submit" disabled={creating}>
+            {creating ? "Creating..." : "Create Dataset"}
           </Button>
         </div>
       </form>

@@ -1,13 +1,10 @@
 
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { fetchShopifySchema, validateCustomQuery } from "@/api/datasetsApi";
-import { ChevronLeft, Loader2 } from "lucide-react";
+import { fetchShopifySchema } from "@/api/datasetsApi";
 import ResourceSelector from "./ResourceSelector";
-import FieldSelector from "./FieldSelector";
-import QueryPreview from "./QueryPreview";
-import ResultPreview from "./ResultPreview";
+import FieldSelectionStep from "./FieldSelectionStep";
+import QueryValidationStep from "./QueryValidationStep";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 
 interface CustomQueryBuilderProps {
@@ -17,7 +14,12 @@ interface CustomQueryBuilderProps {
   isLoading?: boolean;
 }
 
-export default function CustomQueryBuilder({ source, onSave, onCancel, isLoading = false }: CustomQueryBuilderProps) {
+export default function CustomQueryBuilder({ 
+  source, 
+  onSave, 
+  onCancel, 
+  isLoading = false 
+}: CustomQueryBuilderProps) {
   const [step, setStep] = useState<'resource' | 'fields' | 'preview'>('resource');
   const [schema, setSchema] = useState<any>(null);
   const [rootTypes, setRootTypes] = useState<any[]>([]);
@@ -26,7 +28,6 @@ export default function CustomQueryBuilder({ source, onSave, onCancel, isLoading
   const [generatedQuery, setGeneratedQuery] = useState("");
   const [queryResults, setQueryResults] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [validating, setValidating] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -59,83 +60,18 @@ export default function CustomQueryBuilder({ source, onSave, onCancel, isLoading
     }
   }
 
-  async function generateAndValidateQuery() {
-    if (!selectedResource || selectedFields.length === 0) {
-      toast({
-        title: "Error",
-        description: "Please select at least one field.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      setValidating(true);
-      
-      // Generate a GraphQL query based on selected fields
-      // This is a simplified version - a real implementation would be more robust
-      const resourceName = selectedResource.name.endsWith('Connection') 
-        ? selectedResource.name.replace('Connection', 's').toLowerCase() 
-        : `${selectedResource.name.toLowerCase()}s`;
-        
-      const fieldSelections = selectedFields.map(field => {
-        // Handle nested fields (dot notation in our selection)
-        if (field.includes('.')) {
-          const parts = field.split('.');
-          let result = parts[parts.length - 1];
-          
-          // Work backwards to create nested selection
-          for (let i = parts.length - 2; i >= 0; i--) {
-            result = `${parts[i]} { ${result} }`;
-          }
-          return result;
-        }
-        return field;
-      }).join('\n      ');
-
-      const query = `query {
-  ${resourceName}(first: 10) {
-    edges {
-      node {
-        ${fieldSelections}
-      }
-    }
-  }
-}`;
-
-      setGeneratedQuery(query);
-      
-      // Validate the query with the backend
-      const validationResult = await validateCustomQuery(source.id, { query });
-      
-      if (validationResult.valid) {
-        setQueryResults(validationResult.results || { edges: [] });
-        setStep('preview');
-      } else {
-        toast({
-          title: "Query Error",
-          description: validationResult.error || "The generated query is invalid.",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      console.error("Error validating query:", error);
-      toast({
-        title: "Error",
-        description: "Failed to validate the query. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setValidating(false);
-    }
-  }
-
   function handleComplete() {
     onSave({
       query: generatedQuery,
       fields: selectedFields,
       resourceType: selectedResource.name
     });
+  }
+
+  function handleQueryGenerated(query: string, results: any) {
+    setGeneratedQuery(query);
+    setQueryResults(results);
+    setStep('preview');
   }
 
   if (loading) {
@@ -167,48 +103,30 @@ export default function CustomQueryBuilder({ source, onSave, onCancel, isLoading
       )}
       
       {step === 'fields' && selectedResource && (
-        <>
-          <FieldSelector 
-            resource={selectedResource}
-            schema={schema}
-            selectedFields={selectedFields}
-            onFieldsChange={setSelectedFields}
-          />
-          <div className="flex justify-between pt-4">
-            <Button type="button" variant="outline" onClick={() => setStep('resource')}>
-              Back to Resources
-            </Button>
-            <Button 
-              onClick={generateAndValidateQuery}
-              disabled={validating || selectedFields.length === 0}
-            >
-              {validating ? "Validating..." : "Preview Query"}
-            </Button>
-          </div>
-        </>
+        <FieldSelectionStep
+          sourceId={source.id}
+          selectedResource={selectedResource}
+          schema={schema}
+          selectedFields={selectedFields}
+          onFieldsChange={setSelectedFields}
+          onQueryGenerated={handleQueryGenerated}
+          onBack={() => setStep('resource')}
+        />
       )}
       
       {step === 'preview' && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <h4 className="font-medium mb-2">Generated Query</h4>
-              <QueryPreview query={generatedQuery} />
-            </div>
-            <div>
-              <h4 className="font-medium mb-2">Sample Results</h4>
-              <ResultPreview data={queryResults} resourceType={selectedResource?.name} />
-            </div>
-          </div>
-          <div className="flex justify-between pt-4">
-            <Button type="button" variant="outline" onClick={() => setStep('fields')}>
-              Modify Query
-            </Button>
-            <Button onClick={handleComplete} disabled={isLoading}>
-              {isLoading ? "Creating..." : "Create Dataset"}
-            </Button>
-          </div>
-        </>
+        <QueryValidationStep 
+          sourceId={source.id}
+          selectedResource={selectedResource}
+          selectedFields={selectedFields}
+          generatedQuery={generatedQuery}
+          queryResults={queryResults}
+          setGeneratedQuery={setGeneratedQuery}
+          setQueryResults={setQueryResults}
+          onBack={() => setStep('fields')}
+          onComplete={handleComplete}
+          isLoading={isLoading}
+        />
       )}
     </div>
   );

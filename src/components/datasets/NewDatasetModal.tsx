@@ -1,120 +1,123 @@
-// src/components/datasets/NewDatasetModal.tsx
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+
+import { useEffect, useState } from "react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
-import { fetchUserSources } from "@/api/sourcesApi";
-import SourceSelector from "./SourceSelector";
 import DatasetTypeSelector from "./DatasetTypeSelector";
+import SourceSelector from "./SourceSelector";
 import PredefinedDatasetForm from "./PredefinedDatasetForm";
 import DependentDatasetForm from "./DependentDatasetForm";
 import CustomDatasetForm from "./CustomDatasetForm";
+import { fetchDatasetTemplates } from "@/api/datasetsApi";
+import { useToast } from "@/hooks/use-toast";
 
-export default function NewDatasetModal({ isOpen, onClose, onDatasetCreated }) {
-  const [step, setStep] = useState("source");
-  const [sources, setSources] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedSource, setSelectedSource] = useState(null);
-  const [datasetType, setDatasetType] = useState(null);
+interface NewDatasetModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onDatasetCreated: () => void;
+}
+
+export default function NewDatasetModal({ isOpen, onClose, onDatasetCreated }: NewDatasetModalProps) {
+  const [step, setStep] = useState<'type' | 'source' | 'configure'>('type');
+  const [datasetType, setDatasetType] = useState<'predefined' | 'dependent' | 'custom' | null>(null);
+  const [selectedSource, setSelectedSource] = useState<any>(null);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  
+
   useEffect(() => {
     if (isOpen) {
-      loadSources();
+      // Reset state when modal opens
+      setStep('type');
+      setDatasetType(null);
+      setSelectedSource(null);
+      
+      // Load templates
+      loadTemplates();
     }
   }, [isOpen]);
 
-  async function loadSources() {
+  async function loadTemplates() {
     try {
-      setLoading(true);
-      // This function should be defined in your sourcesApi.ts file
-      const data = await fetchUserSources();
-      setSources(data);
+      setIsLoading(true);
+      const data = await fetchDatasetTemplates();
+      setTemplates(data);
     } catch (error) {
-      console.error("Error loading sources:", error);
+      console.error("Error loading templates:", error);
       toast({
         title: "Error",
-        description: "Failed to load sources. Please try again.",
+        description: "Failed to load dataset templates.",
         variant: "destructive"
       });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   }
 
-  function handleSourceSelect(source) {
-    setSelectedSource(source);
-    setStep("type");
-  }
-
-  function handleTypeSelect(type) {
+  function handleSelectDatasetType(type: 'predefined' | 'dependent' | 'custom') {
     setDatasetType(type);
-    setStep("configure");
+    setStep('source');
   }
 
-  function handleBack() {
-    if (step === "configure") {
-      setStep("type");
-    } else if (step === "type") {
-      setStep("source");
-    }
+  function handleSelectSource(source: any) {
+    setSelectedSource(source);
+    setStep('configure');
   }
 
-  function handleDatasetCreated() {
-    toast({
-      title: "Dataset Created",
-      description: "Your new dataset has been created successfully.",
-    });
+  function handleBackFromSource() {
+    setStep('type');
+    setSelectedSource(null);
+  }
+
+  function handleBackFromConfigure() {
+    setStep('source');
+  }
+
+  function handleComplete() {
     onDatasetCreated();
     onClose();
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>
-            {step === "source" && "Select Data Source"}
-            {step === "type" && "Select Dataset Type"}
-            {step === "configure" && `Configure ${datasetType === "predefined" ? "Predefined" : 
-              datasetType === "dependent" ? "Dependent" : "Custom"} Dataset`}
-          </DialogTitle>
-        </DialogHeader>
-        <div>
-          {step === "source" && (
-            <SourceSelector
-              sources={sources}
-              loading={loading}
-              onSelect={handleSourceSelect}
+      <DialogContent className="max-w-3xl h-[80vh] flex flex-col">
+        <div className="text-xl font-semibold">Create New Dataset</div>
+        <Separator />
+        
+        <div className="flex-1 overflow-auto">
+          {step === 'type' && (
+            <DatasetTypeSelector onSelect={handleSelectDatasetType} />
+          )}
+          
+          {step === 'source' && (
+            <SourceSelector 
+              onSelect={handleSelectSource}
+              onBack={handleBackFromSource}
             />
           )}
-          {step === "type" && (
-            <DatasetTypeSelector
-              sourceType={selectedSource.source_type}
-              onSelect={handleTypeSelect}
-              onBack={handleBack}
-            />
-          )}
-          {step === "configure" && datasetType === "predefined" && (
-            <PredefinedDatasetForm
+          
+          {step === 'configure' && datasetType === 'predefined' && (
+            <PredefinedDatasetForm 
               source={selectedSource}
-              onBack={handleBack}
-              onComplete={handleDatasetCreated}
+              templates={templates}
+              onBack={handleBackFromConfigure}
+              onComplete={handleComplete}
             />
           )}
-          {step === "configure" && datasetType === "dependent" && (
-            <DependentDatasetForm
+          
+          {step === 'configure' && datasetType === 'dependent' && (
+            <DependentDatasetForm 
               source={selectedSource}
-              onBack={handleBack}
-              onComplete={handleDatasetCreated}
+              onBack={handleBackFromConfigure}
+              onComplete={handleComplete}
             />
           )}
-          {step === "configure" && datasetType === "custom" && (
-            <CustomDatasetForm
+          
+          {step === 'configure' && datasetType === 'custom' && (
+            <CustomDatasetForm 
               source={selectedSource}
-              onBack={handleBack}
-              onComplete={handleDatasetCreated}
+              onBack={handleBackFromConfigure}
+              onComplete={handleComplete}
             />
           )}
         </div>

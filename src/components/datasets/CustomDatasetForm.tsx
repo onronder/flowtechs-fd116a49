@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { createCustomDataset, validateCustomQuery, fetchShopifySchema } from "@/api/datasetsApi";
 import { ChevronLeft, Loader2, Code } from "lucide-react";
 
-// Make sure to use lowercase for all imports to match the actual file paths
+// Using lowercase path for all imports
 import ResourceSelector from "./customQueryBuilder/ResourceSelector";
 import FieldSelector from "./customQueryBuilder/FieldSelector";
 import QueryPreview from "./customQueryBuilder/QueryPreview";
