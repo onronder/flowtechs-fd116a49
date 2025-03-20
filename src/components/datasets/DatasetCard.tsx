@@ -34,6 +34,10 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
       const result = await executeDataset(dataset.id);
       console.log("Execution result:", result);
       
+      if (!result || !result.executionId) {
+        throw new Error("Invalid response from execution function");
+      }
+      
       setExecutionId(result.executionId);
       setShowPreview(true);
       toast({
@@ -45,8 +49,8 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
     } catch (error) {
       console.error("Error executing dataset:", error);
       toast({
-        title: "Error",
-        description: "Failed to execute the dataset. Please try again.",
+        title: "Execution Failed",
+        description: error instanceof Error ? error.message : "Failed to execute the dataset. Please try again.",
         variant: "destructive"
       });
     } finally {

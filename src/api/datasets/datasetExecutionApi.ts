@@ -39,15 +39,23 @@ export async function executeDataset(datasetId: string) {
  */
 export async function executeCustomDataset(sourceId: string, query: string) {
   try {
+    console.log(`Executing custom dataset query for source ID: ${sourceId}`);
+    const payload = JSON.stringify({ sourceId, query });
+    
     const { data, error } = await supabase.functions.invoke(
       "Cust_ExecuteDataset",
       { 
-        body: JSON.stringify({ sourceId, query }),
+        body: payload,
         headers: { 'Content-Type': 'application/json' }
       }
     );
     
-    if (error) throw error;
+    if (error) {
+      console.error("Error from Cust_ExecuteDataset function:", error);
+      throw error;
+    }
+    
+    console.log("Custom dataset execution response:", data);
     return data;
   } catch (error) {
     console.error("Error executing custom dataset:", error);
@@ -83,6 +91,7 @@ export async function fetchDatasetPreview(executionId: string) {
       throw new Error("No data returned from preview function");
     }
     
+    console.log("Dataset preview response received:", data);
     return data;
   } catch (error) {
     console.error("Error fetching dataset preview:", error);
@@ -95,6 +104,8 @@ export async function fetchDatasetPreview(executionId: string) {
  */
 export async function exportDataset(executionId: string, options: ExportOptions = { format: 'json' }) {
   try {
+    console.log(`Exporting dataset for execution ID: ${executionId}, format: ${options.format}`);
+    
     const payload = JSON.stringify({ 
       executionId, 
       format: options.format 
@@ -111,7 +122,12 @@ export async function exportDataset(executionId: string, options: ExportOptions 
       }
     );
     
-    if (error) throw error;
+    if (error) {
+      console.error("Error exporting dataset:", error);
+      throw error;
+    }
+    
+    console.log("Dataset export response:", data);
     return data;
   } catch (error) {
     console.error("Error exporting dataset:", error);
@@ -124,13 +140,20 @@ export async function exportDataset(executionId: string, options: ExportOptions 
  */
 export async function getDatasetExecutionHistory(datasetId: string) {
   try {
+    console.log(`Fetching execution history for dataset ID: ${datasetId}`);
+    
     const { data, error } = await supabase
       .from("dataset_executions")
       .select("*")
       .eq("dataset_id", datasetId)
       .order("start_time", { ascending: false });
       
-    if (error) throw error;
+    if (error) {
+      console.error("Error fetching execution history:", error);
+      throw error;
+    }
+    
+    console.log(`Retrieved ${data?.length || 0} execution records`);
     return data;
   } catch (error) {
     console.error("Error fetching execution history:", error);
@@ -143,6 +166,8 @@ export async function getDatasetExecutionHistory(datasetId: string) {
  */
 export async function getExecutionDetails(executionId: string): Promise<DatasetExecution | null> {
   try {
+    console.log(`Fetching execution details for ID: ${executionId}`);
+    
     // Avoid complex join and fetch data separately for reliability
     const { data: execution, error: executionError } = await supabase
       .from("dataset_executions")
@@ -150,8 +175,15 @@ export async function getExecutionDetails(executionId: string): Promise<DatasetE
       .eq("id", executionId)
       .maybeSingle();
       
-    if (executionError) throw executionError;
-    if (!execution) return null;
+    if (executionError) {
+      console.error("Error fetching execution details:", executionError);
+      throw executionError;
+    }
+    
+    if (!execution) {
+      console.log(`No execution found for ID: ${executionId}`);
+      return null;
+    }
     
     // Fetch related dataset info
     const { data: dataset, error: datasetError } = await supabase
@@ -160,13 +192,19 @@ export async function getExecutionDetails(executionId: string): Promise<DatasetE
       .eq("id", execution.dataset_id)
       .maybeSingle();
     
-    if (datasetError) throw datasetError;
+    if (datasetError) {
+      console.error("Error fetching dataset details:", datasetError);
+      throw datasetError;
+    }
     
     // Combine the data manually
-    return {
+    const result = {
       ...execution,
       dataset: dataset || null
     };
+    
+    console.log(`Retrieved execution details for ID: ${executionId}`);
+    return result;
   } catch (error) {
     console.error("Error fetching execution details:", error);
     return null;
@@ -178,13 +216,20 @@ export async function getExecutionDetails(executionId: string): Promise<DatasetE
  */
 export async function getDatasetExports(executionId: string) {
   try {
+    console.log(`Fetching exports for execution ID: ${executionId}`);
+    
     const { data, error } = await supabase
       .from("user_storage_exports")
       .select("*")
       .eq("execution_id", executionId)
       .order("created_at", { ascending: false });
       
-    if (error) throw error;
+    if (error) {
+      console.error("Error fetching exports:", error);
+      throw error;
+    }
+    
+    console.log(`Retrieved ${data?.length || 0} export records`);
     return data;
   } catch (error) {
     console.error("Error fetching exports:", error);

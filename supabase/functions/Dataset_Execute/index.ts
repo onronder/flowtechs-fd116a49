@@ -28,8 +28,13 @@ serve(async (req) => {
           return errorResponse("Empty request body", 400);
         }
         
-        body = JSON.parse(text);
-        console.log("Parsed request body:", JSON.stringify(body));
+        try {
+          body = JSON.parse(text);
+          console.log("Parsed request body:", JSON.stringify(body));
+        } catch (parseError) {
+          console.error("JSON parse error:", parseError);
+          return errorResponse("Invalid JSON in request body: " + parseError.message, 400);
+        }
         
         // Extract datasetId from the parsed body
         datasetId = body.datasetId;
@@ -44,56 +49,75 @@ serve(async (req) => {
       }
     } catch (error) {
       console.error("Error parsing request body:", error);
-      return errorResponse("Invalid JSON in request body", 400);
+      return errorResponse("Error parsing request body: " + error.message, 400);
     }
     
     console.log("Processing dataset execution for datasetId:", datasetId);
     
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("Missing Supabase environment variables");
+      return errorResponse("Server configuration error", 500);
+    }
+    
     const supabaseClient = createClient(
-      supabaseUrl ?? "",
-      supabaseAnonKey ?? "",
-      { global: { headers: { Authorization: req.headers.get("Authorization")! } } }
+      supabaseUrl,
+      supabaseAnonKey,
+      { 
+        global: { 
+          headers: { 
+            Authorization: req.headers.get("Authorization") || "" 
+          } 
+        } 
+      }
     );
 
     // Get the user ID
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
+    if (userError) {
       console.error("Authentication error:", userError);
+      return errorResponse("Authentication required: " + userError.message, 401);
+    }
+    
+    if (!user) {
+      console.error("No authenticated user found");
       return errorResponse("Authentication required", 401);
     }
 
     console.log("Authenticated user:", user.id);
 
-    // Get dataset details - avoid using the join that causes the error
+    // Get dataset details in a single query
     const { data: dataset, error: datasetError } = await supabaseClient
       .from("user_datasets")
-      .select("*")
+      .select(`
+        *,
+        source:source_id(*),
+        template:template_id(*)
+      `)
       .eq("id", datasetId)
       .eq("user_id", user.id)
       .single();
 
-    if (datasetError || !dataset) {
-      console.error("Dataset error:", datasetError);
-      return errorResponse(`Dataset error: ${datasetError?.message || "Dataset not found"}`, 400);
+    if (datasetError) {
+      console.error("Dataset fetch error:", datasetError);
+      return errorResponse(`Dataset error: ${datasetError.message}`, 400);
+    }
+
+    if (!dataset) {
+      console.error("Dataset not found for ID:", datasetId);
+      return errorResponse("Dataset not found", 404);
     }
 
     console.log("Found dataset:", dataset.id, "Type:", dataset.dataset_type);
-
-    // If we need the source, fetch it separately
-    const { data: source, error: sourceError } = await supabaseClient
-      .from("sources")
-      .select("*")
-      .eq("id", dataset.source_id)
-      .single();
-
-    if (sourceError) {
-      console.error("Source error:", sourceError);
-      return errorResponse(`Source error: ${sourceError.message}`, 400);
+    
+    if (!dataset.source) {
+      console.error("Source not found for dataset:", datasetId);
+      return errorResponse("Source not found for this dataset", 400);
     }
-
-    console.log("Found source:", source.id, "Type:", source.source_type);
+    
+    console.log("Found source:", dataset.source.id, "Type:", dataset.source.source_type);
 
     // Create execution record
     const { data: execution, error: executionError } = await supabaseClient
@@ -119,6 +143,10 @@ serve(async (req) => {
     
     switch (dataset.dataset_type) {
       case "predefined":
+        if (!dataset.template) {
+          console.error("Template not found for predefined dataset:", datasetId);
+          return errorResponse("Template not found for this predefined dataset", 400);
+        }
         executionFunction = "Pre_ExecuteDataset";
         break;
       case "dependent":
@@ -143,14 +171,19 @@ serve(async (req) => {
     
     console.log("Invoking function with payload:", JSON.stringify(invokePayload));
     
-    fetch(`${supabaseUrl}/functions/v1/${executionFunction}`, {
+    // Use edge function invoke to trigger the execution function
+    await fetch(`${supabaseUrl}/functions/v1/${executionFunction}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": req.headers.get("Authorization")!
+        "Authorization": req.headers.get("Authorization") || ""
       },
       body: JSON.stringify(invokePayload)
-    }).catch(e => console.error(`Error invoking ${executionFunction}:`, e));
+    }).catch(e => {
+      console.error(`Error invoking ${executionFunction}:`, e);
+      // Continue execution - we want to return the execution ID even if the function invocation fails
+      // The error will be logged and the execution status will be updated later
+    });
 
     // Return the execution ID immediately so the client can poll for updates
     console.log("Execution initiated, returning executionId:", execution.id);

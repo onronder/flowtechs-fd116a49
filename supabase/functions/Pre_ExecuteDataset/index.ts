@@ -12,21 +12,66 @@ serve(async (req) => {
   }
 
   try {
-    const { executionId, datasetId, userId } = await req.json();
+    console.log("Pre_ExecuteDataset function called");
+
+    // Parse request
+    let body;
+    try {
+      const text = await req.text();
+      console.log("Raw request body:", text);
+      
+      if (!text || text.trim() === '') {
+        console.error("Empty request body");
+        return errorResponse("Empty request body", 400);
+      }
+      
+      body = JSON.parse(text);
+      console.log("Parsed request body:", JSON.stringify(body));
+    } catch (error) {
+      console.error("Error parsing request body:", error);
+      return errorResponse("Invalid JSON in request body", 400);
+    }
+
+    const { executionId, datasetId, userId } = body;
+    
+    if (!executionId || !datasetId || !userId) {
+      console.error("Missing required parameters");
+      return errorResponse("Missing required parameters: executionId, datasetId, or userId", 400);
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("Missing Supabase environment variables");
+      return errorResponse("Server configuration error", 500);
+    }
+    
     const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: req.headers.get("Authorization")! } } }
+      supabaseUrl,
+      supabaseAnonKey,
+      { 
+        global: { 
+          headers: { 
+            Authorization: req.headers.get("Authorization") || "" 
+          } 
+        } 
+      }
     );
 
     // Update execution status to running
-    await supabaseClient
+    const { error: updateError } = await supabaseClient
       .from("dataset_executions")
       .update({
         status: "running",
         start_time: new Date().toISOString()
       })
       .eq("id", executionId);
+
+    if (updateError) {
+      console.error("Error updating execution status:", updateError);
+      return errorResponse(`Error updating execution status: ${updateError.message}`, 500);
+    }
 
     try {
       // Get dataset and template details
@@ -51,6 +96,8 @@ serve(async (req) => {
         throw new Error("Template not found");
       }
 
+      console.log("Using template:", template.id, "Query:", template.query_template?.substring(0, 100) + "...");
+
       // Execute the query with pagination
       const startTime = Date.now();
       let allResults = [];
@@ -68,7 +115,14 @@ serve(async (req) => {
         };
 
         const shopifyConfig = dataset.source.config;
-        const endpoint = `https://${shopifyConfig.storeName}.myshopify.com/admin/api/${shopifyConfig.api_version}/graphql.json`;
+        
+        if (!shopifyConfig.storeName || !shopifyConfig.api_version || !shopifyConfig.accessToken) {
+          throw new Error("Missing Shopify configuration values");
+        }
+        
+        const endpoint = `https://${shopifyConfig.storeName}.myshopify.com/admin/api/${shopifyConfig.api_version || '2023-10'}/graphql.json`;
+        
+        console.log(`Making API call #${apiCallCount} to Shopify endpoint`);
         
         const response = await fetch(endpoint, {
           method: "POST",
@@ -84,16 +138,24 @@ serve(async (req) => {
 
         if (!response.ok) {
           const errorText = await response.text();
+          console.error("Shopify API error:", response.status, errorText);
           throw new Error(`Shopify API error: ${response.status} - ${errorText.substring(0, 200)}`);
         }
 
         const result = await response.json();
         if (result.errors) {
+          console.error("GraphQL errors:", result.errors);
           throw new Error(`GraphQL error: ${result.errors[0].message}`);
         }
 
         // Extract the results - this will depend on your query structure
         const resourceType = template.resource_type;
+        
+        if (!resourceType || !result.data || !result.data[resourceType]) {
+          console.error("Invalid response structure:", JSON.stringify(result).substring(0, 200));
+          throw new Error(`Invalid response structure. Resource type '${resourceType}' not found in response`);
+        }
+        
         const resource = result.data[resourceType];
         const edges = resource.edges || [];
         const pageInfo = resource.pageInfo;
@@ -101,6 +163,8 @@ serve(async (req) => {
         // Process nodes
         const nodes = edges.map((edge: any) => edge.node);
         allResults = [...allResults, ...nodes];
+
+        console.log(`Retrieved ${nodes.length} nodes, total so far: ${allResults.length}`);
 
         // Update pagination
         hasNextPage = pageInfo.hasNextPage;
@@ -115,8 +179,10 @@ serve(async (req) => {
       const endTime = Date.now();
       const executionTime = endTime - startTime;
 
+      console.log(`Dataset execution completed: ${executionId} - ${allResults.length} rows in ${executionTime}ms`);
+
       // Update execution record with results
-      await supabaseClient
+      const { error: completeError } = await supabaseClient
         .from("dataset_executions")
         .update({
           status: "completed",
@@ -128,7 +194,10 @@ serve(async (req) => {
         })
         .eq("id", executionId);
 
-      console.log(`Dataset execution completed: ${executionId} - ${allResults.length} rows`);
+      if (completeError) {
+        console.error("Error updating execution record with results:", completeError);
+        throw new Error(`Failed to update execution record: ${completeError.message}`);
+      }
     } catch (executionError) {
       console.error("Execution error:", executionError);
       
@@ -138,17 +207,20 @@ serve(async (req) => {
         .update({
           status: "failed",
           end_time: new Date().toISOString(),
-          error_message: executionError.message
+          error_message: executionError.message || "Unknown execution error"
         })
         .eq("id", executionId);
+
+      return errorResponse(`Execution error: ${executionError.message}`, 500);
     }
 
     // Return a response
     return successResponse({
-      message: "Dataset execution initiated"
+      message: "Dataset execution completed successfully",
+      executionId
     });
   } catch (error) {
     console.error("Error in Pre_ExecuteDataset:", error);
-    return errorResponse(error.message, 500);
+    return errorResponse(error.message || "An unexpected error occurred", 500);
   }
 });
