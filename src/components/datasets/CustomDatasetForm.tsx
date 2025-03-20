@@ -5,6 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { createCustomDataset, validateCustomQuery, fetchShopifySchema } from "@/api/datasetsApi";
+import { ChevronLeft, Loader2, Code } from "lucide-react";
+
+// Import components from the CustomQueryBuilder directory
+import ResourceSelector from "./CustomQueryBuilder/ResourceSelector";
+import FieldSelector from "./CustomQueryBuilder/FieldSelector";
+import QueryPreview from "./CustomQueryBuilder/QueryPreview";
+import ResultPreview from "./CustomQueryBuilder/ResultPreview";
 
 interface CustomDatasetFormProps {
   source: any;
@@ -12,12 +20,77 @@ interface CustomDatasetFormProps {
   onComplete: () => void;
 }
 
-export default function CustomDatasetForm({
-  source,
-  onBack,
-  onComplete
-}: CustomDatasetFormProps) {
+export default function CustomDatasetForm({ source, onBack, onComplete }: CustomDatasetFormProps) {
+  const [step, setStep] = useState<'info' | 'resource' | 'fields' | 'preview'>('info');
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [customQuery, setCustomQuery] = useState("");
+  const [selectedFields, setSelectedFields] = useState<string[]>([]);
+  const [resourceType, setResourceType] = useState("");
+  const [selectedResource, setSelectedResource] = useState<any>(null);
+  const [resources, setResources] = useState<any[]>([]);
+  const [schema, setSchema] = useState<any>(null);
+  const [previewData, setPreviewData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
+  
   const { toast } = useToast();
+
+  const handleInfoSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!name.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a dataset name.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // This feature is under development, so we show a message
+    toast({
+      title: "Not implemented",
+      description: "This feature is currently under development.",
+    });
+  };
+
+  const handleResourceSelect = async (resource: any) => {
+    // This would be implemented when the feature is ready
+    // For now, we're showing a message that the feature is under development
+    toast({
+      title: "Not implemented",
+      description: "This feature is currently under development.",
+    });
+  };
+
+  const handleFieldsSelect = (fields: string[]) => {
+    // This would be implemented when the feature is ready
+    // For now, we're showing a message that the feature is under development
+    toast({
+      title: "Not implemented",
+      description: "This feature is currently under development.",
+    });
+  };
+
+  const handlePreviewQuery = async () => {
+    // This would be implemented when the feature is ready
+    // For now, we're showing a message that the feature is under development
+    toast({
+      title: "Not implemented",
+      description: "This feature is currently under development.",
+    });
+  };
+
+  const handleCreateDataset = async () => {
+    // This would be implemented when the feature is ready
+    // For now, we're showing a message that the feature is under development
+    toast({
+      title: "Not implemented",
+      description: "This feature is currently under development.",
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -28,6 +101,7 @@ export default function CustomDatasetForm({
       
       <div className="flex justify-between">
         <Button variant="outline" onClick={onBack}>
+          <ChevronLeft className="h-4 w-4 mr-1" />
           Back
         </Button>
         <Button 
