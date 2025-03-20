@@ -1,5 +1,5 @@
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import DatasetMetadata from "./DatasetMetadata";
 import DatasetInfo from "./DatasetInfo";
@@ -28,9 +28,10 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
     setIsRunning(false);
   }, [dataset]);
 
-  function handleViewPreview() {
+  const handleViewPreview = useCallback(() => {
     // Use the most recent execution ID if available
     if (dataset.last_execution_id) {
+      console.log("Viewing preview for execution ID:", dataset.last_execution_id);
       setExecutionId(dataset.last_execution_id);
       setShowPreview(true);
     } else {
@@ -40,31 +41,31 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
         variant: "destructive"
       });
     }
-  }
+  }, [dataset.last_execution_id, toast]);
 
-  function handleExecutionStarted(newExecutionId: string) {
+  const handleExecutionStarted = useCallback((newExecutionId: string) => {
     console.log("Execution started with ID:", newExecutionId);
     setExecutionId(newExecutionId);
     setIsRunning(false); // Reset running state here to ensure button is re-enabled
     setShowPreview(true); // Show preview immediately
-  }
+  }, []);
 
-  function handleRunDatasetClick() {
+  const handleRunDatasetClick = useCallback(() => {
     console.log("Set running state to true for dataset:", dataset.id);
     setIsRunning(true);
-  }
+  }, [dataset.id]);
 
-  function handleDeleteDatasetClick() {
+  const handleDeleteDatasetClick = useCallback(() => {
     if (deletionRef.current) {
       deletionRef.current.click();
     }
-  }
+  }, []);
 
-  function handleClosePreview() {
+  const handleClosePreview = useCallback(() => {
     setShowPreview(false);
     // When preview is closed, refresh the datasets to ensure we have the latest data
     onRefresh();
-  }
+  }, [onRefresh]);
 
   return (
     <>

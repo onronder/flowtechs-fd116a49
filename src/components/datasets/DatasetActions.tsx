@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Play, Download, Edit, Trash, Eye, Clock } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -32,6 +32,11 @@ export default function DatasetActions({
   onDeleteDataset
 }: DatasetActionsProps) {
   const { toast } = useToast();
+  
+  // For debugging
+  useEffect(() => {
+    console.log(`DatasetActions: isRunning=${isRunning} for datasetId=${datasetId}`);
+  }, [isRunning, datasetId]);
   
   return (
     <div className="flex justify-between items-center w-full">

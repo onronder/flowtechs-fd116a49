@@ -20,6 +20,10 @@ export async function executeDataset(datasetId: string) {
     // Log the payload we're sending
     console.log("Request payload:", payload);
     
+    // First check if the function exists
+    const { data: functions } = await supabase.functions.listFunctions();
+    console.log("Available functions:", functions?.map(f => f.name).join(", "));
+    
     // Use invoke with stringified payload as it was before
     console.log("Invoking Dataset_Execute function...");
     const { data, error } = await supabase.functions.invoke(

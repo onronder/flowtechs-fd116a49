@@ -37,6 +37,7 @@ export default function DatasetRunButton({
       console.log("Starting dataset execution with dataset ID:", datasetId);
       
       // Execute the dataset with proper error handling
+      console.log("Calling executeDataset API with ID:", datasetId);
       const result = await executeDataset(datasetId);
       
       console.log("Execution result received:", result);
@@ -52,6 +53,7 @@ export default function DatasetRunButton({
       }
       
       // Call the parent callback with the execution ID
+      console.log("Execution started successfully, execution ID:", result.executionId);
       onExecutionStarted(result.executionId);
       
       toast({
@@ -70,6 +72,7 @@ export default function DatasetRunButton({
       });
     } finally {
       // Always make sure to reset the loading state
+      console.log("Resetting local running state for dataset:", datasetId);
       setLocalIsRunning(false);
     }
   }
