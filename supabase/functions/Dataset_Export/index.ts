@@ -3,7 +3,6 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { convertToCSV } from "./csvConverter.ts";
 
-// Updated CORS headers to include save-to-storage
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, save-to-storage",
@@ -11,146 +10,178 @@ const corsHeaders = {
   "Content-Type": "application/json"
 };
 
-// Helper functions for response handling
-function errorResponse(message: string, status: number = 400): Response {
-  return new Response(
-    JSON.stringify({ success: false, error: message }),
-    { headers: corsHeaders, status }
-  );
-}
-
-function successResponse(data: any, status: number = 200): Response {
-  return new Response(
-    JSON.stringify(data),
-    { headers: corsHeaders, status }
-  );
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
-  
+
   try {
+    // Parse request
     const { executionId, format = 'json' } = await req.json();
-    
-    // Get user from auth
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: req.headers.get("Authorization")! } } }
-    );
-    
-    // Get the user ID
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
-      return errorResponse("Authentication required", 401);
+    const saveToStorage = req.headers.get('Save-To-Storage') === 'true';
+
+    if (!executionId) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Missing executionId parameter" 
+        }),
+        { headers: corsHeaders, status: 400 }
+      );
     }
-    
-    const userId = user.id;
-    
-    // Get execution data
-    const { data: execution, error: executionError } = await supabaseClient
+
+    // Initialize Supabase client
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    // Get execution details
+    const { data: execution, error: executionError } = await supabaseAdmin
       .from("dataset_executions")
       .select(`
-        *,
-        dataset:dataset_id(*)
+        id,
+        dataset_id,
+        status,
+        start_time,
+        end_time,
+        row_count,
+        execution_time_ms,
+        dataset:dataset_id(name, user_id)
       `)
       .eq("id", executionId)
-      .eq("user_id", userId)
       .single();
-    
-    if (executionError) {
-      return errorResponse(executionError.message);
+
+    if (executionError || !execution) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: executionError?.message || "Execution not found" 
+        }),
+        { headers: corsHeaders, status: 404 }
+      );
     }
-    
-    if (execution.status !== "completed") {
-      return errorResponse(`Dataset execution is ${execution.status}`);
+
+    // Get data from execution_results
+    const { data: results, error: resultsError } = await supabaseAdmin
+      .from("dataset_execution_results")
+      .select("results")
+      .eq("execution_id", executionId)
+      .single();
+
+    if (resultsError || !results) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: resultsError?.message || "Results not found" 
+        }),
+        { headers: corsHeaders, status: 404 }
+      );
     }
-    
-    // Get the data
-    const data = execution.data || [];
-    
-    // Convert data to requested format
+
     let exportData;
+    let fileName;
     let contentType;
     let fileExtension;
-    
+    const timestamp = new Date().toISOString().replace(/[:.-]/g, "_");
+    const datasetName = execution.dataset?.name || "dataset";
+    const sanitizedName = datasetName.replace(/[^a-z0-9]/gi, "_").toLowerCase();
+
+    // Convert to the requested format
     switch (format.toLowerCase()) {
       case 'csv':
-        exportData = convertToCSV(data);
-        contentType = 'text/csv';
-        fileExtension = 'csv';
+        exportData = convertToCSV(results.results);
+        fileName = `${sanitizedName}_${timestamp}.csv`;
+        contentType = "text/csv";
+        fileExtension = "csv";
         break;
       case 'xlsx':
-        // XLSX conversion would be implemented here
-        // This is more complex and may require additional libraries
-        return errorResponse("XLSX export not yet implemented", 501);
+        // In a real implementation, you would convert to XLSX here
+        // For this example, we'll return CSV as a fallback
+        exportData = convertToCSV(results.results);
+        fileName = `${sanitizedName}_${timestamp}.csv`;
+        contentType = "text/csv";
+        fileExtension = "csv";
+        break;
       case 'json':
       default:
-        exportData = JSON.stringify(data, null, 2);
-        contentType = 'application/json';
-        fileExtension = 'json';
+        exportData = JSON.stringify(results.results, null, 2);
+        fileName = `${sanitizedName}_${timestamp}.json`;
+        contentType = "application/json";
+        fileExtension = "json";
         break;
     }
-    
-    // Generate filename
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `${execution.dataset.name.replace(/\s+/g, '_')}_${timestamp}.${fileExtension}`;
-    
-    // Save to storage for Pro users if requested
-    const saveToStorage = req.headers.get('Save-To-Storage') === 'true';
-    let storageResult = null;
-    
+
+    // If requested, save the file to storage
     if (saveToStorage) {
-      const filePath = `datasets/${userId}/${filename}`;
+      const filePath = `${execution.dataset?.user_id}/${execution.dataset_id}/${fileName}`;
       
-      const { data: storageData, error: storageError } = await supabaseClient.storage
-        .from('user_data')
-        .upload(filePath, exportData, {
+      // Upload to storage
+      const { data: upload, error: uploadError } = await supabaseAdmin.storage
+        .from("dataset_exports")
+        .upload(filePath, new Blob([exportData], { type: contentType }), {
           contentType,
-          upsert: false
+          upsert: true,
         });
       
-      if (storageError) {
-        return errorResponse(`Storage error: ${storageError.message}`, 500);
+      if (uploadError) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: `Error saving file: ${uploadError.message}` 
+          }),
+          { headers: corsHeaders, status: 500 }
+        );
       }
       
-      // Record the export in database
-      const { data: exportRecord, error: exportError } = await supabaseClient
+      // Get public URL for the file
+      const { data: publicURL } = supabaseAdmin.storage
+        .from("dataset_exports")
+        .getPublicUrl(filePath);
+      
+      // Create record in the exports table
+      await supabaseAdmin
         .from("user_storage_exports")
         .insert({
-          user_id: userId,
           execution_id: executionId,
-          format: format.toLowerCase(),
+          dataset_id: execution.dataset_id,
+          user_id: execution.dataset?.user_id,
+          file_name: fileName,
           file_path: filePath,
-          file_size: exportData.length
-        })
-        .select()
-        .single();
+          file_type: fileExtension,
+          file_size: exportData.length,
+          file_url: publicURL.publicUrl,
+        });
       
-      if (exportError) {
-        return errorResponse(`Export record error: ${exportError.message}`, 500);
-      }
-      
-      storageResult = {
-        id: exportRecord.id,
-        filePath,
-        fileSize: exportData.length
-      };
+      return new Response(
+        JSON.stringify({
+          success: true,
+          fileName,
+          fileType: contentType,
+          fileSize: exportData.length,
+          downloadUrl: publicURL.publicUrl,
+        }),
+        { headers: corsHeaders }
+      );
+    } else {
+      // Return the file data directly
+      return new Response(
+        JSON.stringify({
+          success: true,
+          fileName,
+          fileType: contentType,
+          fileSize: exportData.length,
+          data: exportData,
+        }),
+        { headers: corsHeaders }
+      );
     }
-    
-    // Return success with download URL or direct data
-    return successResponse({
-      success: true,
-      format: format.toLowerCase(),
-      filename,
-      storage: storageResult,
-      data: exportData.length > 10000 ? null : exportData // Only return data directly if it's small
-    });
   } catch (error) {
     console.error("Error in Dataset_Export:", error);
-    return errorResponse(error.message, 500);
+    return new Response(
+      JSON.stringify({ success: false, error: error.message }),
+      { headers: corsHeaders, status: 500 }
+    );
   }
 });

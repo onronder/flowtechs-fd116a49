@@ -1,4 +1,4 @@
-// src/components/datasets/DatasetCard.tsx
+
 import { useState } from "react";
 import { formatDistance } from "date-fns";
 import { Card } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from "@/hooks/use-toast";
 import { executeDataset, deleteDataset, scheduleDatasetExecution } from "@/api/datasetsApi";
 import DatasetPreviewModal from "./DatasetPreviewModal";
+import { DatasetSchedule } from "@/api/datasets/datasetsApiTypes";
 
 // Helper function to get type-specific icon and color
 function getDatasetTypeStyles(type: string) {
@@ -96,10 +97,12 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
 
   async function handleScheduleHourly() {
     try {
-      await scheduleDatasetExecution(dataset.id, { 
-        type: "hourly" as "hourly", // Use type assertion to "hourly" literal type
+      const scheduleConfig: DatasetSchedule = { 
+        type: "hourly",
         minute: 0 
-      });
+      };
+      
+      await scheduleDatasetExecution(dataset.id, scheduleConfig);
       
       toast({
         title: "Dataset Scheduled",

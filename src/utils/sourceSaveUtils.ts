@@ -5,6 +5,16 @@ import { fetchSourceSchema } from "@/api/sourceApi";
 import { Source } from "@/hooks/useSources";
 
 /**
+ * Source data interface
+ */
+export interface SourceData {
+  name: string;
+  description?: string;
+  source_type: string;
+  [key: string]: any;
+}
+
+/**
  * Saves a Shopify source to the database
  */
 export async function saveShopifySource(sourceData: any) {
@@ -149,8 +159,10 @@ export async function checkSourceNameExists(name: string, excludeId?: string): P
   }
 }
 
-// Adding a generic saveSource function that wasn't exported before
-export async function saveSource(sourceData: any) {
+/**
+ * Generic function to save a source based on its type
+ */
+export async function saveSource(sourceData: SourceData) {
   if (sourceData.source_type === 'shopify') {
     return saveShopifySource(sourceData);
   }

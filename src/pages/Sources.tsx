@@ -1,125 +1,78 @@
 
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { Source, useSources } from "@/hooks/useSources";
+import { useToast } from "@/hooks/use-toast";
+import { fetchUserSources } from "@/api/sourceApi";
+import { testSourceConnection, deleteSource } from "@/utils/sourceUtils";
 import SourcesGrid from "@/components/sources/SourcesGrid";
 import EmptySourcesState from "@/components/sources/EmptySourcesState";
-import CreateSourceStepper from "@/components/sources/CreateSourceStepper";
-import { testSourceConnection, deleteSource } from "@/utils/sourceUtils";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/context/AuthContext";
+import LoadingSpinner from "@/components/ui/loading-spinner";
 
-const Sources = () => {
-  const { sources, loading, fetchSources } = useSources();
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [sourceToEdit, setSourceToEdit] = useState<Source | null>(null);
+export default function Sources() {
+  const [sources, setSources] = useState([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const { user } = useAuth();
 
-  // Source action handlers
-  async function handleTestSource(id: string) {
-    const sourceToTest = sources.find(s => s.id === id);
-    if (!sourceToTest) return;
-    
+  useEffect(() => {
+    loadSources();
+  }, []);
+
+  async function loadSources() {
     try {
-      const result = await testSourceConnection(id, sourceToTest, toast);
-      
-      if (result.success) {
-        // Show a notification if the API version was updated
-        if (result.updated && result.message) {
-          toast({
-            title: "Connection successful",
-            description: result.message || "Source connection updated.",
-          });
-        } else {
-          toast({
-            title: "Connection successful",
-            description: "Source connection is working correctly.",
-          });
-        }
-        
-        // Refresh the sources to get the updated data
-        fetchSources();
-      }
+      setLoading(true);
+      const data = await fetchUserSources();
+      setSources(data);
     } catch (error) {
-      console.error("Error testing source:", error);
+      console.error("Error loading sources:", error);
       toast({
-        title: "Connection failed",
-        description: error instanceof Error ? error.message : "Failed to test connection",
-        variant: "destructive",
+        title: "Error",
+        description: "Failed to load sources. Please try again.",
+        variant: "destructive"
       });
+    } finally {
+      setLoading(false);
     }
   }
 
   async function handleDeleteSource(id: string) {
     const success = await deleteSource(id, toast);
     if (success) {
-      fetchSources();
+      setSources(sources.filter(s => s.id !== id));
     }
   }
 
-  function handleEditSource(id: string) {
-    const source = sources.find(s => s.id === id);
-    if (source) {
-      setSourceToEdit(source);
-      setShowCreateForm(true);
-    }
-  }
-
-  function handleAddNew() {
-    setSourceToEdit(null);
-    setShowCreateForm(true);
-  }
-
-  function handleCancelCreate() {
-    setShowCreateForm(false);
-    setSourceToEdit(null);
-  }
-
-  // If not authenticated, the AuthRoute component will handle redirect
-  if (!user) {
-    return null;
+  async function handleTestConnection(id: string) {
+    await testSourceConnection(id, toast);
   }
 
   return (
     <div className="h-full">
       <div className="mb-6 flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-semibold">Sources</h1>
-          <p className="text-muted-foreground">Manage your data sources</p>
+          <h1 className="text-2xl font-semibold">Data Sources</h1>
+          <p className="text-muted-foreground">Connect to your data sources</p>
         </div>
         
-        {!showCreateForm && (
-          <Button onClick={handleAddNew}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Source
-          </Button>
-        )}
+        <Button onClick={() => window.location.href = "/sources/new"}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Source
+        </Button>
       </div>
 
-      {showCreateForm ? (
-        <CreateSourceStepper 
-          existingSource={sourceToEdit} 
-          onCancel={handleCancelCreate} 
-        />
-      ) : loading ? (
+      {loading ? (
         <div className="flex justify-center py-12">
-          <div className="animate-pulse rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <LoadingSpinner size="lg" />
         </div>
       ) : sources.length === 0 ? (
-        <EmptySourcesState onAddNew={handleAddNew} />
+        <EmptySourcesState />
       ) : (
-        <SourcesGrid 
-          sources={sources} 
-          onTest={handleTestSource}
-          onEdit={handleEditSource}
-          onDelete={handleDeleteSource}
-          onAddNew={handleAddNew}
+        <SourcesGrid
+          sources={sources}
+          onTestConnection={handleTestConnection}
+          onDeleteSource={handleDeleteSource}
         />
       )}
     </div>
   );
-};
-
-export default Sources;
+}

@@ -1,102 +1,92 @@
 
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { checkSourceNameExists } from "@/utils/sourceSaveUtils";
 import { validateSourceConnection } from "@/api/sourceApi";
 
-// Types for the hook
-export interface SourceFormData {
-  type: string;
-  name: string;
-  description: string;
-  credentials: Record<string, any>;
-  validationResult: any | null;
-}
+const defaultShopifySchema = z.object({
+  name: z.string().min(3, { message: "Name must be at least 3 characters" }),
+  description: z.string().optional(),
+  storeName: z.string().min(1, { message: "Store name is required" }),
+  clientId: z.string().min(1, { message: "Client ID is required" }),
+  accessToken: z.string().min(1, { message: "Access token is required" }),
+  api_version: z.string().min(1, { message: "API version is required" }),
+});
 
-export type SourceFormStep = "type" | "info" | "credentials" | "validate";
-
-export interface UseSourceFormProps {
-  existingSource?: any;
-}
-
-export function useSourceForm({ existingSource }: UseSourceFormProps = {}) {
-  const isEdit = !!existingSource;
-  
-  const [currentStep, setCurrentStep] = useState<SourceFormStep>(isEdit ? "info" : "type");
-  const [sourceData, setSourceData] = useState<SourceFormData>({
-    type: existingSource?.source_type || "",
-    name: existingSource?.name || "",
-    description: existingSource?.description || "",
-    credentials: existingSource?.config || {},
-    validationResult: null
-  });
+export default function useSourceForm(
+  initialData = null,
+  options = {
+    nameValidation: true,
+  }
+) {
+  const [step, setStep] = useState(1);
   const [isValidating, setIsValidating] = useState(false);
-  
-  const { toast } = useToast();
+  const [validationResult, setValidationResult] = useState(null);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const handleTypeSelection = (type: string) => {
-    setSourceData(prev => ({ ...prev, type }));
-    setCurrentStep("info");
-  };
-  
-  const handleInfoSubmit = (data: { name: string, description: string }) => {
-    setSourceData(prev => ({ ...prev, ...data }));
-    setCurrentStep("credentials");
-  };
-  
-  const handleCredentialsSubmit = async (credentials: any) => {
+  const form = useForm({
+    resolver: zodResolver(defaultShopifySchema),
+    defaultValues: initialData || {
+      name: "",
+      description: "",
+      storeName: "",
+      clientId: "",
+      accessToken: "",
+      api_version: "2023-10",
+    },
+  });
+
+  const checkNameUnique = async (name: string) => {
+    if (!options.nameValidation) return true;
+    
     try {
-      setIsValidating(true);
-      
-      // Log for debugging
-      console.log("Validating credentials:", {
-        sourceType: sourceData.type,
-        credentials: { ...credentials, accessToken: "REDACTED" }
-      });
-      
-      // Use the API service to validate connection
-      const result = await validateSourceConnection(sourceData.type, credentials);
-      
-      if (result.success) {
-        setSourceData(prev => ({ 
-          ...prev, 
-          credentials: result.config,
-          validationResult: result 
-        }));
-        setCurrentStep("validate");
-        
-        toast({
-          title: "Connection Successful",
-          description: "Successfully connected to the data source."
-        });
-      } else {
-        toast({
-          title: "Connection Failed",
-          description: result.error || "Failed to connect to the data source.",
-          variant: "destructive"
-        });
-      }
+      const exists = await checkSourceNameExists(
+        name, 
+        initialData?.id
+      );
+      return !exists;
     } catch (error) {
-      console.error("Error validating connection:", error);
-      toast({
-        title: "Error",
-        description: error instanceof Error 
-          ? error.message 
-          : "An error occurred while validating the connection.",
-        variant: "destructive"
-      });
+      console.error("Error checking name:", error);
+      return true; // Allow submission on error
+    }
+  };
+
+  const validateConnection = async (data: any) => {
+    setIsValidating(true);
+    setErrorMessage("");
+    
+    try {
+      setValidationResult(null);
+      
+      const result = await validateSourceConnection(data);
+      
+      setValidationResult(result);
+      return result;
+    } catch (error) {
+      console.error("Validation error:", error);
+      setErrorMessage(error instanceof Error ? error.message : "Validation failed");
+      return null;
     } finally {
       setIsValidating(false);
     }
   };
 
+  const nextStep = () => setStep(step + 1);
+  const prevStep = () => setStep(step - 1);
+  const resetSteps = () => setStep(1);
+
   return {
-    currentStep,
-    setCurrentStep,
-    sourceData,
+    form,
+    step,
+    nextStep,
+    prevStep,
+    resetSteps,
     isValidating,
-    isEdit,
-    handleTypeSelection,
-    handleInfoSubmit,
-    handleCredentialsSubmit
+    validationResult,
+    errorMessage,
+    validateConnection,
+    checkNameUnique,
   };
 }

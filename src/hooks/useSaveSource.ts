@@ -1,91 +1,81 @@
 
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
-import { SourceData, saveSource } from "@/utils/sourceSaveUtils";
-import { fetchAndCacheShopifySchema } from "@/utils/shopifyApi";
+import { useToast } from "@/hooks/use-toast";
+import { saveSource, updateShopifySource, SourceData } from "@/utils/sourceSaveUtils";
 
-export function useSaveSource() {
-  const [isSaving, setIsSaving] = useState(false);
+export default function useSaveSource() {
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user } = useAuth();
 
-  const handleSaveSource = async (sourceData: SourceData, existingId?: string) => {
+  const handleSaveSource = async (sourceData: SourceData) => {
     try {
-      // Ensure user is authenticated
-      if (!user) {
-        toast({
-          title: "Authentication required",
-          description: "You must be logged in to create a source",
-          variant: "destructive"
-        });
-        navigate("/auth/signin");
-        return { success: false };
-      }
-
-      setIsSaving(true);
-      console.log("=== SAVING SOURCE START ===");
+      setIsLoading(true);
       
-      const result = await saveSource(sourceData, existingId, toast);
+      const result = await saveSource(sourceData);
       
-      if (result?.success) {
-        console.log("=== SAVING SOURCE COMPLETE ===");
-        
-        // After successful save, if it's a Shopify source, cache the schema
-        if (sourceData.type === 'shopify' && result.id) {
-          toast({
-            title: "Caching Schema",
-            description: "Fetching and caching Shopify GraphQL schema..."
-          });
-          
-          try {
-            const { storeName, accessToken, api_version } = sourceData.credentials;
-            
-            await fetchAndCacheShopifySchema(
-              result.id,
-              storeName,
-              accessToken,
-              api_version,
-              true
-            );
-            
-            console.log("Schema caching completed");
-          } catch (schemaError) {
-            console.error("Error caching schema:", schemaError);
-            // Don't fail the source creation if schema caching fails
-          }
-        }
-        
-        toast({
-          title: existingId ? "Source updated" : "Source created",
-          description: "Your source has been saved successfully."
-        });
-        
-        // Navigate to the sources page and ensure it reloads
-        setTimeout(() => {
-          navigate("/sources", { replace: true });
-        }, 100);
-        return { success: true };
+      toast({
+        title: "Source created",
+        description: "Source has been successfully created.",
+      });
+      
+      // Navigate to the source details page
+      if (result.source && result.source.id) {
+        navigate(`/sources/${result.source.id}`);
+      } else {
+        navigate("/sources");
       }
       
-      return { success: false };
+      return result;
     } catch (error) {
       console.error("Error saving source:", error);
+      
       toast({
         title: "Error",
-        description: `Failed to ${existingId ? 'update' : 'create'} the source: ${error instanceof Error ? error.message : "Unknown error"}`,
-        variant: "destructive"
+        description: error instanceof Error ? error.message : "Failed to save source",
+        variant: "destructive",
       });
-      return { success: false, error };
+      
+      throw error;
     } finally {
-      setIsSaving(false);
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateSource = async (sourceId: string, sourceData: SourceData) => {
+    try {
+      setIsLoading(true);
+      
+      const result = await updateShopifySource(sourceId, sourceData);
+      
+      toast({
+        title: "Source updated",
+        description: "Source has been successfully updated.",
+      });
+      
+      // Navigate to the source details page
+      navigate(`/sources/${sourceId}`);
+      
+      return result;
+    } catch (error) {
+      console.error("Error updating source:", error);
+      
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update source",
+        variant: "destructive",
+      });
+      
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return {
-    isSaving,
-    handleSaveSource
+    isLoading,
+    saveSource: handleSaveSource,
+    updateSource: handleUpdateSource,
   };
 }

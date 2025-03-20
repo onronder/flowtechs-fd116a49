@@ -1,7 +1,14 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders, handleCors, errorResponse, successResponse } from "../_shared/cors.ts";
+import { cron } from "https://deno.land/x/deno_cron@v1.0.0/cron.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, save-to-storage",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Content-Type": "application/json"
+};
 
 interface ScheduleRequest {
   datasetId: string;
@@ -15,6 +22,7 @@ interface ScheduleRequest {
     hour?: number;  // 0-23, for daily/weekly/monthly schedules
     minute?: number; // 0-59, for hourly/daily/weekly/monthly schedules
   };
+  userId?: string;
 }
 
 serve(async (req) => {
@@ -25,7 +33,42 @@ serve(async (req) => {
 
   try {
     // Parse request
-    const { datasetId, schedule } = await req.json();
+    const requestData: ScheduleRequest = await req.json();
+    const { datasetId, schedule } = requestData;
+    
+    // Initialize Supabase client
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+    
+    // Get user ID from auth token if not provided in the request
+    let userId = requestData.userId;
+    if (!userId) {
+      try {
+        const supabaseClient = createClient(
+          Deno.env.get("SUPABASE_URL") ?? "",
+          Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+          {
+            global: { headers: { Authorization: req.headers.get('Authorization') || '' } }
+          }
+        );
+        const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+        if (userError || !userData?.user) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Authentication required" }),
+            { headers: corsHeaders, status: 401 }
+          );
+        }
+        userId = userData.user.id;
+      } catch (authError) {
+        console.error("Auth error:", authError);
+        return new Response(
+          JSON.stringify({ success: false, error: "Authentication failed" }),
+          { headers: corsHeaders, status: 401 }
+        );
+      }
+    }
 
     if (!datasetId) {
       return new Response(
@@ -41,31 +84,19 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Supabase client
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: req.headers.get("Authorization")! } } }
-    );
-
-    // Get the user ID
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
+    if (!userId) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: "Authentication required" 
-        }),
-        { headers: corsHeaders, status: 401 }
+        JSON.stringify({ success: false, error: "Missing userId parameter" }),
+        { headers: corsHeaders, status: 400 }
       );
     }
 
     // Verify the dataset exists and belongs to the user
-    const { data: dataset, error: datasetError } = await supabaseClient
+    const { data: dataset, error: datasetError } = await supabaseAdmin
       .from("user_datasets")
       .select("*")
       .eq("id", datasetId)
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .single();
 
     if (datasetError) {
@@ -99,14 +130,21 @@ serve(async (req) => {
       
       nextRunTime = dateTime.toISOString();
     } else {
-      // For recurring schedules, set a default next run time - 1 hour from now
-      nextRunTime = new Date(Date.now() + 3600000).toISOString();
+      // For recurring schedules, calculate next run time based on CRON expression
+      try {
+        const job = cron(cronExpression, () => {});
+        nextRunTime = job.nextRunTime().toISOString();
+      } catch (e) {
+        console.error("Error calculating next run time:", e);
+        // Fall back to a reasonable default - 1 hour from now
+        nextRunTime = new Date(Date.now() + 3600000).toISOString();
+      }
     }
 
     // Create or update the schedule in the database
     const scheduleData = {
       dataset_id: datasetId,
-      user_id: user.id,
+      user_id: userId,
       schedule_type: schedule.type,
       cron_expression: cronExpression,
       next_run_time: nextRunTime,
@@ -118,7 +156,7 @@ serve(async (req) => {
     };
 
     // Check if a schedule already exists for this dataset
-    const { data: existingSchedule, error: existingError } = await supabaseClient
+    const { data: existingSchedule, error: existingError } = await supabaseAdmin
       .from("dataset_schedules")
       .select("id")
       .eq("dataset_id", datasetId)
@@ -127,7 +165,7 @@ serve(async (req) => {
     let scheduleId;
     if (existingSchedule?.id) {
       // Update existing schedule
-      const { data: updated, error: updateError } = await supabaseClient
+      const { data: updated, error: updateError } = await supabaseAdmin
         .from("dataset_schedules")
         .update(scheduleData)
         .eq("id", existingSchedule.id)
@@ -144,7 +182,7 @@ serve(async (req) => {
       scheduleId = updated.id;
     } else {
       // Create new schedule
-      const { data: created, error: createError } = await supabaseClient
+      const { data: created, error: createError } = await supabaseAdmin
         .from("dataset_schedules")
         .insert(scheduleData)
         .select()
@@ -162,11 +200,11 @@ serve(async (req) => {
 
     // For one-time schedules, we also need to create an entry in the job queue
     if (schedule.type === 'once') {
-      const { error: queueError } = await supabaseClient
+      const { error: queueError } = await supabaseAdmin
         .from("dataset_job_queue")
         .insert({
           dataset_id: datasetId,
-          user_id: user.id,
+          user_id: userId,
           schedule_id: scheduleId,
           status: "pending",
           scheduled_time: nextRunTime,
@@ -213,11 +251,8 @@ function generateCronExpression(schedule: ScheduleRequest['schedule']): string {
     case 'once':
       // One-time schedules don't use CRON, but we'll generate one anyway for consistency
       // Format: minute hour day-of-month month day-of-week
-      if (schedule.date && schedule.time) {
-        const dateTime = new Date(`${schedule.date}T${schedule.time}`);
-        return `${dateTime.getMinutes()} ${dateTime.getHours()} ${dateTime.getDate()} ${dateTime.getMonth() + 1} *`;
-      }
-      return '0 0 * * *'; // Default to midnight every day if date/time not provided
+      const dateTime = new Date(`${schedule.date}T${schedule.time}`);
+      return `${dateTime.getMinutes()} ${dateTime.getHours()} ${dateTime.getDate()} ${dateTime.getMonth() + 1} *`;
     
     case 'hourly':
       // Run at the specified minute every hour
