@@ -8,14 +8,11 @@ export async function fetchDatasetPreview(executionId: string) {
   try {
     console.log(`Sending preview request for execution ID: ${executionId}`);
     
-    // First check if the function exists
-    const { data: functions } = await supabase.functions.listFunctions();
-    console.log("Available functions for preview:", functions?.map(f => f.name).join(", "));
-    
     // Explicitly stringify the payload
     const payload = JSON.stringify({ executionId, limit: 100 }); // Increased limit for more comprehensive results
     console.log("Sending preview request with payload:", payload);
     
+    // Invoke the function directly without checking if it exists
     const { data, error } = await supabase.functions.invoke(
       "Dataset_Preview",
       { 
