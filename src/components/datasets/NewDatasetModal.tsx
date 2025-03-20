@@ -1,25 +1,70 @@
-
-import { useState } from "react";
+// src/components/datasets/NewDatasetModal.tsx
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { useSources } from "@/hooks/useSources";
+import { fetchUserSources } from "@/api/sourcesApi";
+import SourceSelector from "./SourceSelector";
+import DatasetTypeSelector from "./DatasetTypeSelector";
+import PredefinedDatasetForm from "./PredefinedDatasetForm";
+import DependentDatasetForm from "./DependentDatasetForm";
+import CustomDatasetForm from "./CustomDatasetForm";
 
-interface NewDatasetModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onDatasetCreated: () => void;
-}
-
-export default function NewDatasetModal({ isOpen, onClose, onDatasetCreated }: NewDatasetModalProps) {
+export default function NewDatasetModal({ isOpen, onClose, onDatasetCreated }) {
   const [step, setStep] = useState("source");
-  const { sources, loading } = useSources();
+  const [sources, setSources] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedSource, setSelectedSource] = useState(null);
+  const [datasetType, setDatasetType] = useState(null);
   const { toast } = useToast();
+  
+  useEffect(() => {
+    if (isOpen) {
+      loadSources();
+    }
+  }, [isOpen]);
 
-  function handleCreateDataset() {
+  async function loadSources() {
+    try {
+      setLoading(true);
+      // This function should be defined in your sourcesApi.ts file
+      const data = await fetchUserSources();
+      setSources(data);
+    } catch (error) {
+      console.error("Error loading sources:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load sources. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleSourceSelect(source) {
+    setSelectedSource(source);
+    setStep("type");
+  }
+
+  function handleTypeSelect(type) {
+    setDatasetType(type);
+    setStep("configure");
+  }
+
+  function handleBack() {
+    if (step === "configure") {
+      setStep("type");
+    } else if (step === "type") {
+      setStep("source");
+    }
+  }
+
+  function handleDatasetCreated() {
     toast({
-      title: "Coming Soon",
-      description: "Dataset creation functionality will be available soon.",
+      title: "Dataset Created",
+      description: "Your new dataset has been created successfully.",
     });
     onDatasetCreated();
     onClose();
@@ -29,25 +74,49 @@ export default function NewDatasetModal({ isOpen, onClose, onDatasetCreated }: N
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Create New Dataset</DialogTitle>
+          <DialogTitle>
+            {step === "source" && "Select Data Source"}
+            {step === "type" && "Select Dataset Type"}
+            {step === "configure" && `Configure ${datasetType === "predefined" ? "Predefined" : 
+              datasetType === "dependent" ? "Dependent" : "Custom"} Dataset`}
+          </DialogTitle>
         </DialogHeader>
-
-        <div className="py-6">
-          <div className="flex flex-col items-center justify-center text-center">
-            <div className="rounded-full bg-primary/10 p-6 mb-6">
-              <div className="h-12 w-12 text-primary">📊</div>
-            </div>
-            
-            <h3 className="text-xl font-semibold mb-2">Dataset Creation</h3>
-            <p className="text-muted-foreground max-w-md mb-6">
-              The complete dataset creation functionality is currently being implemented and will be available soon.
-            </p>
-            
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={onClose}>Cancel</Button>
-              <Button onClick={handleCreateDataset}>Create Placeholder Dataset</Button>
-            </div>
-          </div>
+        <div>
+          {step === "source" && (
+            <SourceSelector
+              sources={sources}
+              loading={loading}
+              onSelect={handleSourceSelect}
+            />
+          )}
+          {step === "type" && (
+            <DatasetTypeSelector
+              sourceType={selectedSource.source_type}
+              onSelect={handleTypeSelect}
+              onBack={handleBack}
+            />
+          )}
+          {step === "configure" && datasetType === "predefined" && (
+            <PredefinedDatasetForm
+              source={selectedSource}
+              onBack={handleBack}
+              onComplete={handleDatasetCreated}
+            />
+          )}
+          {step === "configure" && datasetType === "dependent" && (
+            <DependentDatasetForm
+              source={selectedSource}
+              onBack={handleBack}
+              onComplete={handleDatasetCreated}
+            />
+          )}
+          {step === "configure" && datasetType === "custom" && (
+            <CustomDatasetForm
+              source={selectedSource}
+              onBack={handleBack}
+              onComplete={handleDatasetCreated}
+            />
+          )}
         </div>
       </DialogContent>
     </Dialog>
