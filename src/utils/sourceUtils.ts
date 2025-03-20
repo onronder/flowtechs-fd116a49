@@ -1,6 +1,10 @@
 
 import { Source } from "@/hooks/useSources";
 import { testSourceConnection as apiTestSourceConnection, deleteSource as apiDeleteSource } from "@/api/sourceApi";
+import { Toast } from "@/components/ui/use-toast";
+
+// Define a proper toast type
+type ToastFunction = (props: Toast) => void;
 
 /**
  * Tests a connection to a source
@@ -9,19 +13,33 @@ import { testSourceConnection as apiTestSourceConnection, deleteSource as apiDel
  * @param toast The toast function to display messages
  * @returns A promise with the test result
  */
-export async function testSourceConnection(id: string, source: Source, toast: any) {
+export async function testSourceConnection(id: string, source: Source, toast: ToastFunction) {
+  console.log("Testing source connection:", { 
+    id, 
+    sourceType: source.source_type,
+    config: { ...source.config, accessToken: "REDACTED" } 
+  });
+  
   try {
     const result = await apiTestSourceConnection(id, source);
+    
+    if (result.success) {
+      toast({
+        title: "Connection successful",
+        description: result.message || "Source connection is working correctly.",
+      });
+    }
+    
     return result;
   } catch (error) {
     console.error("Error testing source connection:", error);
-    if (toast) {
-      toast({
-        title: "Connection failed",
-        description: error instanceof Error ? error.message : "Failed to test connection",
-        variant: "destructive",
-      });
-    }
+    
+    toast({
+      title: "Connection failed",
+      description: error instanceof Error ? error.message : "Failed to test connection",
+      variant: "destructive",
+    });
+    
     throw error;
   }
 }
@@ -32,28 +50,24 @@ export async function testSourceConnection(id: string, source: Source, toast: an
  * @param toast The toast function to display messages
  * @returns A promise that resolves to true if successful
  */
-export async function deleteSource(id: string, toast: any) {
+export async function deleteSource(id: string, toast: ToastFunction) {
   try {
     await apiDeleteSource(id);
     
-    if (toast) {
-      toast({
-        title: "Source deleted",
-        description: "Source has been successfully deleted.",
-      });
-    }
+    toast({
+      title: "Source deleted",
+      description: "Source has been successfully deleted.",
+    });
     
     return true;
   } catch (error) {
     console.error("Error deleting source:", error);
     
-    if (toast) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete source",
-        variant: "destructive",
-      });
-    }
+    toast({
+      title: "Error",
+      description: error instanceof Error ? error.message : "Failed to delete source",
+      variant: "destructive",
+    });
     
     return false;
   }

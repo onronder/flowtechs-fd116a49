@@ -17,11 +17,10 @@ serve(async (req) => {
   }
   
   try {
-    // Log raw request for debugging
+    // Parse request body
     const requestText = await req.text();
     console.log(`[validateSourceConnection] Raw request body: ${requestText.substring(0, 500)}...`);
     
-    // Parse request body
     let bodyData;
     try {
       bodyData = JSON.parse(requestText);
@@ -97,15 +96,16 @@ async function validateShopifyConnection(config: any, corsHeaders: Record<string
     );
   }
   
-  // Always attempt to get the current API version
-  let apiVersion = "";
-  
   try {
+    // First, get the current API version directly
     console.log(`[validateShopifyConnection] Fetching current API version for store: ${storeName}`);
-    const versionEndpoint = `https://${storeName}.myshopify.com/admin/api/versions`;
-    console.log(`[validateShopifyConnection] Version endpoint: ${versionEndpoint}`);
     
-    const versionResponse = await fetch(versionEndpoint, {
+    // Use Admin API to get the latest version
+    const shopUrl = `https://${storeName}.myshopify.com`;
+    const adminUrl = `${shopUrl}/admin`;
+    
+    // Fetch the latest API version using a direct REST call
+    const versionResponse = await fetch(`${adminUrl}/api.json`, {
       headers: {
         "X-Shopify-Access-Token": accessToken,
         "Content-Type": "application/json"
@@ -113,51 +113,39 @@ async function validateShopifyConnection(config: any, corsHeaders: Record<string
     });
     
     if (!versionResponse.ok) {
-      console.error(`[validateShopifyConnection] Version endpoint response not OK: ${versionResponse.status} ${versionResponse.statusText}`);
-      const responseText = await versionResponse.text();
-      console.error(`[validateShopifyConnection] Response body: ${responseText.substring(0, 500)}...`);
+      console.error(`[validateShopifyConnection] Error fetching API versions: ${versionResponse.status} ${versionResponse.statusText}`);
+      const errorText = await versionResponse.text();
+      console.error(`[validateShopifyConnection] Error response: ${errorText.substring(0, 500)}...`);
       throw new Error(`Failed to fetch API versions: ${versionResponse.statusText}`);
     }
     
     const versionData = await versionResponse.json();
     console.log(`[validateShopifyConnection] API versions response: ${JSON.stringify(versionData)}`);
     
-    if (versionData.supported_versions && versionData.supported_versions.length > 0) {
-      // Get the most recent stable version (first in the list)
-      apiVersion = versionData.supported_versions[0].handle;
-      console.log(`[validateShopifyConnection] Using latest API version: ${apiVersion}`);
-    } else {
-      throw new Error("No API versions found in Shopify response");
-    }
-  } catch (error) {
-    console.error(`[validateShopifyConnection] Failed to get current API version: ${error.message}`);
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: `Failed to get current Shopify API version: ${error.message}` 
-      }),
-      { headers: corsHeaders, status: 400 }
-    );
-  }
-  
-  // Test connection with the current version
-  const shopifyEndpoint = `https://${storeName}.myshopify.com/admin/api/${apiVersion}/graphql.json`;
-  console.log(`[validateShopifyConnection] GraphQL endpoint: ${shopifyEndpoint}`);
-  
-  const testQuery = `
-    query {
-      shop {
-        name
-        plan {
-          displayName
+    // Get the latest stable version
+    const apiVersion = versionData.supported?.find((v: any) => v.status === "stable")?.version || 
+                      versionData.versions?.[0] || 
+                      "2023-10"; // Fallback to a relatively recent version
+    
+    console.log(`[validateShopifyConnection] Using API version: ${apiVersion}`);
+    
+    // Test connection with GraphQL to verify the credentials work
+    const graphqlEndpoint = `${adminUrl}/api/${apiVersion}/graphql.json`;
+    
+    const testQuery = `
+      query {
+        shop {
+          name
+          plan {
+            displayName
+          }
         }
       }
-    }
-  `;
-  
-  try {
-    console.log("[validateShopifyConnection] Making GraphQL request to Shopify");
-    const response = await fetch(shopifyEndpoint, {
+    `;
+    
+    console.log(`[validateShopifyConnection] Testing GraphQL endpoint: ${graphqlEndpoint}`);
+    
+    const graphqlResponse = await fetch(graphqlEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -166,23 +154,22 @@ async function validateShopifyConnection(config: any, corsHeaders: Record<string
       body: JSON.stringify({ query: testQuery })
     });
     
-    console.log(`[validateShopifyConnection] GraphQL response status: ${response.status}`);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
+    if (!graphqlResponse.ok) {
+      console.error(`[validateShopifyConnection] GraphQL error: ${graphqlResponse.status} ${graphqlResponse.statusText}`);
+      const errorText = await graphqlResponse.text();
       console.error(`[validateShopifyConnection] GraphQL error response: ${errorText.substring(0, 500)}...`);
       
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: `Connection failed: ${response.status} ${response.statusText}` 
+          error: `Connection failed: ${graphqlResponse.status} ${graphqlResponse.statusText}` 
         }),
         { headers: corsHeaders, status: 400 }
       );
     }
     
-    const result = await response.json();
-    console.log(`[validateShopifyConnection] GraphQL response data: ${JSON.stringify(result)}`);
+    const result = await graphqlResponse.json();
+    console.log(`[validateShopifyConnection] GraphQL response: ${JSON.stringify(result)}`);
     
     if (result.errors) {
       console.error(`[validateShopifyConnection] GraphQL errors: ${JSON.stringify(result.errors)}`);
