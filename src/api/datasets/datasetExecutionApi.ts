@@ -46,17 +46,25 @@ export async function fetchDatasetPreview(executionId: string) {
   try {
     const { data, error } = await supabase.functions.invoke(
       "Dataset_Preview",
-      { body: { executionId } }
+      { 
+        body: { executionId },
+        headers: { 'Content-Type': 'application/json' }
+      }
     );
     
-    if (error) throw error;
-    return data || { status: "error", error: "Failed to fetch preview" };
+    if (error) {
+      console.error("Error fetching dataset preview:", error);
+      throw error;
+    }
+    
+    if (!data) {
+      throw new Error("No data returned from preview function");
+    }
+    
+    return data;
   } catch (error) {
     console.error("Error fetching dataset preview:", error);
-    return {
-      status: "error",
-      error: error instanceof Error ? error.message : "Failed to fetch preview data"
-    };
+    throw error;
   }
 }
 
@@ -73,6 +81,7 @@ export async function exportDataset(executionId: string, options: ExportOptions 
           format: options.format 
         },
         headers: { 
+          'Content-Type': 'application/json',
           'Save-To-Storage': options.saveToStorage ? 'true' : 'false' 
         }
       }

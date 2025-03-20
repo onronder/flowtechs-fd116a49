@@ -12,19 +12,42 @@ serve(async (req) => {
   }
 
   try {
-    const { executionId, limit = 10 } = await req.json();
+    console.log("Dataset_Preview request received");
+    
+    // Parse the request body
+    let body;
+    try {
+      body = await req.json();
+      console.log("Request body:", JSON.stringify(body));
+    } catch (error) {
+      console.error("Error parsing request body:", error);
+      return errorResponse("Invalid JSON in request body", 400);
+    }
+    
+    // Validate required parameters
+    const { executionId, limit = 10 } = body;
+
+    if (!executionId) {
+      console.error("Missing executionId parameter");
+      return errorResponse("Missing required parameter: executionId", 400);
+    }
+
+    // Initialize Supabase client with authorization from the request
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
       { global: { headers: { Authorization: req.headers.get("Authorization")! } } }
     );
 
-    // Get the user ID
+    // Get the user ID for security checks
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
+      console.error("Authentication error:", userError);
       return errorResponse("Authentication required", 401);
     }
 
+    console.log(`Fetching execution ID: ${executionId} for user: ${user.id}`);
+    
     // Get execution data
     const { data: execution, error: executionError } = await supabaseClient
       .from("dataset_executions")
@@ -33,12 +56,14 @@ serve(async (req) => {
         dataset:dataset_id(*)
       `)
       .eq("id", executionId)
-      .eq("user_id", user.id)
       .single();
 
     if (executionError) {
-      return errorResponse(`Execution error: ${executionError.message}`, 400);
+      console.error("Error fetching execution:", executionError);
+      return errorResponse(`Execution not found: ${executionError.message}`, 404);
     }
+    
+    console.log(`Found execution with status: ${execution.status}`);
 
     // Return appropriate data based on execution status
     if (execution.status === "running" || execution.status === "pending") {
