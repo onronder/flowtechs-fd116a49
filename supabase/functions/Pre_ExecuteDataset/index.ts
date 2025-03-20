@@ -1,17 +1,14 @@
+
 // supabase/functions/Pre_ExecuteDataset/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json"
-};
+import { corsHeaders, handleCors, errorResponse, successResponse } from "../_shared/cors.ts";
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  // Handle CORS preflight requests
+  const corsResponse = handleCors(req);
+  if (corsResponse) {
+    return corsResponse;
   }
 
   try {
@@ -147,18 +144,11 @@ serve(async (req) => {
     }
 
     // Return a response
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: "Dataset execution initiated"
-      }),
-      { headers: corsHeaders, status: 200 }
-    );
+    return successResponse({
+      message: "Dataset execution initiated"
+    });
   } catch (error) {
     console.error("Error in Pre_ExecuteDataset:", error);
-    return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { headers: corsHeaders, status: 500 }
-    );
+    return errorResponse(error.message, 500);
   }
 });

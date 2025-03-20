@@ -1,17 +1,14 @@
+
 // supabase/functions/Dataset_Preview/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json"
-};
+import { corsHeaders, handleCors, errorResponse, successResponse } from "../_shared/cors.ts";
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  // Handle CORS preflight requests
+  const corsResponse = handleCors(req);
+  if (corsResponse) {
+    return corsResponse;
   }
 
   try {
@@ -25,13 +22,7 @@ serve(async (req) => {
     // Get the user ID
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: "Authentication required" 
-        }),
-        { headers: corsHeaders, status: 401 }
-      );
+      return errorResponse("Authentication required", 401);
     }
 
     // Get execution data
@@ -46,36 +37,19 @@ serve(async (req) => {
       .single();
 
     if (executionError) {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: `Execution error: ${executionError.message}` 
-        }),
-        { headers: corsHeaders, status: 400 }
-      );
+      return errorResponse(`Execution error: ${executionError.message}`, 400);
     }
 
     // Return appropriate data based on execution status
     if (execution.status === "running" || execution.status === "pending") {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          status: execution.status,
-          message: "Dataset execution is still in progress"
-        }),
-        { headers: corsHeaders, status: 200 }
-      );
+      return successResponse({
+        status: execution.status,
+        message: "Dataset execution is still in progress"
+      });
     }
 
     if (execution.status === "failed") {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          status: "failed",
-          error: execution.error_message || "Dataset execution failed"
-        }),
-        { headers: corsHeaders, status: 400 }
-      );
+      return errorResponse(execution.error_message || "Dataset execution failed", 400);
     }
 
     // Get preview data
@@ -87,34 +61,27 @@ serve(async (req) => {
       ? Object.keys(preview[0]).map(key => ({ key, label: key }))
       : [];
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        status: execution.status,
-        execution: {
-          id: execution.id,
-          startTime: execution.start_time,
-          endTime: execution.end_time,
-          rowCount: execution.row_count,
-          executionTimeMs: execution.execution_time_ms,
-          apiCallCount: execution.api_call_count
-        },
-        dataset: {
-          id: execution.dataset.id,
-          name: execution.dataset.name,
-          type: execution.dataset.dataset_type
-        },
-        columns,
-        preview,
-        totalCount: execution.row_count
-      }),
-      { headers: corsHeaders, status: 200 }
-    );
+    return successResponse({
+      status: execution.status,
+      execution: {
+        id: execution.id,
+        startTime: execution.start_time,
+        endTime: execution.end_time,
+        rowCount: execution.row_count,
+        executionTimeMs: execution.execution_time_ms,
+        apiCallCount: execution.api_call_count
+      },
+      dataset: {
+        id: execution.dataset.id,
+        name: execution.dataset.name,
+        type: execution.dataset.dataset_type
+      },
+      columns,
+      preview,
+      totalCount: execution.row_count
+    });
   } catch (error) {
     console.error("Error in Dataset_Preview:", error);
-    return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { headers: corsHeaders, status: 500 }
-    );
+    return errorResponse(error.message, 500);
   }
 });

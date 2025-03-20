@@ -1,17 +1,13 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json"
-};
+import { corsHeaders, handleCors, errorResponse, successResponse } from "../_shared/cors.ts";
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  // Handle CORS preflight requests
+  const corsResponse = handleCors(req);
+  if (corsResponse) {
+    return corsResponse;
   }
 
   try {
@@ -30,23 +26,11 @@ serve(async (req) => {
       .single();
 
     if (sourceError) {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: `Source error: ${sourceError.message}` 
-        }),
-        { headers: corsHeaders, status: 400 }
-      );
+      return errorResponse(`Source error: ${sourceError.message}`, 400);
     }
 
     if (source.source_type !== 'shopify') {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Only Shopify sources are supported for custom queries"
-        }),
-        { headers: corsHeaders, status: 400 }
-      );
+      return errorResponse("Only Shopify sources are supported for custom queries", 400);
     }
 
     // We have two possible ways to validate:
@@ -63,13 +47,7 @@ serve(async (req) => {
     }
 
     if (!graphqlQuery) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Either a query or resourceType and fields must be provided"
-        }),
-        { headers: corsHeaders, status: 400 }
-      );
+      return errorResponse("Either a query or resourceType and fields must be provided", 400);
     }
 
     // Validate the query against Shopify GraphQL API
@@ -99,46 +77,30 @@ serve(async (req) => {
 
     // Check for GraphQL errors
     if (result.errors) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          validation: {
-            valid: false,
-            error: result.errors[0].message
-          },
-          query: graphqlQuery
-        }),
-        { headers: corsHeaders, status: 200 } // Return 200 even for invalid queries
-      );
+      return successResponse({
+        success: false,
+        validation: {
+          valid: false,
+          error: result.errors[0].message
+        },
+        query: graphqlQuery
+      });
     }
 
     // If we reach here, the query is valid
-    return new Response(
-      JSON.stringify({
-        success: true,
-        validation: {
-          valid: true
-        },
-        query: graphqlQuery,
-        generated: generatedQuery,
-        sampleData: result.data ? result.data : null
-      }),
-      { headers: corsHeaders, status: 200 }
-    );
+    return successResponse({
+      success: true,
+      validation: {
+        valid: true
+      },
+      query: graphqlQuery,
+      generated: generatedQuery,
+      sampleData: result.data ? result.data : null
+    });
     
   } catch (error) {
     console.error("Error in Cust_ValidateQuery:", error);
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message,
-        validation: {
-          valid: false,
-          error: error.message
-        }
-      }),
-      { headers: corsHeaders, status: 500 }
-    );
+    return errorResponse(error.message, 500);
   }
 });
 
