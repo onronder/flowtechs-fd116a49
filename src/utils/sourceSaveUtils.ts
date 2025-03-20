@@ -1,7 +1,11 @@
+
 // src/utils/sourceSaveUtils.ts
 import { supabase } from "@/integrations/supabase/client";
 import { fetchSourceSchema } from "@/api/sourceApi";
 import { SourceDataForApi } from "@/types/source";
+import { Database } from "@/integrations/supabase/types";
+
+type SourceType = Database["public"]["Enums"]["source_type"];
 
 /**
  * Saves a Shopify source to the database
@@ -28,7 +32,7 @@ export async function saveShopifySource(sourceData: SourceDataForApi) {
       .insert({
         name,
         description,
-        source_type,
+        source_type: source_type as SourceType, // Cast to the expected enum type
         config,
         is_active: true,
         last_validated_at: new Date().toISOString(),

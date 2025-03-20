@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { saveSource as saveSourceUtil, updateShopifySource, SourceDataForApi } from "@/utils/sourceSaveUtils";
+import { saveSource as saveSourceUtil, updateShopifySource } from "@/utils/sourceSaveUtils";
+import { SourceDataForApi } from "@/types/source";
 
 export default function useSaveSource() {
   const [isSaving, setIsLoading] = useState(false);
