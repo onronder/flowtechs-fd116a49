@@ -1,10 +1,11 @@
 
 import { Source } from "@/hooks/useSources";
 import { testSourceConnection as apiTestSourceConnection, deleteSource as apiDeleteSource } from "@/api/sourceApi";
-import { Toast } from "@/components/ui/use-toast";
+import { toast } from "@/components/ui/use-toast";
+import { type ToastProps } from "@/components/ui/toast";
 
 // Define a proper toast type
-type ToastFunction = (props: Toast) => void;
+type ToastFunction = (props: ToastProps) => void;
 
 /**
  * Tests a connection to a source
