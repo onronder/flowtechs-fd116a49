@@ -63,7 +63,10 @@ export function useSaveSource() {
           description: "Your source has been saved successfully."
         });
         
-        navigate("/sources");
+        // Navigate to the sources page and ensure it reloads
+        setTimeout(() => {
+          navigate("/sources", { replace: true });
+        }, 100);
         return { success: true };
       }
       
