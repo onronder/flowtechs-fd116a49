@@ -11,7 +11,10 @@ export async function validateSourceConnection(sourceType: string, credentials: 
       sourceType, 
       credentials: { 
         ...credentials, 
-        accessToken: credentials.accessToken ? "REDACTED" : undefined 
+        accessToken: credentials.accessToken ? "REDACTED" : undefined,
+        apiKey: credentials.apiKey ? "REDACTED" : undefined,
+        password: credentials.password ? "REDACTED" : undefined,
+        consumerSecret: credentials.consumerSecret ? "REDACTED" : undefined
       } 
     });
     
@@ -65,7 +68,10 @@ export async function testSourceConnection(sourceId: string, source: Source) {
       sourceType: source.source_type,
       config: { 
         ...source.config, 
-        accessToken: source.config.accessToken ? "REDACTED" : undefined 
+        accessToken: source.config.accessToken ? "REDACTED" : undefined,
+        apiKey: source.config.apiKey ? "REDACTED" : undefined,
+        password: source.config.password ? "REDACTED" : undefined,
+        consumerSecret: source.config.consumerSecret ? "REDACTED" : undefined 
       } 
     });
     

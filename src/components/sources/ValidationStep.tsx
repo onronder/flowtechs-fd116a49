@@ -34,7 +34,13 @@ export default function ValidationStep({ sourceData, onBack, existingId }: Valid
       // Log for debugging
       console.log("Saving source data:", {
         ...sourceData,
-        credentials: { ...sourceData.credentials, accessToken: sourceData.credentials?.accessToken ? "REDACTED" : undefined }
+        credentials: { 
+          ...sourceData.credentials, 
+          accessToken: sourceData.credentials?.accessToken ? "REDACTED" : undefined,
+          apiKey: sourceData.credentials?.apiKey ? "REDACTED" : undefined,
+          password: sourceData.credentials?.password ? "REDACTED" : undefined,
+          consumerSecret: sourceData.credentials?.consumerSecret ? "REDACTED" : undefined
+        }
       });
 
       const userData = await supabase.auth.getUser();
@@ -61,7 +67,13 @@ export default function ValidationStep({ sourceData, onBack, existingId }: Valid
 
       console.log("Inserting source record:", {
         ...sourceRecord,
-        config: { ...sourceRecord.config, accessToken: sourceRecord.config?.accessToken ? "REDACTED" : undefined }
+        config: { 
+          ...sourceRecord.config, 
+          accessToken: sourceRecord.config?.accessToken ? "REDACTED" : undefined,
+          apiKey: sourceRecord.config?.apiKey ? "REDACTED" : undefined,
+          password: sourceRecord.config?.password ? "REDACTED" : undefined,
+          consumerSecret: sourceRecord.config?.consumerSecret ? "REDACTED" : undefined 
+        }
       });
 
       let sourceId;
@@ -173,6 +185,7 @@ export default function ValidationStep({ sourceData, onBack, existingId }: Valid
           </div>
         </div>
 
+        {/* Render Shopify specific info if available */}
         {sourceData.type === "shopify" && sourceData.validationResult?.shopInfo && (
           <div className="border rounded-lg p-4">
             <h4 className="text-sm font-medium mb-1">Shopify Shop Information</h4>
@@ -180,9 +193,52 @@ export default function ValidationStep({ sourceData, onBack, existingId }: Valid
               <div className="font-medium">Shop Name:</div>
               <div>{sourceData.validationResult.shopInfo.name}</div>
               <div className="font-medium">Plan:</div>
-              <div>{sourceData.validationResult.shopInfo.plan.displayName}</div>
+              <div>{sourceData.validationResult.shopInfo.plan?.displayName || "N/A"}</div>
               <div className="font-medium">API Version:</div>
               <div>{sourceData.credentials.api_version}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Render WooCommerce specific info if available */}
+        {sourceData.type === "woocommerce" && sourceData.validationResult?.shopInfo && (
+          <div className="border rounded-lg p-4">
+            <h4 className="text-sm font-medium mb-1">WooCommerce Site Information</h4>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="font-medium">Site URL:</div>
+              <div>{sourceData.validationResult.shopInfo.name}</div>
+              <div className="font-medium">Connection Status:</div>
+              <div>{sourceData.validationResult.shopInfo.connectionStatus}</div>
+              <div className="font-medium">API Version:</div>
+              <div>{sourceData.credentials.api_version || "v3"}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Render FTP/SFTP specific info if available */}
+        {sourceData.type === "ftp_sftp" && sourceData.validationResult?.connectionInfo && (
+          <div className="border rounded-lg p-4">
+            <h4 className="text-sm font-medium mb-1">FTP/SFTP Connection Information</h4>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="font-medium">Host:</div>
+              <div>{sourceData.validationResult.connectionInfo.host}</div>
+              <div className="font-medium">Protocol:</div>
+              <div>{sourceData.validationResult.connectionInfo.protocol}</div>
+              <div className="font-medium">Status:</div>
+              <div>{sourceData.validationResult.connectionInfo.connectionStatus}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Render Custom API specific info if available */}
+        {sourceData.type === "custom_api" && sourceData.validationResult?.apiInfo && (
+          <div className="border rounded-lg p-4">
+            <h4 className="text-sm font-medium mb-1">Custom API Information</h4>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="font-medium">Base URL:</div>
+              <div>{sourceData.validationResult.apiInfo.baseUrl}</div>
+              <div className="font-medium">Status:</div>
+              <div>{sourceData.validationResult.apiInfo.connectionStatus}</div>
             </div>
           </div>
         )}
