@@ -34,27 +34,36 @@ export async function fetchUserDatasets() {
       .from("user_datasets")
       .select(`
         *,
-        source:source_id(*),
-        last_execution:dataset_executions(
-          id,
-          status,
-          start_time,
-          end_time,
-          row_count,
-          execution_time_ms
-        )
+        source:source_id(*)
       `)
       .order("created_at", { ascending: false });
       
     if (error) throw error;
     
-    // Process the data to add some computed properties
-    return data.map(dataset => ({
-      ...dataset,
-      last_execution_id: dataset.last_execution?.[0]?.id,
-      last_execution_time: dataset.last_execution?.[0]?.end_time,
-      last_row_count: dataset.last_execution?.[0]?.row_count
-    }));
+    // Get the last execution for each dataset separately
+    const datasetsWithExecution = await Promise.all(
+      data.map(async (dataset) => {
+        const { data: executions, error: execError } = await supabase
+          .from("dataset_executions")
+          .select("*")
+          .eq("dataset_id", dataset.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        
+        if (execError) console.error("Error fetching executions:", execError);
+        
+        const lastExecution = executions?.[0] || null;
+        
+        return {
+          ...dataset,
+          last_execution_id: lastExecution?.id,
+          last_execution_time: lastExecution?.end_time,
+          last_row_count: lastExecution?.row_count
+        };
+      })
+    );
+    
+    return datasetsWithExecution;
   } catch (error) {
     console.error("Error fetching datasets:", error);
     throw error;
