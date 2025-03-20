@@ -12,7 +12,7 @@ import BasicInfoForm from "./BasicInfoForm";
 import ShopifyCredentialsForm from "./ShopifyCredentialsForm";
 import ValidationStep from "./ValidationStep";
 import StepperHeader from "./StepperHeader";
-import useSourceForm, { SourceFormStep } from "@/hooks/useSourceForm";
+import useSourceForm from "@/hooks/useSourceForm";
 
 interface CreateSourceStepperProps {
   existingSource?: any;
@@ -29,7 +29,7 @@ export default function CreateSourceStepper({ existingSource, onCancel }: Create
     handleTypeSelection,
     handleInfoSubmit,
     handleCredentialsSubmit
-  } = useSourceForm({ existingSource });
+  } = useSourceForm(existingSource, { initialStep: existingSource ? "info" : "type" });
 
   // Helper for step descriptions
   const getStepDescription = (step: string): string => {

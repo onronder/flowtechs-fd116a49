@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,16 +18,37 @@ const defaultShopifySchema = z.object({
   api_version: z.string().min(1, { message: "API version is required" }),
 });
 
+interface UseSourceFormOptions {
+  nameValidation?: boolean;
+  initialStep?: SourceFormStep;
+}
+
 export default function useSourceForm(
-  initialData = null,
-  options = {
+  existingSource = null,
+  options: UseSourceFormOptions = {
     nameValidation: true,
+    initialStep: "type"
   }
 ) {
+  // Convert numeric step to SourceFormStep type
+  const [currentStep, setCurrentStep] = useState<SourceFormStep>(options.initialStep || "type");
   const [step, setStep] = useState(1);
   const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
+  
+  // Extract source data for the form
+  const initialData = existingSource || {};
+  const isEdit = !!existingSource;
+  
+  // Initialize sourceData state
+  const [sourceData, setSourceData] = useState({
+    type: initialData.source_type || "",
+    name: initialData.name || "",
+    description: initialData.description || "",
+    credentials: initialData.config || {},
+    validationResult: null
+  });
 
   const form = useForm({
     resolver: zodResolver(defaultShopifySchema),
@@ -46,7 +68,7 @@ export default function useSourceForm(
     try {
       const exists = await checkSourceNameExists(
         name, 
-        initialData?.id
+        existingSource?.id
       );
       return !exists;
     } catch (error) {
@@ -75,6 +97,62 @@ export default function useSourceForm(
     }
   };
 
+  // Handle type selection
+  const handleTypeSelection = (type: string) => {
+    setSourceData(prev => ({
+      ...prev,
+      type
+    }));
+    setCurrentStep("info");
+  };
+
+  // Handle info submission
+  const handleInfoSubmit = (data: { name: string; description: string }) => {
+    setSourceData(prev => ({
+      ...prev,
+      name: data.name,
+      description: data.description
+    }));
+    setCurrentStep("credentials");
+  };
+
+  // Handle credentials submission
+  const handleCredentialsSubmit = async (credentials: any) => {
+    try {
+      setIsValidating(true);
+      
+      // Update source data with credentials
+      const updatedSourceData = {
+        ...sourceData,
+        credentials
+      };
+      
+      setSourceData(updatedSourceData);
+      
+      // Validate connection
+      const result = await validateSourceConnection({
+        type: updatedSourceData.type,
+        ...credentials
+      });
+      
+      // If validation is successful, update source data and move to next step
+      if (result && result.success) {
+        setSourceData({
+          ...updatedSourceData,
+          validationResult: result
+        });
+        setCurrentStep("validate");
+      } else {
+        throw new Error(result?.error || "Validation failed");
+      }
+    } catch (error) {
+      console.error("Error validating credentials:", error);
+      setErrorMessage(error instanceof Error ? error.message : "Validation failed");
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
   const nextStep = () => setStep(step + 1);
   const prevStep = () => setStep(step - 1);
   const resetSteps = () => setStep(1);
@@ -90,5 +168,13 @@ export default function useSourceForm(
     errorMessage,
     validateConnection,
     checkNameUnique,
+    // Additional properties needed by CreateSourceStepper
+    currentStep,
+    setCurrentStep,
+    sourceData,
+    isEdit,
+    handleTypeSelection,
+    handleInfoSubmit,
+    handleCredentialsSubmit
   };
 }
