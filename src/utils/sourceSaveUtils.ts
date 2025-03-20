@@ -23,7 +23,8 @@ type ToastProps = {
 };
 
 /**
- * Saves a source to Supabase database using database functions
+ * Saves a source to Supabase database using direct table operations
+ * instead of database functions, which helps avoid user_id issues
  */
 export async function saveSource(
   sourceData: SourceData, 
@@ -31,7 +32,7 @@ export async function saveSource(
   toast?: (props: ToastProps) => void
 ) {
   try {
-    // Log for debugging
+    // Log for debugging (redact sensitive info)
     console.log("Saving source data:", {
       ...sourceData,
       credentials: { 
@@ -45,59 +46,61 @@ export async function saveSource(
 
     let result;
     
+    // First, get the current authenticated user
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData?.user?.id;
+
+    if (!userId) {
+      throw new Error("You must be logged in to save a source.");
+    }
+    
     if (existingId) {
-      // Update existing source using database function
-      const { data, error } = await supabase.rpc('update_source', {
-        p_id: existingId,
-        p_name: sourceData.name,
-        p_description: sourceData.description || null,
-        p_config: sourceData.credentials
-      });
+      // Update existing source using direct table operations
+      const { data, error } = await supabase
+        .from('sources')
+        .update({
+          name: sourceData.name,
+          description: sourceData.description || null,
+          config: sourceData.credentials,
+          updated_at: new Date().toISOString(),
+          last_validated_at: new Date().toISOString()
+        })
+        .eq('id', existingId)
+        .select();
       
       if (error) {
         console.error("Error updating source:", error);
         throw error;
       }
       
-      // Check for function-level errors
-      if (data && typeof data === 'object' && 'error' in data) {
-        console.error("Function error updating source:", data);
-        throw new Error(`Database error: ${(data as any).error}`);
-      }
-      
-      // Properly handle the data response
-      const responseData = data as Record<string, any>;
       result = { sourceId: existingId, success: true };
-      console.log("Source updated successfully:", responseData);
+      console.log("Source updated successfully:", data);
     } else {
-      // Create new source using database function
-      const { data, error } = await supabase.rpc('insert_source', {
-        p_name: sourceData.name,
-        p_description: sourceData.description || null,
-        p_source_type: sourceData.type,
-        p_config: sourceData.credentials
-      });
+      // Create new source using direct table operations
+      const { data, error } = await supabase
+        .from('sources')
+        .insert({
+          name: sourceData.name,
+          description: sourceData.description || null,
+          source_type: sourceData.type as SourceType,
+          config: sourceData.credentials,
+          user_id: userId,
+          is_active: true,
+          last_validated_at: new Date().toISOString()
+        })
+        .select();
       
       if (error) {
         console.error("Error inserting source:", error);
         throw error;
       }
       
-      // Check for function-level errors
-      if (data && typeof data === 'object' && 'error' in data) {
-        console.error("Function error inserting source:", data);
-        throw new Error(`Database error: ${(data as any).error}`);
-      }
-      
-      // Properly handle the data response
-      const responseData = data as Record<string, any>;
-      const sourceId = responseData.id as string;
-      
-      if (!sourceId) {
+      if (!data || data.length === 0) {
         throw new Error("Failed to get source ID after saving");
       }
       
-      console.log("Source created successfully, ID:", sourceId, "Data:", responseData);
+      const sourceId = data[0].id;
+      console.log("Source created successfully, ID:", sourceId);
       result = { sourceId, success: true };
     }
 

@@ -8,12 +8,14 @@ import EmptySourcesState from "@/components/sources/EmptySourcesState";
 import CreateSourceStepper from "@/components/sources/CreateSourceStepper";
 import { testSourceConnection, deleteSource } from "@/utils/sourceUtils";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/AuthContext";
 
 const Sources = () => {
   const { sources, loading, fetchSources } = useSources();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [sourceToEdit, setSourceToEdit] = useState<Source | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   // Source action handlers
   async function handleTestSource(id: string) {
@@ -49,6 +51,11 @@ const Sources = () => {
   function handleCancelCreate() {
     setShowCreateForm(false);
     setSourceToEdit(null);
+  }
+
+  // If not authenticated, the AuthRoute component will handle redirect
+  if (!user) {
+    return null;
   }
 
   return (
