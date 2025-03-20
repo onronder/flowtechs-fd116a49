@@ -1,10 +1,12 @@
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { checkSourceNameExists } from "@/utils/sourceSaveUtils";
 import { validateSourceConnection } from "@/api/sourceApi";
+
+// Define the step type
+export type SourceFormStep = "type" | "info" | "credentials" | "validate";
 
 const defaultShopifySchema = z.object({
   name: z.string().min(3, { message: "Name must be at least 3 characters" }),

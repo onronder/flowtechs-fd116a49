@@ -12,7 +12,7 @@ import BasicInfoForm from "./BasicInfoForm";
 import ShopifyCredentialsForm from "./ShopifyCredentialsForm";
 import ValidationStep from "./ValidationStep";
 import StepperHeader from "./StepperHeader";
-import { useSourceForm } from "@/hooks/useSourceForm";
+import useSourceForm, { SourceFormStep } from "@/hooks/useSourceForm";
 
 interface CreateSourceStepperProps {
   existingSource?: any;

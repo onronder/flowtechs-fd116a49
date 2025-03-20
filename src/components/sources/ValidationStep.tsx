@@ -5,7 +5,7 @@ import SourceInfoDisplay from "./SourceInfoDisplay";
 import SourceValidationDetails from "./SourceValidationDetails";
 import ConnectionSuccessMessage from "./ConnectionSuccessMessage";
 import ValidationStepActions from "./ValidationStepActions";
-import { useSaveSource } from "@/hooks/useSaveSource";
+import useSaveSource from "@/hooks/useSaveSource";
 
 interface ValidationStepProps {
   sourceData: SourceData;

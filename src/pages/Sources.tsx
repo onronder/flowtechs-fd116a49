@@ -46,6 +46,10 @@ export default function Sources() {
     await testSourceConnection(id, toast);
   }
 
+  function handleAddNew() {
+    window.location.href = "/sources/new";
+  }
+
   return (
     <div className="h-full">
       <div className="mb-6 flex justify-between items-center">
@@ -54,7 +58,7 @@ export default function Sources() {
           <p className="text-muted-foreground">Connect to your data sources</p>
         </div>
         
-        <Button onClick={() => window.location.href = "/sources/new"}>
+        <Button onClick={handleAddNew}>
           <Plus className="mr-2 h-4 w-4" />
           Add Source
         </Button>
@@ -65,12 +69,14 @@ export default function Sources() {
           <LoadingSpinner size="lg" />
         </div>
       ) : sources.length === 0 ? (
-        <EmptySourcesState />
+        <EmptySourcesState onAddNew={handleAddNew} />
       ) : (
         <SourcesGrid
           sources={sources}
-          onTestConnection={handleTestConnection}
-          onDeleteSource={handleDeleteSource}
+          onTest={handleTestConnection}
+          onEdit={(id) => window.location.href = `/sources/${id}/edit`}
+          onDelete={handleDeleteSource}
+          onAddNew={handleAddNew}
         />
       )}
     </div>
