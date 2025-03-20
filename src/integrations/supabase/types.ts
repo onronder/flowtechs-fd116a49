@@ -9,6 +9,149 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      dataset_executions: {
+        Row: {
+          api_call_count: number | null
+          created_at: string | null
+          data: Json | null
+          dataset_id: string
+          end_time: string | null
+          error_message: string | null
+          execution_time_ms: number | null
+          id: string
+          metadata: Json | null
+          row_count: number | null
+          start_time: string | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          api_call_count?: number | null
+          created_at?: string | null
+          data?: Json | null
+          dataset_id: string
+          end_time?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          metadata?: Json | null
+          row_count?: number | null
+          start_time?: string | null
+          status: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          api_call_count?: number | null
+          created_at?: string | null
+          data?: Json | null
+          dataset_id?: string
+          end_time?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          metadata?: Json | null
+          row_count?: number | null
+          start_time?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dataset_executions_dataset_id_fkey"
+            columns: ["dataset_id"]
+            isOneToOne: false
+            referencedRelation: "user_datasets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dependent_query_templates: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          display_name: string
+          id: string
+          id_path: string
+          is_active: boolean | null
+          merge_strategy: string
+          name: string
+          primary_query: string
+          secondary_query: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          display_name: string
+          id?: string
+          id_path: string
+          is_active?: boolean | null
+          merge_strategy: string
+          name: string
+          primary_query: string
+          secondary_query: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          display_name?: string
+          id?: string
+          id_path?: string
+          is_active?: boolean | null
+          merge_strategy?: string
+          name?: string
+          primary_query?: string
+          secondary_query?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      query_templates: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          display_name: string
+          field_list: Json | null
+          id: string
+          is_active: boolean | null
+          name: string
+          query_template: string
+          resource_type: string
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          display_name: string
+          field_list?: Json | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          query_template: string
+          resource_type: string
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          display_name?: string
+          field_list?: Json | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          query_template?: string
+          resource_type?: string
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       source_schemas: {
         Row: {
           api_version: string
@@ -79,6 +222,97 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_datasets: {
+        Row: {
+          created_at: string | null
+          custom_fields: Json | null
+          custom_query: string | null
+          dataset_type: string
+          description: string | null
+          id: string
+          name: string
+          parameters: Json | null
+          source_id: string
+          template_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          custom_fields?: Json | null
+          custom_query?: string | null
+          dataset_type: string
+          description?: string | null
+          id?: string
+          name: string
+          parameters?: Json | null
+          source_id: string
+          template_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          custom_fields?: Json | null
+          custom_query?: string | null
+          dataset_type?: string
+          description?: string | null
+          id?: string
+          name?: string
+          parameters?: Json | null
+          source_id?: string
+          template_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_datasets_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_storage_exports: {
+        Row: {
+          created_at: string | null
+          execution_id: string
+          file_path: string
+          file_size: number | null
+          format: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          execution_id: string
+          file_path: string
+          file_size?: number | null
+          format: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          execution_id?: string
+          file_path?: string
+          file_size?: number | null
+          format?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_storage_exports_execution_id_fkey"
+            columns: ["execution_id"]
+            isOneToOne: false
+            referencedRelation: "dataset_executions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
