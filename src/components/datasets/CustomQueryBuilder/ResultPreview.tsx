@@ -1,7 +1,7 @@
 
 interface ResultPreviewProps {
   data: any;
-  resourceType: string;
+  resourceType?: string;
 }
 
 export default function ResultPreview({ data, resourceType }: ResultPreviewProps) {

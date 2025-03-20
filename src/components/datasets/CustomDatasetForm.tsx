@@ -13,6 +13,7 @@ import ResourceSelector from "./CustomQueryBuilder/ResourceSelector";
 import FieldSelector from "./CustomQueryBuilder/FieldSelector";
 import QueryPreview from "./CustomQueryBuilder/QueryPreview";
 import ResultPreview from "./CustomQueryBuilder/ResultPreview";
+import CustomQueryBuilder from "./CustomQueryBuilder/CustomQueryBuilder";
 
 interface CustomDatasetFormProps {
   source: any;
@@ -21,17 +22,12 @@ interface CustomDatasetFormProps {
 }
 
 export default function CustomDatasetForm({ source, onBack, onComplete }: CustomDatasetFormProps) {
-  const [step, setStep] = useState<'info' | 'resource' | 'fields' | 'preview'>('info');
+  const [step, setStep] = useState<'info' | 'builder'>('info');
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [customQuery, setCustomQuery] = useState("");
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [resourceType, setResourceType] = useState("");
-  const [selectedResource, setSelectedResource] = useState<any>(null);
-  const [resources, setResources] = useState<any[]>([]);
-  const [schema, setSchema] = useState<any>(null);
-  const [previewData, setPreviewData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   
@@ -56,34 +52,11 @@ export default function CustomDatasetForm({ source, onBack, onComplete }: Custom
     });
   };
 
-  const handleResourceSelect = async (resource: any) => {
-    // This would be implemented when the feature is ready
-    // For now, we're showing a message that the feature is under development
-    toast({
-      title: "Not implemented",
-      description: "This feature is currently under development.",
-    });
-  };
-
-  const handleFieldsSelect = (fields: string[]) => {
-    // This would be implemented when the feature is ready
-    // For now, we're showing a message that the feature is under development
-    toast({
-      title: "Not implemented",
-      description: "This feature is currently under development.",
-    });
-  };
-
-  const handlePreviewQuery = async () => {
-    // This would be implemented when the feature is ready
-    // For now, we're showing a message that the feature is under development
-    toast({
-      title: "Not implemented",
-      description: "This feature is currently under development.",
-    });
-  };
-
-  const handleCreateDataset = async () => {
+  const handleQueryBuilderComplete = async (queryData: {
+    query: string;
+    fields: string[];
+    resourceType: string;
+  }) => {
     // This would be implemented when the feature is ready
     // For now, we're showing a message that the feature is under development
     toast({

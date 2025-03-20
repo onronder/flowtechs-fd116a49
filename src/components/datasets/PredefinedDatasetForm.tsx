@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +41,6 @@ export default function PredefinedDatasetForm({
   
   const { toast } = useToast();
 
-  // Load templates when component mounts
   useEffect(() => {
     loadTemplates();
   }, []);
@@ -53,7 +51,6 @@ export default function PredefinedDatasetForm({
       setError("");
       const data = await fetchPredefinedTemplates();
       
-      // Filter templates based on source type if needed
       const filteredTemplates = data
         .filter(template => 
           (source.source_type === "shopify" && template.resource_type) ||
@@ -132,7 +129,6 @@ export default function PredefinedDatasetForm({
 
   const selectedTemplateObject = templates.find(t => t.id === selectedTemplate);
 
-  // Group templates by resource type
   const groupedTemplates = templates.reduce((acc, template) => {
     const resourceType = template.resource_type || 'Other';
     if (!acc[resourceType]) {
