@@ -1,23 +1,12 @@
-
 // src/utils/sourceSaveUtils.ts
 import { supabase } from "@/integrations/supabase/client";
 import { fetchSourceSchema } from "@/api/sourceApi";
-import { Source } from "@/hooks/useSources";
-
-/**
- * Source data interface
- */
-export interface SourceData {
-  name: string;
-  description?: string;
-  source_type: string;
-  [key: string]: any;
-}
+import { SourceDataForApi } from "@/types/source";
 
 /**
  * Saves a Shopify source to the database
  */
-export async function saveShopifySource(sourceData: any) {
+export async function saveShopifySource(sourceData: SourceDataForApi) {
   try {
     // Get the current user ID
     const { data: userData } = await supabase.auth.getUser();
@@ -26,20 +15,12 @@ export async function saveShopifySource(sourceData: any) {
     }
 
     // Process the source data
-    const { name, description, storeName, clientId, accessToken, api_version } = sourceData;
+    const { name, description, source_type, config } = sourceData;
     
     // Validate required fields
-    if (!name || !storeName || !clientId || !accessToken || !api_version) {
+    if (!name || !source_type || !config) {
       throw new Error("Missing required fields for Shopify source");
     }
-    
-    // Prepare config object
-    const config = {
-      storeName,
-      clientId,
-      accessToken,
-      api_version
-    };
     
     // Create the source record
     const { data: source, error } = await supabase
@@ -47,7 +28,7 @@ export async function saveShopifySource(sourceData: any) {
       .insert({
         name,
         description,
-        source_type: "shopify",
+        source_type,
         config,
         is_active: true,
         last_validated_at: new Date().toISOString(),
@@ -79,23 +60,15 @@ export async function saveShopifySource(sourceData: any) {
 /**
  * Updates a Shopify source in the database
  */
-export async function updateShopifySource(sourceId: string, sourceData: any) {
+export async function updateShopifySource(sourceId: string, sourceData: SourceDataForApi) {
   try {
     // Process the source data
-    const { name, description, storeName, clientId, accessToken, api_version } = sourceData;
+    const { name, description, config } = sourceData;
     
     // Validate required fields
-    if (!name || !storeName || !clientId || !accessToken || !api_version) {
+    if (!name || !config) {
       throw new Error("Missing required fields for Shopify source");
     }
-    
-    // Prepare updated config object
-    const config = {
-      storeName,
-      clientId,
-      accessToken,
-      api_version
-    };
     
     // Update the source record
     const { data: source, error } = await supabase
@@ -162,7 +135,7 @@ export async function checkSourceNameExists(name: string, excludeId?: string): P
 /**
  * Generic function to save a source based on its type
  */
-export async function saveSource(sourceData: SourceData) {
+export async function saveSource(sourceData: SourceDataForApi) {
   if (sourceData.source_type === 'shopify') {
     return saveShopifySource(sourceData);
   }

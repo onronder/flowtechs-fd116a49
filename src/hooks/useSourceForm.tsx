@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { checkSourceNameExists } from "@/utils/sourceSaveUtils";
 import { validateSourceConnection } from "@/api/sourceApi";
+import { SourceData } from "@/types/source";
 
 // Define the step type
 export type SourceFormStep = "type" | "info" | "credentials" | "validate";
@@ -41,8 +42,8 @@ export default function useSourceForm(
   const initialData = existingSource || {};
   const isEdit = !!existingSource;
   
-  // Initialize sourceData state
-  const [sourceData, setSourceData] = useState({
+  // Initialize sourceData state with the correct structure
+  const [sourceData, setSourceData] = useState<SourceData>({
     type: initialData.source_type || "",
     name: initialData.name || "",
     description: initialData.description || "",

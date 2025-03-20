@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { SourceData } from "@/utils/sourceSaveUtils";
+import { SourceData } from "@/types/source";
 import SourceInfoDisplay from "./SourceInfoDisplay";
 import SourceValidationDetails from "./SourceValidationDetails";
 import ConnectionSuccessMessage from "./ConnectionSuccessMessage";
@@ -17,7 +17,16 @@ export default function ValidationStep({ sourceData, onBack, existingId }: Valid
   const { isSaving, handleSaveSource } = useSaveSource();
 
   const handleSave = async () => {
-    await handleSaveSource(sourceData, existingId);
+    // Convert from our internal format to the API format
+    const apiSourceData = {
+      name: sourceData.name,
+      description: sourceData.description,
+      source_type: sourceData.type,
+      config: sourceData.credentials,
+      validationResult: sourceData.validationResult
+    };
+    
+    await handleSaveSource(apiSourceData, existingId);
   };
 
   return (

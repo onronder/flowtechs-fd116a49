@@ -2,14 +2,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { saveSource as saveSourceUtil, updateShopifySource, SourceData } from "@/utils/sourceSaveUtils";
+import { saveSource as saveSourceUtil, updateShopifySource, SourceDataForApi } from "@/utils/sourceSaveUtils";
 
 export default function useSaveSource() {
   const [isSaving, setIsLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const handleSaveSource = async (sourceData: SourceData, existingId?: string) => {
+  const handleSaveSource = async (sourceData: SourceDataForApi, existingId?: string) => {
     try {
       setIsLoading(true);
       
