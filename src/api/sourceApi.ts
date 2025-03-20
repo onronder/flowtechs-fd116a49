@@ -49,3 +49,40 @@ export async function fetchSourceSchema(sourceId: string) {
     throw error;
   }
 }
+
+// Get source schedules
+export async function getSourceSchedules(sourceId: string) {
+  try {
+    const { data: datasets, error: datasetsError } = await supabase
+      .from("user_datasets")
+      .select("id")
+      .eq("source_id", sourceId);
+      
+    if (datasetsError) throw datasetsError;
+    if (!datasets || datasets.length === 0) {
+      return [];
+    }
+    
+    const datasetIds = datasets.map(d => d.id);
+    
+    const { data, error } = await supabase
+      .from("dataset_schedules")
+      .select(`
+        id,
+        dataset_id,
+        schedule_type,
+        next_run_time,
+        is_active,
+        parameters,
+        dataset:dataset_id(name)
+      `)
+      .in("dataset_id", datasetIds)
+      .order("next_run_time", { ascending: true });
+      
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching source schedules:", error);
+    return [];
+  }
+}

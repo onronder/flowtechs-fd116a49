@@ -68,6 +68,119 @@ export type Database = {
           },
         ]
       }
+      dataset_job_queue: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          dataset_id: string
+          error_message: string | null
+          id: string
+          max_retries: number | null
+          priority: number | null
+          retry_count: number | null
+          schedule_id: string | null
+          scheduled_time: string
+          started_at: string | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          dataset_id: string
+          error_message?: string | null
+          id?: string
+          max_retries?: number | null
+          priority?: number | null
+          retry_count?: number | null
+          schedule_id?: string | null
+          scheduled_time: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          dataset_id?: string
+          error_message?: string | null
+          id?: string
+          max_retries?: number | null
+          priority?: number | null
+          retry_count?: number | null
+          schedule_id?: string | null
+          scheduled_time?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dataset_job_queue_dataset_id_fkey"
+            columns: ["dataset_id"]
+            isOneToOne: false
+            referencedRelation: "user_datasets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dataset_job_queue_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "dataset_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dataset_schedules: {
+        Row: {
+          created_at: string | null
+          cron_expression: string
+          dataset_id: string
+          id: string
+          is_active: boolean | null
+          next_run_time: string | null
+          parameters: Json | null
+          schedule_type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          cron_expression: string
+          dataset_id: string
+          id?: string
+          is_active?: boolean | null
+          next_run_time?: string | null
+          parameters?: Json | null
+          schedule_type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          cron_expression?: string
+          dataset_id?: string
+          id?: string
+          is_active?: boolean | null
+          next_run_time?: string | null
+          parameters?: Json | null
+          schedule_type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dataset_schedules_dataset_id_fkey"
+            columns: ["dataset_id"]
+            isOneToOne: false
+            referencedRelation: "user_datasets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dependent_query_templates: {
         Row: {
           created_at: string | null

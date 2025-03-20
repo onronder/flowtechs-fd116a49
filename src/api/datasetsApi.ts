@@ -87,16 +87,48 @@ export async function fetchUserDatasets() {
       });
     }
     
-    // Merge datasets with executions
+    // Fetch schedules for each dataset
+    const { data: schedules, error: schedulesError } = await supabase
+      .from("dataset_schedules")
+      .select(`
+        id,
+        dataset_id,
+        schedule_type,
+        next_run_time,
+        is_active
+      `)
+      .in("dataset_id", datasetIds);
+      
+    if (schedulesError) {
+      console.error("Error fetching schedules:", schedulesError);
+      // Continue without schedule data
+    }
+    
+    // Map schedules to datasets
+    const schedulesByDataset = {};
+    if (schedules) {
+      schedules.forEach(schedule => {
+        schedulesByDataset[schedule.dataset_id] = schedule;
+      });
+    }
+    
+    // Merge datasets with executions and schedules
     return datasets.map(dataset => {
       const datasetExecutions = executionsByDataset[dataset.id] || [];
       const lastExecution = datasetExecutions.length > 0 ? datasetExecutions[0] : null;
+      const schedule = schedulesByDataset[dataset.id] || null;
       
       return {
         ...dataset,
         last_execution_id: lastExecution?.id,
         last_execution_time: lastExecution?.end_time,
-        last_row_count: lastExecution?.row_count
+        last_row_count: lastExecution?.row_count,
+        schedule: schedule ? {
+          id: schedule.id,
+          type: schedule.schedule_type,
+          next_run_time: schedule.next_run_time,
+          is_active: schedule.is_active
+        } : null
       };
     });
   } catch (error) {
@@ -386,7 +418,16 @@ export async function getExecutionDetails(executionId: string) {
 }
 
 // Schedule dataset execution
-export async function scheduleDatasetExecution(datasetId: string, schedule: { type: string, value?: string }) {
+export async function scheduleDatasetExecution(datasetId: string, schedule: { 
+  type: 'once' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'custom';
+  value?: string;
+  date?: string;
+  time?: string;
+  dayOfWeek?: number;
+  dayOfMonth?: number;
+  hour?: number;
+  minute?: number;
+}) {
   try {
     const { data, error } = await supabase.functions.invoke(
       "Dataset_Schedule",
@@ -397,6 +438,70 @@ export async function scheduleDatasetExecution(datasetId: string, schedule: { ty
     return data;
   } catch (error) {
     console.error("Error scheduling dataset:", error);
+    throw error;
+  }
+}
+
+// Get dataset schedules
+export async function getDatasetSchedules(datasetId?: string) {
+  try {
+    let query = supabase
+      .from("dataset_schedules")
+      .select(`
+        id,
+        dataset_id,
+        schedule_type,
+        next_run_time,
+        is_active,
+        parameters,
+        dataset:dataset_id(name)
+      `)
+      .order("next_run_time", { ascending: true });
+      
+    if (datasetId) {
+      query = query.eq("dataset_id", datasetId);
+    }
+    
+    const { data, error } = await query;
+      
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching schedules:", error);
+    return [];
+  }
+}
+
+// Delete dataset schedule
+export async function deleteDatasetSchedule(scheduleId: string) {
+  try {
+    const { error } = await supabase
+      .from("dataset_schedules")
+      .delete()
+      .eq("id", scheduleId);
+      
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error("Error deleting schedule:", error);
+    throw error;
+  }
+}
+
+// Toggle dataset schedule activation
+export async function toggleScheduleActivation(scheduleId: string, isActive: boolean) {
+  try {
+    const { data, error } = await supabase
+      .from("dataset_schedules")
+      .update({ is_active: isActive })
+      .eq("id", scheduleId)
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("Error toggling schedule activation:", error);
     throw error;
   }
 }

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { executeDataset, deleteDataset } from "@/api/datasetsApi";
+import { executeDataset, deleteDataset, scheduleDatasetExecution } from "@/api/datasetsApi";
 import DatasetMetadata from "./DatasetMetadata";
 import DatasetInfo from "./DatasetInfo";
 import DatasetActions from "./DatasetActions";
@@ -21,6 +21,12 @@ type Dataset = {
   last_execution_time?: string;
   last_row_count?: number;
   last_execution_id?: string;
+  schedule?: {
+    id: string;
+    type: string;
+    next_run_time?: string;
+    is_active: boolean;
+  };
 };
 
 interface DatasetCardProps {
@@ -97,6 +103,32 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
     }
   }
 
+  async function handleScheduleDataset() {
+    try {
+      // This is a simplified implementation - in a real app, you'd show a modal with scheduling options
+      const schedule = {
+        type: 'hourly',
+        minute: new Date().getMinutes()
+      };
+      
+      await scheduleDatasetExecution(dataset.id, schedule);
+      
+      toast({
+        title: "Dataset Scheduled",
+        description: "The dataset has been scheduled to run hourly.",
+      });
+      
+      onRefresh();
+    } catch (error) {
+      console.error("Error scheduling dataset:", error);
+      toast({
+        title: "Error",
+        description: "Failed to schedule the dataset. Please try again.",
+        variant: "destructive"
+      });
+    }
+  }
+
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-6">
@@ -110,14 +142,17 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
           sourceName={dataset.source?.name}
           lastExecutionTime={dataset.last_execution_time}
           rowCount={dataset.last_row_count}
+          schedule={dataset.schedule}
         />
         
         <DatasetActions 
           datasetId={dataset.id}
           lastExecutionId={dataset.last_execution_id}
           isRunning={isRunning}
+          schedule={dataset.schedule}
           onViewPreview={handleViewPreview}
           onRunDataset={handleRunDataset}
+          onScheduleDataset={handleScheduleDataset}
           onDeleteDataset={handleDeleteDataset}
         />
       </CardContent>

@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Play, Download, Edit, Trash, Eye } from "lucide-react";
+import { MoreHorizontal, Play, Download, Edit, Trash, Eye, Clock } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 
@@ -9,8 +9,15 @@ interface DatasetActionsProps {
   datasetId: string;
   lastExecutionId?: string;
   isRunning: boolean;
+  schedule?: {
+    id: string;
+    type: string;
+    next_run_time?: string;
+    is_active: boolean;
+  };
   onViewPreview: () => void;
   onRunDataset: () => void;
+  onScheduleDataset: () => void;
   onDeleteDataset: () => void;
 }
 
@@ -18,8 +25,10 @@ export default function DatasetActions({
   datasetId, 
   lastExecutionId, 
   isRunning, 
+  schedule,
   onViewPreview, 
   onRunDataset, 
+  onScheduleDataset,
   onDeleteDataset 
 }: DatasetActionsProps) {
   const { toast } = useToast();
@@ -57,6 +66,10 @@ export default function DatasetActions({
             <DropdownMenuItem onClick={onViewPreview}>
               <Eye className="h-4 w-4 mr-2" />
               View Results
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onScheduleDataset}>
+              <Clock className="h-4 w-4 mr-2" />
+              {schedule ? "Update Schedule" : "Schedule"}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => toast({ title: "Coming Soon", description: "Export functionality will be available soon." })}>
               <Download className="h-4 w-4 mr-2" />
