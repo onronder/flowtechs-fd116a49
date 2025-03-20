@@ -10,6 +10,7 @@ export default function DatasetPreviewModal({ executionId, isOpen, onClose }) {
   const [previewData, setPreviewData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [pollingInterval, setPollingInterval] = useState(null);
+  const [error, setError] = useState(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -29,7 +30,10 @@ export default function DatasetPreviewModal({ executionId, isOpen, onClose }) {
 
   async function loadPreview(showLoading = true) {
     try {
-      if (showLoading) setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+        setError(null);
+      }
       
       const data = await fetchDatasetPreview(executionId);
       setPreviewData(data);
@@ -41,6 +45,7 @@ export default function DatasetPreviewModal({ executionId, isOpen, onClose }) {
       }
     } catch (error) {
       console.error("Error loading preview:", error);
+      setError(error instanceof Error ? error.message : "Failed to load dataset preview.");
       toast({
         title: "Error",
         description: "Failed to load dataset preview.",
@@ -104,6 +109,17 @@ export default function DatasetPreviewModal({ executionId, isOpen, onClose }) {
         {loading ? (
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="animate-spin h-8 w-8 border-b-2 border-primary rounded-full"></div>
+          </div>
+        ) : error ? (
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="text-center">
+              <div className="bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 p-4 rounded-md mb-4">
+                <h3 className="text-lg font-medium mb-2">Error Loading Preview</h3>
+                <p>{error}</p>
+              </div>
+              <Button variant="outline" onClick={() => loadPreview()}>Try Again</Button>
+              <Button variant="outline" className="ml-2" onClick={onClose}>Close</Button>
+            </div>
           </div>
         ) : previewData?.status === "running" || previewData?.status === "pending" ? (
           <div className="flex-1 flex items-center justify-center p-8">

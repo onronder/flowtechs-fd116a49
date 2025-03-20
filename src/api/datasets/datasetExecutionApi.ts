@@ -1,5 +1,4 @@
 
-// src/api/datasets/datasetExecutionApi.ts
 import { supabase } from "@/integrations/supabase/client";
 import { ExportOptions, DatasetExecution } from "./datasetsApiTypes";
 
@@ -44,10 +43,15 @@ export async function executeCustomDataset(sourceId: string, query: string) {
  */
 export async function fetchDatasetPreview(executionId: string) {
   try {
+    // Create a structured payload and specify content type explicitly
+    const payload = JSON.stringify({ executionId });
+    
+    console.log("Sending preview request with payload:", payload);
+    
     const { data, error } = await supabase.functions.invoke(
       "Dataset_Preview",
       { 
-        body: { executionId },
+        body: payload,
         headers: { 'Content-Type': 'application/json' }
       }
     );
@@ -73,13 +77,15 @@ export async function fetchDatasetPreview(executionId: string) {
  */
 export async function exportDataset(executionId: string, options: ExportOptions = { format: 'json' }) {
   try {
+    const payload = JSON.stringify({ 
+      executionId, 
+      format: options.format 
+    });
+    
     const { data, error } = await supabase.functions.invoke(
       "Dataset_Export",
       {
-        body: { 
-          executionId, 
-          format: options.format 
-        },
+        body: payload,
         headers: { 
           'Content-Type': 'application/json',
           'Save-To-Storage': options.saveToStorage ? 'true' : 'false' 

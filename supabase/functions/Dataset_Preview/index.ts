@@ -1,5 +1,4 @@
 
-// supabase/functions/Dataset_Preview/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handleCors, errorResponse, successResponse } from "../_shared/cors.ts";
@@ -17,8 +16,15 @@ serve(async (req) => {
     // Parse the request body
     let body;
     try {
-      body = await req.json();
-      console.log("Request body:", JSON.stringify(body));
+      const text = await req.text();
+      console.log("Raw request body:", text);
+      
+      if (!text || text.trim() === '') {
+        return errorResponse("Empty request body", 400);
+      }
+      
+      body = JSON.parse(text);
+      console.log("Parsed request body:", JSON.stringify(body));
     } catch (error) {
       console.error("Error parsing request body:", error);
       return errorResponse("Invalid JSON in request body", 400);
