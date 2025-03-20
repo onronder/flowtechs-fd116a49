@@ -63,6 +63,10 @@ export async function createPredefinedDataset(datasetData: {
   sourceId: string;
   templateId: string;
 }) {
+  // Get the current user
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) throw new Error("No authenticated user found");
+  
   const { data, error } = await supabase
     .from("user_datasets")
     .insert({
@@ -70,7 +74,8 @@ export async function createPredefinedDataset(datasetData: {
       description: datasetData.description,
       source_id: datasetData.sourceId,
       dataset_type: "predefined",
-      template_id: datasetData.templateId
+      template_id: datasetData.templateId,
+      user_id: userData.user.id
     })
     .select();
 
@@ -85,6 +90,10 @@ export async function createDependentDataset(datasetData: {
   sourceId: string;
   templateId: string;
 }) {
+  // Get the current user
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) throw new Error("No authenticated user found");
+  
   const { data, error } = await supabase
     .from("user_datasets")
     .insert({
@@ -92,7 +101,8 @@ export async function createDependentDataset(datasetData: {
       description: datasetData.description,
       source_id: datasetData.sourceId,
       dataset_type: "dependent",
-      template_id: datasetData.templateId
+      template_id: datasetData.templateId,
+      user_id: userData.user.id
     })
     .select();
 
@@ -109,6 +119,10 @@ export async function createCustomDataset(datasetData: {
   resourceType: string;
   selectedFields: string[];
 }) {
+  // Get the current user
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData?.user) throw new Error("No authenticated user found");
+  
   const { data, error } = await supabase
     .from("user_datasets")
     .insert({
@@ -120,7 +134,8 @@ export async function createCustomDataset(datasetData: {
       custom_fields: datasetData.selectedFields,
       parameters: {
         resourceType: datasetData.resourceType
-      }
+      },
+      user_id: userData.user.id
     })
     .select();
 
