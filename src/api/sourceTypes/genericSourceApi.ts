@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { Source } from "@/hooks/useSources";
 import { redactSensitiveInfo } from "../utils/securityUtils";
+import { TestConnectionResult } from "@/types/sourceTypes";
 
 /**
  * Validates a generic source connection using Supabase edge functions
@@ -32,7 +33,7 @@ export async function validateGenericConnection(sourceType: string, credentials:
 /**
  * Tests an existing generic source connection
  */
-export async function testGenericConnection(sourceId: string, source: Source) {
+export async function testGenericConnection(sourceId: string, source: Source): Promise<TestConnectionResult> {
   try {
     console.log("Testing generic source connection:", { 
       sourceId, 
@@ -52,7 +53,11 @@ export async function testGenericConnection(sourceId: string, source: Source) {
       throw new Error(error.message || "Failed to test source connection");
     }
     
-    return { success: data.success, updated: false };
+    return { 
+      success: data.success, 
+      updated: false,
+      message: data.message || "Connection successful"
+    };
   } catch (error) {
     console.error("Error testing generic source connection:", error);
     throw error;

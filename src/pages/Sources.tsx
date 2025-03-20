@@ -30,7 +30,7 @@ const Sources = () => {
         if (result.updated && result.message) {
           toast({
             title: "Connection successful",
-            description: result.message,
+            description: result.message || "Source connection updated.",
           });
         } else {
           toast({

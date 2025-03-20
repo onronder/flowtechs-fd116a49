@@ -1,14 +1,11 @@
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
-import { SourceData, saveSource } from "@/utils/sourceSaveUtils";
+import { SourceData } from "@/utils/sourceSaveUtils";
 import SourceInfoDisplay from "./SourceInfoDisplay";
 import SourceValidationDetails from "./SourceValidationDetails";
-import { fetchAndCacheShopifySchema } from "@/utils/shopifyApi";
+import ConnectionSuccessMessage from "./ConnectionSuccessMessage";
+import ValidationStepActions from "./ValidationStepActions";
+import { useSaveSource } from "@/hooks/useSaveSource";
 
 interface ValidationStepProps {
   sourceData: SourceData;
@@ -17,86 +14,15 @@ interface ValidationStepProps {
 }
 
 export default function ValidationStep({ sourceData, onBack, existingId }: ValidationStepProps) {
-  const [isSaving, setIsSaving] = useState(false);
-  const { toast } = useToast();
-  const navigate = useNavigate();
-  const { user } = useAuth();
+  const { isSaving, handleSaveSource } = useSaveSource();
 
   const handleSave = async () => {
-    try {
-      // Ensure user is authenticated
-      if (!user) {
-        toast({
-          title: "Authentication required",
-          description: "You must be logged in to create a source",
-          variant: "destructive"
-        });
-        navigate("/auth/signin");
-        return;
-      }
-
-      setIsSaving(true);
-      console.log("=== SAVING SOURCE START ===");
-      
-      const result = await saveSource(sourceData, existingId, toast);
-      
-      if (result?.success) {
-        console.log("=== SAVING SOURCE COMPLETE ===");
-        
-        // After successful save, if it's a Shopify source, cache the schema
-        if (sourceData.type === 'shopify' && result.id) {
-          toast({
-            title: "Caching Schema",
-            description: "Fetching and caching Shopify GraphQL schema..."
-          });
-          
-          try {
-            const { storeName, accessToken, api_version } = sourceData.credentials;
-            
-            await fetchAndCacheShopifySchema(
-              result.id,
-              storeName,
-              accessToken,
-              api_version,
-              true
-            );
-            
-            console.log("Schema caching completed");
-          } catch (schemaError) {
-            console.error("Error caching schema:", schemaError);
-            // Don't fail the source creation if schema caching fails
-          }
-        }
-        
-        toast({
-          title: existingId ? "Source updated" : "Source created",
-          description: "Your source has been saved successfully."
-        });
-        
-        navigate("/sources");
-      }
-    } catch (error) {
-      console.error("Error saving source:", error);
-      toast({
-        title: "Error",
-        description: `Failed to ${existingId ? 'update' : 'create'} the source: ${error instanceof Error ? error.message : "Unknown error"}`,
-        variant: "destructive"
-      });
-    } finally {
-      setIsSaving(false);
-    }
+    await handleSaveSource(sourceData, existingId);
   };
 
   return (
     <div className="space-y-6">
-      <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg">
-        <h3 className="font-medium text-green-700 dark:text-green-300 mb-2">
-          Connection Successful!
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          Your source has been validated successfully.
-        </p>
-      </div>
+      <ConnectionSuccessMessage />
 
       <div className="space-y-4">
         <SourceInfoDisplay
@@ -112,21 +38,12 @@ export default function ValidationStep({ sourceData, onBack, existingId }: Valid
         />
       </div>
 
-      <div className="flex justify-between pt-4">
-        <Button type="button" variant="outline" onClick={onBack}>
-          Back
-        </Button>
-        <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {existingId ? "Updating..." : "Creating..."}
-            </>
-          ) : (
-            existingId ? "Update Source" : "Create Source"
-          )}
-        </Button>
-      </div>
+      <ValidationStepActions
+        onBack={onBack}
+        onSave={handleSave}
+        isSaving={isSaving}
+        existingId={existingId}
+      />
     </div>
   );
 }
