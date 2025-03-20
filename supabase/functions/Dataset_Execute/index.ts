@@ -9,7 +9,29 @@ serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const { datasetId } = await req.json();
+    // Parse the request body with proper error handling
+    let body;
+    try {
+      const text = await req.text();
+      console.log("Raw request body:", text);
+      
+      if (!text || text.trim() === '') {
+        return errorResponse("Empty request body", 400);
+      }
+      
+      body = JSON.parse(text);
+      console.log("Parsed request body:", JSON.stringify(body));
+    } catch (error) {
+      console.error("Error parsing request body:", error);
+      return errorResponse("Invalid JSON in request body", 400);
+    }
+    
+    const { datasetId } = body;
+    
+    if (!datasetId) {
+      return errorResponse("Missing required parameter: datasetId", 400);
+    }
+    
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
     const supabaseClient = createClient(
@@ -72,7 +94,7 @@ serve(async (req) => {
         return errorResponse(`Unknown dataset type: ${dataset.dataset_type}`, 400);
     }
 
-    // Invoke the appropriate execution function
+    // Invoke the appropriate execution function with properly formatted JSON
     fetch(`${supabaseUrl}/functions/v1/${executionFunction}`, {
       method: "POST",
       headers: {
@@ -93,6 +115,6 @@ serve(async (req) => {
     }, 200);
   } catch (error) {
     console.error("Error in Dataset_Execute:", error);
-    return errorResponse(error.message, 500);
+    return errorResponse(error.message || "An unexpected error occurred", 500);
   }
 });

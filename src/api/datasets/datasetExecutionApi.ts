@@ -9,7 +9,7 @@ export async function executeDataset(datasetId: string) {
   try {
     const { data, error } = await supabase.functions.invoke(
       "Dataset_Execute",
-      { body: { datasetId } }
+      { body: JSON.stringify({ datasetId }) }
     );
     
     if (error) throw error;
@@ -27,7 +27,7 @@ export async function executeCustomDataset(sourceId: string, query: string) {
   try {
     const { data, error } = await supabase.functions.invoke(
       "Cust_ExecuteDataset",
-      { body: { sourceId, query } }
+      { body: JSON.stringify({ sourceId, query }) }
     );
     
     if (error) throw error;
@@ -43,9 +43,10 @@ export async function executeCustomDataset(sourceId: string, query: string) {
  */
 export async function fetchDatasetPreview(executionId: string) {
   try {
-    // Create a structured payload and specify content type explicitly
-    const payload = JSON.stringify({ executionId });
+    console.log(`Sending preview request for execution ID: ${executionId}`);
     
+    // Explicitly stringify the payload and log it
+    const payload = JSON.stringify({ executionId });
     console.log("Sending preview request with payload:", payload);
     
     const { data, error } = await supabase.functions.invoke(

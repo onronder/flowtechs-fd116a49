@@ -23,11 +23,16 @@ serve(async (req) => {
         return errorResponse("Empty request body", 400);
       }
       
-      body = JSON.parse(text);
-      console.log("Parsed request body:", JSON.stringify(body));
+      try {
+        body = JSON.parse(text);
+        console.log("Parsed request body:", JSON.stringify(body));
+      } catch (parseError) {
+        console.error("JSON parsing error:", parseError);
+        return errorResponse("Invalid JSON: " + parseError.message, 400);
+      }
     } catch (error) {
-      console.error("Error parsing request body:", error);
-      return errorResponse("Invalid JSON in request body", 400);
+      console.error("Error reading request body:", error);
+      return errorResponse("Failed to read request body", 400);
     }
     
     // Validate required parameters
@@ -85,7 +90,18 @@ serve(async (req) => {
 
     // Get preview data
     const data = execution.data || [];
-    const preview = Array.isArray(data) ? data.slice(0, limit) : [data];
+    
+    // Handle different data formats
+    let preview = [];
+    if (Array.isArray(data)) {
+      preview = data.slice(0, limit);
+    } else if (typeof data === 'object' && data !== null) {
+      if (data.results && Array.isArray(data.results)) {
+        preview = data.results.slice(0, limit);
+      } else {
+        preview = [data];
+      }
+    }
     
     // Get dataset columns (from first record)
     const columns = preview.length > 0
@@ -98,7 +114,7 @@ serve(async (req) => {
         id: execution.id,
         startTime: execution.start_time,
         endTime: execution.end_time,
-        rowCount: execution.row_count,
+        rowCount: execution.row_count || (Array.isArray(data) ? data.length : 1),
         executionTimeMs: execution.execution_time_ms,
         apiCallCount: execution.api_call_count
       },
@@ -109,10 +125,10 @@ serve(async (req) => {
       },
       columns,
       preview,
-      totalCount: execution.row_count
+      totalCount: execution.row_count || (Array.isArray(data) ? data.length : 1)
     });
   } catch (error) {
     console.error("Error in Dataset_Preview:", error);
-    return errorResponse(error.message, 500);
+    return errorResponse(error.message || "An unexpected error occurred", 500);
   }
 });

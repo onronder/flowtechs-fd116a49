@@ -24,7 +24,9 @@ export default function DatasetPreviewModal({ executionId, isOpen, onClose }) {
       
       setPollingInterval(interval);
       
-      return () => clearInterval(interval);
+      return () => {
+        if (pollingInterval) clearInterval(pollingInterval);
+      };
     }
   }, [isOpen, executionId]);
 
@@ -40,12 +42,22 @@ export default function DatasetPreviewModal({ executionId, isOpen, onClose }) {
       
       // If execution is complete, stop polling
       if (data.status === "completed" || data.status === "failed") {
+        if (pollingInterval) {
+          clearInterval(pollingInterval);
+          setPollingInterval(null);
+        }
+      }
+    } catch (err) {
+      console.error("Error loading preview:", err);
+      const errorMessage = err instanceof Error ? err.message : "Failed to load dataset preview";
+      setError(errorMessage);
+      
+      // Stop polling on error
+      if (pollingInterval) {
         clearInterval(pollingInterval);
         setPollingInterval(null);
       }
-    } catch (error) {
-      console.error("Error loading preview:", error);
-      setError(error instanceof Error ? error.message : "Failed to load dataset preview.");
+      
       toast({
         title: "Error",
         description: "Failed to load dataset preview.",
@@ -59,7 +71,7 @@ export default function DatasetPreviewModal({ executionId, isOpen, onClose }) {
   async function handleExport(format) {
     try {
       // Simple implementation - you can expand this later
-      const result = await exportDataset(executionId, format);
+      const result = await exportDataset(executionId, { format });
       
       if (result.data) {
         // For direct download
@@ -172,8 +184,12 @@ export default function DatasetPreviewModal({ executionId, isOpen, onClose }) {
             </div>
             
             <div className="flex-1 overflow-auto border rounded-md">
-              {previewData?.preview && (
+              {previewData?.preview && previewData.preview.length > 0 ? (
                 <TableView data={previewData.preview} columns={previewData.columns} />
+              ) : (
+                <div className="flex items-center justify-center h-full p-8">
+                  <p className="text-muted-foreground">No data available in this dataset.</p>
+                </div>
               )}
             </div>
           </div>
