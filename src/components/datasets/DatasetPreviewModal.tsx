@@ -1,31 +1,55 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { fetchDatasetPreview, exportDataset } from "@/api/datasetsApi";
+import { fetchDatasetPreview, exportDataset } from "@/api/datasets/execution/index";
 import { useToast } from "@/hooks/use-toast";
 import TableView from "./preview/TableView";
+import LoadingSpinner from "@/components/ui/loading-spinner";
 
 export default function DatasetPreviewModal({ executionId, isOpen, onClose }) {
   const [previewData, setPreviewData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [pollingInterval, setPollingInterval] = useState(null);
   const [error, setError] = useState(null);
   const { toast } = useToast();
+  const pollingIntervalRef = useRef(null);
+  const MAX_POLL_COUNT = 20; // Maximum number of polling attempts
+  const pollCountRef = useRef(0);
 
   useEffect(() => {
     if (isOpen && executionId) {
+      // Reset state when opening with a new execution ID
+      setLoading(true);
+      setError(null);
+      setPreviewData(null);
+      pollCountRef.current = 0;
+      
+      // Initial load
       loadPreview();
       
-      // Set up polling if the execution is still running
-      const interval = setInterval(() => {
+      // Set up polling
+      pollingIntervalRef.current = setInterval(() => {
+        if (pollCountRef.current >= MAX_POLL_COUNT) {
+          console.log("Max polling attempts reached, stopping polling");
+          clearInterval(pollingIntervalRef.current);
+          
+          // Show a timeout error if we still don't have data
+          if (!previewData || previewData.status === "running" || previewData.status === "pending") {
+            setError("Execution is taking longer than expected. Please check back later.");
+          }
+          return;
+        }
+        
+        pollCountRef.current++;
+        console.log(`Polling attempt ${pollCountRef.current}/${MAX_POLL_COUNT}`);
         loadPreview(false); // Don't show loading indicator for polling
-      }, 3000);
-      
-      setPollingInterval(interval);
+      }, 2000);
       
       return () => {
-        if (pollingInterval) clearInterval(pollingInterval);
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
       };
     }
   }, [isOpen, executionId]);
@@ -37,14 +61,18 @@ export default function DatasetPreviewModal({ executionId, isOpen, onClose }) {
         setError(null);
       }
       
+      console.log("Fetching preview data for execution ID:", executionId);
       const data = await fetchDatasetPreview(executionId);
+      console.log("Preview data received:", data);
+      
       setPreviewData(data);
       
-      // If execution is complete, stop polling
+      // If execution is complete or failed, stop polling
       if (data.status === "completed" || data.status === "failed") {
-        if (pollingInterval) {
-          clearInterval(pollingInterval);
-          setPollingInterval(null);
+        console.log("Execution complete, stopping polling");
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
         }
       }
     } catch (err) {
@@ -53,9 +81,9 @@ export default function DatasetPreviewModal({ executionId, isOpen, onClose }) {
       setError(errorMessage);
       
       // Stop polling on error
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-        setPollingInterval(null);
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
       }
       
       toast({
@@ -120,7 +148,8 @@ export default function DatasetPreviewModal({ executionId, isOpen, onClose }) {
         
         {loading ? (
           <div className="flex-1 flex items-center justify-center p-8">
-            <div className="animate-spin h-8 w-8 border-b-2 border-primary rounded-full"></div>
+            <LoadingSpinner size="lg" />
+            <div className="ml-4">Loading dataset results...</div>
           </div>
         ) : error ? (
           <div className="flex-1 flex items-center justify-center p-8">
@@ -136,11 +165,14 @@ export default function DatasetPreviewModal({ executionId, isOpen, onClose }) {
         ) : previewData?.status === "running" || previewData?.status === "pending" ? (
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="text-center">
-              <div className="animate-spin h-8 w-8 border-b-2 border-primary rounded-full mx-auto mb-4"></div>
+              <LoadingSpinner size="lg" className="mx-auto mb-4" />
               <h3 className="text-lg font-medium mb-2">Execution in Progress</h3>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground mb-2">
                 The dataset is still being executed. This preview will update automatically.
               </p>
+              <div className="text-sm text-muted-foreground">
+                Polling attempt: {pollCountRef.current}/{MAX_POLL_COUNT}
+              </div>
             </div>
           </div>
         ) : previewData?.status === "failed" ? (

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
-import { executeDataset } from "@/api/datasetsApi";
+import { executeDataset } from "@/api/datasets/execution/executeDatasetApi";
 import { useToast } from "@/hooks/use-toast";
 
 interface DatasetRunButtonProps {
@@ -19,6 +19,10 @@ export default function DatasetRunButton({
   onRefresh
 }: DatasetRunButtonProps) {
   const { toast } = useToast();
+  const [localIsRunning, setLocalIsRunning] = useState(false);
+
+  // Use the most restrictive state - either parent or local
+  const buttonDisabled = isRunning || localIsRunning;
 
   async function handleRunDataset() {
     try {
@@ -28,6 +32,8 @@ export default function DatasetRunButton({
         throw new Error("Invalid dataset ID");
       }
       
+      // Set local running state to true
+      setLocalIsRunning(true);
       console.log("Starting dataset execution with dataset ID:", datasetId);
       
       // Execute the dataset with proper error handling
@@ -45,7 +51,9 @@ export default function DatasetRunButton({
         throw new Error("Invalid response from execution function - missing executionId");
       }
       
+      // Call the parent callback with the execution ID
       onExecutionStarted(result.executionId);
+      
       toast({
         title: "Dataset Executed",
         description: "Dataset execution has been initiated.",
@@ -60,6 +68,9 @@ export default function DatasetRunButton({
         description: error instanceof Error ? error.message : "Failed to execute the dataset. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      // Always make sure to reset the loading state
+      setLocalIsRunning(false);
     }
   }
 
@@ -68,10 +79,10 @@ export default function DatasetRunButton({
       variant="default" 
       size="sm"
       onClick={handleRunDataset}
-      disabled={isRunning}
+      disabled={buttonDisabled}
     >
       <Play className="h-4 w-4 mr-1" />
-      {isRunning ? "Running..." : "Run"}
+      {buttonDisabled ? "Running..." : "Run"}
     </Button>
   );
 }

@@ -1,5 +1,5 @@
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import DatasetMetadata from "./DatasetMetadata";
 import DatasetInfo from "./DatasetInfo";
@@ -23,6 +23,11 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
   const { toast } = useToast();
   const { handleScheduleHourly } = DatasetScheduler({ datasetId: dataset.id, onRefresh });
 
+  // Reset running state when dataset changes (after refresh)
+  useEffect(() => {
+    setIsRunning(false);
+  }, [dataset]);
+
   function handleViewPreview() {
     // Use the most recent execution ID if available
     if (dataset.last_execution_id) {
@@ -38,12 +43,14 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
   }
 
   function handleExecutionStarted(newExecutionId: string) {
-    setIsRunning(false);
+    console.log("Execution started with ID:", newExecutionId);
     setExecutionId(newExecutionId);
-    setShowPreview(true);
+    setIsRunning(false); // Reset running state here to ensure button is re-enabled
+    setShowPreview(true); // Show preview immediately
   }
 
   function handleRunDatasetClick() {
+    console.log("Set running state to true for dataset:", dataset.id);
     setIsRunning(true);
   }
 
@@ -51,6 +58,12 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
     if (deletionRef.current) {
       deletionRef.current.click();
     }
+  }
+
+  function handleClosePreview() {
+    setShowPreview(false);
+    // When preview is closed, refresh the datasets to ensure we have the latest data
+    onRefresh();
   }
 
   return (
@@ -88,7 +101,7 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
       <DatasetPreview
         executionId={executionId}
         isOpen={showPreview}
-        onClose={() => setShowPreview(false)}
+        onClose={handleClosePreview}
       />
       
       <DatasetDeletion
