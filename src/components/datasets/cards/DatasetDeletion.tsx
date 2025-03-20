@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, forwardRef, ForwardedRef } from "react";
 import { deleteDataset } from "@/api/datasetsApi";
 import { useToast } from "@/hooks/use-toast";
 import DatasetDeleteDialog from "../DatasetDeleteDialog";
@@ -10,11 +10,11 @@ interface DatasetDeletionProps {
   onRefresh: () => void;
 }
 
-export default function DatasetDeletion({ 
+const DatasetDeletion = forwardRef<HTMLButtonElement, DatasetDeletionProps>(({ 
   datasetId, 
   datasetName, 
   onRefresh 
-}: DatasetDeletionProps) {
+}, ref: ForwardedRef<HTMLButtonElement>) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -68,9 +68,19 @@ export default function DatasetDeletion({
       />
       
       {/* Return the setShowDeleteDialog function for the parent to use */}
-      <button type="button" className="hidden" onClick={() => setShowDeleteDialog(true)}>
+      <button 
+        type="button" 
+        className="hidden" 
+        onClick={() => setShowDeleteDialog(true)}
+        ref={ref}
+      >
         Delete
       </button>
     </>
   );
-}
+});
+
+// Add display name for better debugging
+DatasetDeletion.displayName = "DatasetDeletion";
+
+export default DatasetDeletion;
