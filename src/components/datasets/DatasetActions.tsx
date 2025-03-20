@@ -21,20 +21,20 @@ interface DatasetActionsProps {
   onDeleteDataset: () => void;
 }
 
-export default function DatasetActions({ 
-  datasetId, 
-  lastExecutionId, 
-  isRunning, 
+export default function DatasetActions({
+  datasetId,
+  lastExecutionId,
+  isRunning,
   schedule,
-  onViewPreview, 
-  onRunDataset, 
+  onViewPreview,
+  onRunDataset,
   onScheduleDataset,
-  onDeleteDataset 
+  onDeleteDataset
 }: DatasetActionsProps) {
   const { toast } = useToast();
   
   return (
-    <div className="flex justify-between items-center mt-6 pt-4 border-t">
+    <div className="flex justify-between items-center w-full">
       <Button 
         variant="outline" 
         size="sm"

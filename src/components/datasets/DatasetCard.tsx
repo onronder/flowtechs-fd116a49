@@ -1,14 +1,14 @@
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import DatasetMetadata from "./DatasetMetadata";
 import DatasetInfo from "./DatasetInfo";
 import DatasetActions from "./DatasetActions";
-import DatasetPreviewModal from "./DatasetPreviewModal";
-import DatasetDeleteDialog from "./DatasetDeleteDialog";
-import { executeDataset, deleteDataset } from "@/api/datasetsApi";
 import { useToast } from "@/hooks/use-toast";
-import { DatasetSchedule } from "@/api/datasets/datasetsApiTypes";
+import DatasetRunButton from "./cards/DatasetRunButton";
+import DatasetDeletion from "./cards/DatasetDeletion";
+import DatasetPreview from "./cards/DatasetPreview";
+import DatasetScheduler from "./cards/DatasetScheduler";
 
 interface DatasetCardProps {
   dataset: any;
@@ -18,99 +18,10 @@ interface DatasetCardProps {
 export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
   const [isRunning, setIsRunning] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
-  const [executionId, setExecutionId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [executionId, setExecutionId] = useState<string | null>(dataset.last_execution_id || null);
+  const deletionRef = useRef<HTMLButtonElement>(null);
   const { toast } = useToast();
-
-  async function handleRunDataset() {
-    try {
-      setIsRunning(true);
-      
-      // Validate dataset ID
-      if (!dataset || !dataset.id) {
-        console.error("Invalid dataset object or missing ID:", dataset);
-        throw new Error("Invalid dataset ID");
-      }
-      
-      console.log("Starting dataset execution with dataset:", {
-        id: dataset.id,
-        name: dataset.name,
-        type: dataset.dataset_type
-      });
-      
-      // Execute the dataset with proper error handling
-      const result = await executeDataset(dataset.id);
-      
-      console.log("Execution result received:", result);
-      
-      // Validate the result
-      if (!result) {
-        throw new Error("No response received from execution API");
-      }
-      
-      if (!result.executionId) {
-        console.error("Invalid execution result format:", result);
-        throw new Error("Invalid response from execution function - missing executionId");
-      }
-      
-      setExecutionId(result.executionId);
-      setShowPreview(true);
-      toast({
-        title: "Dataset Executed",
-        description: "Dataset execution has been initiated.",
-      });
-      
-      // Refresh the list to update last execution time
-      onRefresh();
-    } catch (error) {
-      console.error("Error executing dataset:", error);
-      toast({
-        title: "Execution Failed",
-        description: error instanceof Error ? error.message : "Failed to execute the dataset. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsRunning(false);
-    }
-  }
-
-  async function handleDeleteDataset() {
-    try {
-      setIsDeleting(true);
-      setDeleteError(null);
-      
-      await deleteDataset(dataset.id);
-      
-      toast({
-        title: "Dataset Deleted",
-        description: "The dataset has been deleted successfully.",
-      });
-      
-      onRefresh();
-      setShowDeleteDialog(false);
-    } catch (error: any) {
-      console.error("Error deleting dataset:", error);
-      
-      // Provide more specific error messages
-      let errorMessage = "Failed to delete the dataset. Please try again.";
-      
-      if (error.code === "42501") {
-        errorMessage = "You don't have permission to delete this dataset.";
-      } else if (error.code === "23503") {
-        errorMessage = "Cannot delete this dataset because it has related records that cannot be automatically removed.";
-      } else if (error.status === 409 || error.code === "P0001") {
-        errorMessage = "Cannot delete this dataset due to conflicts with existing data.";
-      } else if (error.code === "P0002") {
-        errorMessage = "Dataset not found. It may have been already deleted.";
-      }
-      
-      setDeleteError(errorMessage);
-    } finally {
-      setIsDeleting(false);
-    }
-  }
+  const { handleScheduleHourly } = DatasetScheduler({ datasetId: dataset.id, onRefresh });
 
   function handleViewPreview() {
     // Use the most recent execution ID if available
@@ -126,30 +37,19 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
     }
   }
 
-  async function handleScheduleHourly() {
-    try {
-      // Use the correct type for DatasetSchedule
-      const scheduleConfig: DatasetSchedule = { 
-        type: "hourly",
-        minute: 0 
-      };
-      
-      await import('@/api/datasets/datasetSchedulingApi').then(module => {
-        return module.scheduleDatasetExecution(dataset.id, scheduleConfig);
-      });
-      
-      toast({
-        title: "Dataset Scheduled",
-        description: "This dataset will run automatically every hour.",
-      });
-      onRefresh();
-    } catch (error) {
-      console.error("Error scheduling dataset:", error);
-      toast({
-        title: "Error",
-        description: "Failed to schedule the dataset. Please try again.",
-        variant: "destructive"
-      });
+  function handleExecutionStarted(newExecutionId: string) {
+    setIsRunning(false);
+    setExecutionId(newExecutionId);
+    setShowPreview(true);
+  }
+
+  function handleRunDatasetClick() {
+    setIsRunning(true);
+  }
+
+  function handleDeleteDatasetClick() {
+    if (deletionRef.current) {
+      deletionRef.current.click();
     }
   }
 
@@ -170,35 +70,43 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
             schedule={dataset.schedule}
           />
           
-          <DatasetActions
-            datasetId={dataset.id}
-            lastExecutionId={dataset.last_execution_id}
-            isRunning={isRunning}
-            schedule={dataset.schedule}
-            onViewPreview={handleViewPreview}
-            onRunDataset={handleRunDataset}
-            onScheduleDataset={handleScheduleHourly}
-            onDeleteDataset={() => setShowDeleteDialog(true)}
-          />
+          <div className="flex justify-between items-center mt-6 pt-4 border-t">
+            <DatasetActions
+              datasetId={dataset.id}
+              lastExecutionId={dataset.last_execution_id}
+              isRunning={isRunning}
+              schedule={dataset.schedule}
+              onViewPreview={handleViewPreview}
+              onRunDataset={handleRunDatasetClick}
+              onScheduleDataset={handleScheduleHourly}
+              onDeleteDataset={handleDeleteDatasetClick}
+            />
+          </div>
         </div>
       </Card>
 
-      {showPreview && executionId && (
-        <DatasetPreviewModal
-          executionId={executionId}
-          isOpen={showPreview}
-          onClose={() => setShowPreview(false)}
-        />
-      )}
-      
-      <DatasetDeleteDialog
-        datasetName={dataset.name}
-        isOpen={showDeleteDialog}
-        isDeleting={isDeleting}
-        errorMessage={deleteError}
-        onCancel={() => setShowDeleteDialog(false)}
-        onConfirm={handleDeleteDataset}
+      <DatasetPreview
+        executionId={executionId}
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
       />
+      
+      <DatasetDeletion
+        datasetId={dataset.id}
+        datasetName={dataset.name}
+        onRefresh={onRefresh}
+        ref={deletionRef}
+      />
+
+      {/* This component is invisible but handles the run dataset functionality */}
+      <div className="hidden">
+        <DatasetRunButton
+          datasetId={dataset.id}
+          isRunning={isRunning}
+          onExecutionStarted={handleExecutionStarted}
+          onRefresh={onRefresh}
+        />
+      </div>
     </>
   );
 }
