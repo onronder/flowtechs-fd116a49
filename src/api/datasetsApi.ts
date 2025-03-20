@@ -31,7 +31,7 @@ export {
   getDatasetExecutionHistory,
   getExecutionDetails,
   getDatasetExports
-} from "./datasets/datasetExecutionApi";
+} from "./datasets/execution";
 
 // Import and re-export from scheduling module
 export {
