@@ -1,46 +1,35 @@
 
-// Shared CORS headers for all Edge Functions
+// CORS headers for Supabase Edge Functions
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Content-Type": "application/json"
 };
 
-/**
- * Handles CORS preflight requests
- * @param req The request object
- * @returns Response for OPTIONS requests or null for other methods
- */
-export function handleCors(req: Request): Response | null {
+// Helper function to handle CORS preflight requests
+export function handleCors(req: Request) {
   if (req.method === "OPTIONS") {
-    console.log("Handling OPTIONS request");
     return new Response("ok", { headers: corsHeaders });
   }
   return null;
 }
 
-/**
- * Creates an error response with proper CORS headers
- * @param message Error message
- * @param status HTTP status code
- * @returns Response object
- */
-export function errorResponse(message: string, status = 400): Response {
-  console.error(`Error response: ${message}`);
+// Helper function for error responses
+export function errorResponse(message: string, status = 400) {
   return new Response(
-    JSON.stringify({ success: false, error: message }),
-    { headers: { ...corsHeaders, "Content-Type": "application/json" }, status }
+    JSON.stringify({ 
+      success: false, 
+      error: message 
+    }),
+    { headers: corsHeaders, status }
   );
 }
 
-/**
- * Creates a success response with proper CORS headers
- * @param data Response data
- * @returns Response object
- */
-export function successResponse(data: any): Response {
+// Helper function for success responses
+export function successResponse(data: any, status = 200) {
   return new Response(
-    JSON.stringify({ success: true, ...data }),
-    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    JSON.stringify(data),
+    { headers: corsHeaders, status }
   );
 }

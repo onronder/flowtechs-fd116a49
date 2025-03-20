@@ -100,8 +100,15 @@ export async function testShopifyConnection(sourceId: string, source: Source) {
       config: { ...source.config, accessToken: "REDACTED" }
     });
     
-    // Validate credentials
-    const validationResult = await validateShopifyConnection(source.config);
+    // Validate credentials - ensure we're passing a properly typed object
+    const shopifyCredentials: ShopifyCredentials = {
+      storeName: source.config.storeName,
+      clientId: source.config.clientId,
+      accessToken: source.config.accessToken,
+      api_version: source.config.api_version
+    };
+    
+    const validationResult = await validateShopifyConnection(shopifyCredentials);
     
     if (!validationResult.success) {
       return { 
