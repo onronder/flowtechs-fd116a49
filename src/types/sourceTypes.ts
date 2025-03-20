@@ -21,6 +21,7 @@ export interface ValidationResult {
     baseUrl: string;
     connectionStatus: string;
   };
+  error?: string;
 }
 
 export interface TestConnectionResult {
@@ -28,4 +29,12 @@ export interface TestConnectionResult {
   message?: string;
   updated?: boolean;
   id?: string;
+  error?: string;
+}
+
+export interface ShopifyCredentials {
+  storeName: string;
+  clientId: string;
+  accessToken: string;
+  api_version?: string;
 }

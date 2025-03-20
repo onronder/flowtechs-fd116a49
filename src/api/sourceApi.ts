@@ -2,7 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { Source } from "@/hooks/useSources";
 import { redactSensitiveInfo } from "./utils/securityUtils";
-import { validateShopifyConnection, testShopifyConnection } from "./sourceTypes/shopifySourceApi";
+import { validateShopifyConnection, testShopifyConnection } from "./sourceTypes/shopifyApi";
 import { validateGenericConnection, testGenericConnection } from "./sourceTypes/genericSourceApi";
 
 // Re-export schema API functions
