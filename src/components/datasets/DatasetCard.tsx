@@ -8,6 +8,7 @@ import DatasetPreviewModal from "./DatasetPreviewModal";
 import DatasetDeleteDialog from "./DatasetDeleteDialog";
 import { executeDataset, deleteDataset } from "@/api/datasetsApi";
 import { useToast } from "@/hooks/use-toast";
+import { DatasetSchedule } from "@/api/datasets/datasetsApiTypes";
 
 interface DatasetCardProps {
   dataset: any;
@@ -99,7 +100,8 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
 
   async function handleScheduleHourly() {
     try {
-      const scheduleConfig = { 
+      // Use the correct type for DatasetSchedule
+      const scheduleConfig: DatasetSchedule = { 
         type: "hourly",
         minute: 0 
       };
