@@ -3,19 +3,31 @@ import { supabase } from "@/integrations/supabase/client";
 import { Source } from "@/hooks/useSources";
 
 /**
+ * Redacts sensitive information from credentials for logging
+ */
+function redactSensitiveInfo(credentials: any) {
+  if (!credentials) return {};
+  
+  const redacted = { ...credentials };
+  const sensitiveFields = ['accessToken', 'apiKey', 'password', 'consumerSecret', 'secretKey', 'token'];
+  
+  for (const field of sensitiveFields) {
+    if (field in redacted) {
+      redacted[field] = "REDACTED";
+    }
+  }
+  
+  return redacted;
+}
+
+/**
  * Validates the connection to a data source
  */
 export async function validateSourceConnection(sourceType: string, credentials: any) {
   try {
     console.log("Validating source connection:", { 
       sourceType, 
-      credentials: { 
-        ...credentials, 
-        accessToken: credentials.accessToken ? "REDACTED" : undefined,
-        apiKey: credentials.apiKey ? "REDACTED" : undefined,
-        password: credentials.password ? "REDACTED" : undefined,
-        consumerSecret: credentials.consumerSecret ? "REDACTED" : undefined
-      } 
+      credentials: redactSensitiveInfo(credentials)
     });
     
     const { data, error } = await supabase.functions.invoke("validateSourceConnection", {
@@ -66,13 +78,7 @@ export async function testSourceConnection(sourceId: string, source: Source) {
     console.log("Testing source connection:", { 
       sourceId, 
       sourceType: source.source_type,
-      config: { 
-        ...source.config, 
-        accessToken: source.config.accessToken ? "REDACTED" : undefined,
-        apiKey: source.config.apiKey ? "REDACTED" : undefined,
-        password: source.config.password ? "REDACTED" : undefined,
-        consumerSecret: source.config.consumerSecret ? "REDACTED" : undefined 
-      } 
+      config: redactSensitiveInfo(source.config)
     });
     
     const { data, error } = await supabase.functions.invoke("validateSourceConnection", {
