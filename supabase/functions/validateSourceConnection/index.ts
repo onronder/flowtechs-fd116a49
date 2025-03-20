@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -86,7 +87,7 @@ serve(async (req) => {
 async function validateShopifyConnection(config: any, corsHeaders: Record<string, string>) {
   console.log("[validateShopifyConnection] Starting Shopify validation");
   
-  const { storeName, accessToken, clientId } = config;
+  const { storeName, accessToken, clientId, api_version } = config;
   
   if (!storeName || !accessToken) {
     console.error("[validateShopifyConnection] Missing required Shopify configuration");
@@ -101,9 +102,9 @@ async function validateShopifyConnection(config: any, corsHeaders: Record<string
     const shopUrl = `https://${storeName}.myshopify.com`;
     console.log(`[validateShopifyConnection] Shop URL: ${shopUrl}`);
     
-    // Simplified API version detection
-    // Use a hardcoded recent version as fallback
-    const apiVersion = "2023-10";
+    // If the API version is provided, use it; otherwise detect it
+    // Note: We expect the frontend to have already detected the version
+    const apiVersion = api_version || "2025-01";
     console.log(`[validateShopifyConnection] Using API version: ${apiVersion}`);
     
     // Test GraphQL API to verify credentials

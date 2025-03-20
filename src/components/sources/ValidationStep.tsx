@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { SourceData, saveSource } from "@/utils/sourceSaveUtils";
 import SourceInfoDisplay from "./SourceInfoDisplay";
 import SourceValidationDetails from "./SourceValidationDetails";
+import { fetchAndCacheShopifySchema } from "@/utils/shopifyApi";
 
 interface ValidationStepProps {
   sourceData: SourceData;
@@ -41,6 +42,31 @@ export default function ValidationStep({ sourceData, onBack, existingId }: Valid
       
       if (result?.success) {
         console.log("=== SAVING SOURCE COMPLETE ===");
+        
+        // After successful save, if it's a Shopify source, cache the schema
+        if (sourceData.type === 'shopify' && result.id) {
+          toast({
+            title: "Caching Schema",
+            description: "Fetching and caching Shopify GraphQL schema..."
+          });
+          
+          try {
+            const { storeName, accessToken, api_version } = sourceData.credentials;
+            
+            await fetchAndCacheShopifySchema(
+              result.id,
+              storeName,
+              accessToken,
+              api_version,
+              true
+            );
+            
+            console.log("Schema caching completed");
+          } catch (schemaError) {
+            console.error("Error caching schema:", schemaError);
+            // Don't fail the source creation if schema caching fails
+          }
+        }
         
         toast({
           title: existingId ? "Source updated" : "Source created",

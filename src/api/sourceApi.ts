@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { Source } from "@/hooks/useSources";
+import { detectLatestShopifyVersion } from "@/utils/shopifyApi";
 
 /**
  * Redacts sensitive information from credentials for logging
@@ -30,6 +31,66 @@ export async function validateSourceConnection(sourceType: string, credentials: 
       credentials: redactSensitiveInfo(credentials)
     });
     
+    if (sourceType === 'shopify') {
+      // For Shopify, we need to detect the latest API version
+      const { storeName, accessToken } = credentials;
+      
+      if (!storeName || !accessToken) {
+        throw new Error('Missing required Shopify credentials');
+      }
+      
+      // Detect latest API version
+      const apiVersion = await detectLatestShopifyVersion(storeName, accessToken);
+      
+      // Set the detected version in credentials
+      const updatedCredentials = {
+        ...credentials,
+        api_version: apiVersion
+      };
+      
+      // Test connection with detected version
+      const shopifyEndpoint = `https://${storeName}.myshopify.com/admin/api/${apiVersion}/graphql.json`;
+      const testQuery = `
+        query {
+          shop {
+            name
+            plan {
+              displayName
+            }
+          }
+        }
+      `;
+      
+      console.log(`Testing GraphQL endpoint with detected version: ${shopifyEndpoint}`);
+      
+      const response = await fetch(shopifyEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Shopify-Access-Token': accessToken
+        },
+        body: JSON.stringify({ query: testQuery })
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Shopify connection failed: ${response.status} ${errorText}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.errors) {
+        throw new Error(`GraphQL error: ${result.errors[0].message}`);
+      }
+      
+      return {
+        success: true,
+        config: updatedCredentials,
+        shopInfo: result.data.shop
+      };
+    }
+    
+    // For other source types, use the existing supabase function
     console.log("Validating source connection:", { 
       sourceType, 
       credentials: redactSensitiveInfo(credentials)
