@@ -1,34 +1,32 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import FieldSelector from "./FieldSelector";
-import QueryPreview from "./QueryPreview";
-import ResultPreview from "./ResultPreview";
 
-interface CustomQueryBuilderProps {
+interface CustomDatasetFormProps {
   source: any;
-  onSave: (data: any) => void;
   onBack: () => void;
+  onComplete: () => void;
 }
 
-export default function CustomQueryBuilder({
+export default function CustomDatasetForm({
   source,
-  onSave,
-  onBack
-}: CustomQueryBuilderProps) {
-  const [selectedResource, setSelectedResource] = useState<any>(null);
-  const [selectedFields, setSelectedFields] = useState<string[]>([]);
+  onBack,
+  onComplete
+}: CustomDatasetFormProps) {
   const { toast } = useToast();
-  
+
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-medium">Custom Query Builder</h3>
+    <div className="space-y-6">
+      <h3 className="text-lg font-medium">Configure Custom Dataset</h3>
       <p className="text-muted-foreground">
         This feature is currently under development.
       </p>
       
-      <div className="flex justify-between pt-4">
+      <div className="flex justify-between">
         <Button variant="outline" onClick={onBack}>
           Back
         </Button>
