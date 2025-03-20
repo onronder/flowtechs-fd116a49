@@ -1,7 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { fetchSourceSchema } from "@/api/sourceApi";
-import { Toast } from "@/components/ui/toast";
+import { ToastActionElement } from "@/components/ui/toast";
 
 // Define source type to match database enum
 export type SourceType = "shopify" | "woocommerce" | "ftp_sftp" | "custom_api";
@@ -14,13 +14,21 @@ export interface SourceData {
   validationResult: any;
 }
 
+// Use the correct toast type from our component library
+type ToastProps = {
+  title?: string;
+  description?: string;
+  action?: ToastActionElement;
+  variant?: "default" | "destructive";
+};
+
 /**
  * Saves a source to Supabase database
  */
 export async function saveSource(
   sourceData: SourceData, 
   existingId?: string,
-  toast?: (props: Toast) => void
+  toast?: (props: ToastProps) => void
 ) {
   try {
     // Log for debugging
