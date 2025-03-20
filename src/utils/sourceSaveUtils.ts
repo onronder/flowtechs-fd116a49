@@ -59,7 +59,13 @@ export async function saveSource(
         throw error;
       }
       
-      // Properly handle the data response - it's a JSON object, not a string
+      // Check for function-level errors
+      if (data && typeof data === 'object' && 'error' in data) {
+        console.error("Function error updating source:", data);
+        throw new Error(`Database error: ${(data as any).error}`);
+      }
+      
+      // Properly handle the data response
       const responseData = data as Record<string, any>;
       result = { sourceId: existingId, success: true };
       console.log("Source updated successfully:", responseData);
@@ -77,9 +83,20 @@ export async function saveSource(
         throw error;
       }
       
-      // Properly handle the data response - it's a JSON object, not a string
+      // Check for function-level errors
+      if (data && typeof data === 'object' && 'error' in data) {
+        console.error("Function error inserting source:", data);
+        throw new Error(`Database error: ${(data as any).error}`);
+      }
+      
+      // Properly handle the data response
       const responseData = data as Record<string, any>;
       const sourceId = responseData.id as string;
+      
+      if (!sourceId) {
+        throw new Error("Failed to get source ID after saving");
+      }
+      
       console.log("Source created successfully, ID:", sourceId, "Data:", responseData);
       result = { sourceId, success: true };
     }
