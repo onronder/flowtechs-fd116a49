@@ -1,3 +1,4 @@
+
 // src/utils/sourceSaveUtils.ts
 import { supabase } from "@/integrations/supabase/client";
 import { fetchSourceSchema } from "@/api/sourceApi";
@@ -107,7 +108,6 @@ export async function updateShopifySource(sourceId: string, sourceData: any) {
     
     // Fetch and cache the schema with the updated source
     try {
-      // Fix: Pass correct arguments to fetchSourceSchema
       await fetchSourceSchema(source.id, true);
     } catch (schemaError) {
       console.error("Error fetching schema after update:", schemaError);
@@ -147,4 +147,12 @@ export async function checkSourceNameExists(name: string, excludeId?: string): P
     console.error("Error in checkSourceNameExists:", error);
     return false; // Assume it doesn't exist on error
   }
+}
+
+// Adding a generic saveSource function that wasn't exported before
+export async function saveSource(sourceData: any) {
+  if (sourceData.source_type === 'shopify') {
+    return saveShopifySource(sourceData);
+  }
+  throw new Error(`Unsupported source type: ${sourceData.source_type}`);
 }

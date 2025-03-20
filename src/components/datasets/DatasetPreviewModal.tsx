@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { fetchDatasetPreview, exportDataset } from "@/api/datasetsApi";
 import { useToast } from "@/hooks/use-toast";
@@ -88,11 +88,17 @@ export default function DatasetPreviewModal({ executionId, isOpen, onClose }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
+      <DialogContent 
+        className="max-w-5xl max-h-[90vh] flex flex-col"
+        aria-describedby="dataset-preview-description"
+      >
         <DialogHeader>
           <DialogTitle>
             {previewData?.dataset?.name || "Dataset Preview"}
           </DialogTitle>
+          <DialogDescription id="dataset-preview-description">
+            Preview data and results from dataset execution
+          </DialogDescription>
         </DialogHeader>
         
         {loading ? (

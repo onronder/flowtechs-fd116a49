@@ -96,9 +96,8 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
 
   async function handleScheduleHourly() {
     try {
-      // Fix: Use type assertion for the string literal type
       await scheduleDatasetExecution(dataset.id, { 
-        type: "hourly" as const, 
+        type: "hourly" as "hourly", // Use type assertion to "hourly" literal type
         minute: 0 
       });
       

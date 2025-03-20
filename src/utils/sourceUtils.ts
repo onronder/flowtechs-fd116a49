@@ -9,19 +9,14 @@ type ToastFunction = typeof toast;
 /**
  * Tests a connection to a source
  * @param id The ID of the source to test
- * @param source The source object
  * @param toast The toast function to display messages
  * @returns A promise with the test result
  */
-export async function testSourceConnection(id: string, source: Source, toast: ToastFunction) {
-  console.log("Testing source connection:", { 
-    id, 
-    sourceType: source.source_type,
-    config: { ...source.config, accessToken: "REDACTED" } 
-  });
+export async function testSourceConnection(id: string, toast: ToastFunction) {
+  console.log("Testing source connection:", { id });
   
   try {
-    const result = await apiTestSourceConnection(id, source);
+    const result = await apiTestSourceConnection(id);
     
     if (result.success) {
       toast({

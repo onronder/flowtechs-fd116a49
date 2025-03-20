@@ -1,22 +1,54 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders, handleCors, errorResponse, successResponse } from "../_shared/cors.ts";
 import { convertToCSV } from "./csvConverter.ts";
+
+// Updated CORS headers to include save-to-storage
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, save-to-storage",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Content-Type": "application/json"
+};
+
+// Helper functions for response handling
+function errorResponse(message: string, status: number = 400): Response {
+  return new Response(
+    JSON.stringify({ success: false, error: message }),
+    { headers: corsHeaders, status }
+  );
+}
+
+function successResponse(data: any, status: number = 200): Response {
+  return new Response(
+    JSON.stringify(data),
+    { headers: corsHeaders, status }
+  );
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
   
   try {
-    const { executionId, userId, format = 'json' } = await req.json();
+    const { executionId, format = 'json' } = await req.json();
     
+    // Get user from auth
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
       { global: { headers: { Authorization: req.headers.get("Authorization")! } } }
     );
+    
+    // Get the user ID
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      return errorResponse("Authentication required", 401);
+    }
+    
+    const userId = user.id;
     
     // Get execution data
     const { data: execution, error: executionError } = await supabaseClient

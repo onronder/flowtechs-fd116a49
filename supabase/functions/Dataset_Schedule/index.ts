@@ -19,35 +19,45 @@ interface ScheduleRequest {
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
 
   try {
     // Parse request
-    const requestData: ScheduleRequest = await req.json();
-    const { datasetId, schedule } = requestData;
+    const { datasetId, schedule } = await req.json();
 
     if (!datasetId) {
-      return errorResponse("Missing datasetId parameter", 400);
+      return new Response(
+        JSON.stringify({ success: false, error: "Missing datasetId parameter" }),
+        { headers: corsHeaders, status: 400 }
+      );
     }
 
     if (!schedule || !schedule.type) {
-      return errorResponse("Missing or invalid schedule parameter", 400);
+      return new Response(
+        JSON.stringify({ success: false, error: "Missing or invalid schedule parameter" }),
+        { headers: corsHeaders, status: 400 }
+      );
     }
 
     // Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
     const supabaseClient = createClient(
-      supabaseUrl ?? "",
-      supabaseAnonKey ?? "",
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
       { global: { headers: { Authorization: req.headers.get("Authorization")! } } }
     );
 
     // Get the user ID
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
-      return errorResponse("Authentication required", 401);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Authentication required" 
+        }),
+        { headers: corsHeaders, status: 401 }
+      );
     }
 
     // Verify the dataset exists and belongs to the user
@@ -59,7 +69,10 @@ serve(async (req) => {
       .single();
 
     if (datasetError) {
-      return errorResponse(`Dataset not found or access denied: ${datasetError.message}`, 404);
+      return new Response(
+        JSON.stringify({ success: false, error: `Dataset not found or access denied: ${datasetError.message}` }),
+        { headers: corsHeaders, status: 404 }
+      );
     }
 
     // Generate CRON expression based on schedule type
@@ -69,83 +82,25 @@ serve(async (req) => {
     let nextRunTime = null;
     if (schedule.type === 'once') {
       if (!schedule.date || !schedule.time) {
-        return errorResponse("Missing date or time for one-time schedule", 400);
+        return new Response(
+          JSON.stringify({ success: false, error: "Missing date or time for one-time schedule" }),
+          { headers: corsHeaders, status: 400 }
+        );
       }
       
       // Parse the date and time
       const dateTime = new Date(`${schedule.date}T${schedule.time}`);
       if (isNaN(dateTime.getTime())) {
-        return errorResponse("Invalid date or time format", 400);
+        return new Response(
+          JSON.stringify({ success: false, error: "Invalid date or time format" }),
+          { headers: corsHeaders, status: 400 }
+        );
       }
       
       nextRunTime = dateTime.toISOString();
     } else {
-      // For recurring schedules, calculate next run time based on CRON expression
-      try {
-        // Simplified next run time calculation (this is just an estimate)
-        let nextRun = new Date();
-        
-        if (schedule.type === 'hourly') {
-          const minute = schedule.minute !== undefined ? schedule.minute : 0;
-          if (nextRun.getMinutes() >= minute) {
-            nextRun.setHours(nextRun.getHours() + 1);
-          }
-          nextRun.setMinutes(minute);
-          nextRun.setSeconds(0);
-          nextRun.setMilliseconds(0);
-        } else if (schedule.type === 'daily') {
-          const hour = schedule.hour !== undefined ? schedule.hour : 0;
-          const minute = schedule.minute !== undefined ? schedule.minute : 0;
-          if (nextRun.getHours() > hour || (nextRun.getHours() === hour && nextRun.getMinutes() >= minute)) {
-            nextRun.setDate(nextRun.getDate() + 1);
-          }
-          nextRun.setHours(hour);
-          nextRun.setMinutes(minute);
-          nextRun.setSeconds(0);
-          nextRun.setMilliseconds(0);
-        } else if (schedule.type === 'weekly') {
-          const dayOfWeek = schedule.dayOfWeek !== undefined ? schedule.dayOfWeek : 0;
-          const hour = schedule.hour !== undefined ? schedule.hour : 0;
-          const minute = schedule.minute !== undefined ? schedule.minute : 0;
-          
-          const daysToAdd = (dayOfWeek - nextRun.getDay() + 7) % 7;
-          if (daysToAdd === 0 && (nextRun.getHours() > hour || (nextRun.getHours() === hour && nextRun.getMinutes() >= minute))) {
-            nextRun.setDate(nextRun.getDate() + 7);
-          } else {
-            nextRun.setDate(nextRun.getDate() + daysToAdd);
-          }
-          nextRun.setHours(hour);
-          nextRun.setMinutes(minute);
-          nextRun.setSeconds(0);
-          nextRun.setMilliseconds(0);
-        } else if (schedule.type === 'monthly') {
-          const dayOfMonth = schedule.dayOfMonth !== undefined ? schedule.dayOfMonth : 1;
-          const hour = schedule.hour !== undefined ? schedule.hour : 0;
-          const minute = schedule.minute !== undefined ? schedule.minute : 0;
-          
-          nextRun.setDate(dayOfMonth);
-          if (
-            nextRun.getDate() < dayOfMonth || 
-            (nextRun.getDate() === dayOfMonth && 
-             (nextRun.getHours() > hour || (nextRun.getHours() === hour && nextRun.getMinutes() >= minute)))
-          ) {
-            nextRun.setMonth(nextRun.getMonth() + 1);
-          }
-          nextRun.setHours(hour);
-          nextRun.setMinutes(minute);
-          nextRun.setSeconds(0);
-          nextRun.setMilliseconds(0);
-        } else if (schedule.type === 'custom') {
-          // For custom schedules, just set to 1 hour in the future as a fallback
-          nextRun = new Date(nextRun.getTime() + 3600000);
-        }
-        
-        nextRunTime = nextRun.toISOString();
-      } catch (e) {
-        console.error("Error calculating next run time:", e);
-        // Fall back to a reasonable default - 1 hour from now
-        nextRunTime = new Date(Date.now() + 3600000).toISOString();
-      }
+      // For recurring schedules, set a default next run time - 1 hour from now
+      nextRunTime = new Date(Date.now() + 3600000).toISOString();
     }
 
     // Create or update the schedule in the database
@@ -180,7 +135,10 @@ serve(async (req) => {
         .single();
         
       if (updateError) {
-        return errorResponse(`Failed to update schedule: ${updateError.message}`, 500);
+        return new Response(
+          JSON.stringify({ success: false, error: `Failed to update schedule: ${updateError.message}` }),
+          { headers: corsHeaders, status: 500 }
+        );
       }
       
       scheduleId = updated.id;
@@ -193,7 +151,10 @@ serve(async (req) => {
         .single();
         
       if (createError) {
-        return errorResponse(`Failed to create schedule: ${createError.message}`, 500);
+        return new Response(
+          JSON.stringify({ success: false, error: `Failed to create schedule: ${createError.message}` }),
+          { headers: corsHeaders, status: 500 }
+        );
       }
       
       scheduleId = created.id;
@@ -221,18 +182,24 @@ serve(async (req) => {
     }
 
     // Return success
-    return successResponse({
-      success: true,
-      scheduleId,
-      schedule: {
-        type: schedule.type,
-        cronExpression,
-        nextRunTime
-      }
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        scheduleId,
+        schedule: {
+          type: schedule.type,
+          cronExpression,
+          nextRunTime
+        }
+      }),
+      { headers: corsHeaders }
+    );
   } catch (error) {
     console.error("Error in Dataset_Schedule:", error);
-    return errorResponse(error.message, 500);
+    return new Response(
+      JSON.stringify({ success: false, error: error.message }),
+      { headers: corsHeaders, status: 500 }
+    );
   }
 });
 
@@ -246,11 +213,11 @@ function generateCronExpression(schedule: ScheduleRequest['schedule']): string {
     case 'once':
       // One-time schedules don't use CRON, but we'll generate one anyway for consistency
       // Format: minute hour day-of-month month day-of-week
-      if (!schedule.date || !schedule.time) {
-        throw new Error("One-time schedule requires date and time");
+      if (schedule.date && schedule.time) {
+        const dateTime = new Date(`${schedule.date}T${schedule.time}`);
+        return `${dateTime.getMinutes()} ${dateTime.getHours()} ${dateTime.getDate()} ${dateTime.getMonth() + 1} *`;
       }
-      const dateTime = new Date(`${schedule.date}T${schedule.time}`);
-      return `${dateTime.getMinutes()} ${dateTime.getHours()} ${dateTime.getDate()} ${dateTime.getMonth() + 1} *`;
+      return '0 0 * * *'; // Default to midnight every day if date/time not provided
     
     case 'hourly':
       // Run at the specified minute every hour
