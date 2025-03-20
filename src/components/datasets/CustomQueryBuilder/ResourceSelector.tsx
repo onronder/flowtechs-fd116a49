@@ -1,70 +1,52 @@
 
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { Search } from "lucide-react";
 
 interface ResourceSelectorProps {
-  resources: Array<{
-    name: string;
-    description?: string;
-    type: string;
-  }>;
+  resources: any[];
   onSelect: (resource: any) => void;
 }
 
 export default function ResourceSelector({ resources, onSelect }: ResourceSelectorProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   
-  // Filter resources based on search query
+  // Filter resources based on search term
   const filteredResources = resources.filter(resource => 
-    resource.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (resource.description && resource.description.toLowerCase().includes(searchQuery.toLowerCase()))
+    resource.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (resource.description && resource.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Select API Resource</h2>
-      <p className="text-muted-foreground">
-        Choose a resource type to query from your Shopify store.
-      </p>
-      
       <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
-          type="search"
           placeholder="Search resources..."
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
           className="pl-8"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
         />
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-        {filteredResources.map((resource) => (
-          <div
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {filteredResources.map(resource => (
+          <Card 
             key={resource.name}
-            className="border rounded-lg p-4 hover:border-primary hover:shadow-sm transition-all cursor-pointer"
+            className="p-4 cursor-pointer hover:border-primary transition-colors"
             onClick={() => onSelect(resource)}
           >
-            <div className="flex justify-between items-start mb-2">
-              <h3 className="font-medium">{resource.name}</h3>
-              <Badge variant="outline">{resource.type}</Badge>
-            </div>
+            <h3 className="font-medium">{resource.name}</h3>
             {resource.description && (
-              <p className="text-sm text-muted-foreground">{resource.description}</p>
+              <p className="text-sm text-muted-foreground mt-1">{resource.description}</p>
             )}
-          </div>
+          </Card>
         ))}
         
         {filteredResources.length === 0 && (
-          <div className="col-span-full flex items-center justify-center p-8 text-center border rounded-lg">
-            <div>
-              <p className="text-muted-foreground mb-2">No resources matching your search criteria.</p>
-              {searchQuery && (
-                <p className="text-sm">Try adjusting your search terms or browse all available resources.</p>
-              )}
-            </div>
+          <div className="col-span-2 text-center py-8 text-muted-foreground">
+            No resources matching "{searchTerm}"
           </div>
         )}
       </div>

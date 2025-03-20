@@ -3,19 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { fetchPredefinedTemplates, createPredefinedDataset } from "@/api/datasetsApi";
 import { ChevronLeft, Loader2, Tag, Database, LayoutList } from "lucide-react";
@@ -129,6 +117,12 @@ export default function PredefinedDatasetForm({
 
   const selectedTemplateObject = templates.find(t => t.id === selectedTemplate);
 
+  const getFieldList = (template: any) => {
+    if (!template) return [];
+    const fieldList = template.field_list;
+    return Array.isArray(fieldList) ? fieldList : [];
+  };
+
   const groupedTemplates = templates.reduce((acc, template) => {
     const resourceType = template.resource_type || 'Other';
     if (!acc[resourceType]) {
@@ -239,49 +233,21 @@ export default function PredefinedDatasetForm({
         </div>
       </div>
       
-      {selectedTemplateObject && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center">
-              <LayoutList className="h-4 w-4 mr-2 text-primary" />
-              Template Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <div className="space-y-4">
-              <div>
-                <h4 className="text-sm font-medium">{selectedTemplateObject.display_name}</h4>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {selectedTemplateObject.description}
-                </p>
-              </div>
-              
-              {selectedTemplateObject.field_list && Array.isArray(selectedTemplateObject.field_list) && selectedTemplateObject.field_list.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium flex items-center">
-                    <Tag className="h-4 w-4 mr-1 text-muted-foreground" />
-                    Fields Included
-                  </h4>
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {selectedTemplateObject.field_list.slice(0, 10).map((field: string, index: number) => (
-                      <span 
-                        key={index} 
-                        className="text-xs bg-muted px-2 py-1 rounded-md"
-                      >
-                        {field}
-                      </span>
-                    ))}
-                    {selectedTemplateObject.field_list.length > 10 && (
-                      <span className="text-xs bg-muted px-2 py-1 rounded-md">
-                        +{selectedTemplateObject.field_list.length - 10} more
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
+      {selectedTemplate && (
+        <div className="text-sm text-muted-foreground mt-2">
+          <p>{templates.find(t => t.id === selectedTemplate)?.description}</p>
+          
+          {templates.find(t => t.id === selectedTemplate)?.resource_type && (
+            <div className="mt-2 p-3 bg-muted rounded-md">
+              <h4 className="font-medium mb-1">Data fields included:</h4>
+              <ul className="list-disc list-inside">
+                {getFieldList(templates.find(t => t.id === selectedTemplate)).map((field: string) => (
+                  <li key={field}>{field}</li>
+                ))}
+              </ul>
             </div>
-          </CardContent>
-        </Card>
+          )}
+        </div>
       )}
       
       {error && (
