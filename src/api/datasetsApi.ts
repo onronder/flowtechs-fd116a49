@@ -4,8 +4,7 @@
 
 // Import and re-export from common module
 export { 
-  fetchUserDatasets,
-  deleteDataset
+  fetchUserDatasets
 } from "./datasets/datasetsCommonApi";
 
 // Import and re-export from templates module
@@ -47,6 +46,35 @@ export {
   fetchShopifySchema,
   validateCustomQuery
 } from "./datasets/shopifySchemaApi";
+
+// Define deleteDataset function with proper error handling
+import { supabase } from "@/integrations/supabase/client";
+
+export async function deleteDataset(datasetId: string) {
+  try {
+    // Try to use the database function first
+    const { data: fnResult, error: fnError } = await supabase.rpc(
+      'delete_dataset_cascade',
+      { p_dataset_id: datasetId }
+    );
+    
+    if (fnError) {
+      // If the function call fails, fall back to direct delete
+      // This will work if you've set up CASCADE constraints
+      const { error } = await supabase
+        .from("user_datasets")
+        .delete()
+        .eq("id", datasetId);
+        
+      if (error) throw error;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error deleting dataset:", error);
+    throw error;
+  }
+}
 
 // Re-export types for consumers
 export type {

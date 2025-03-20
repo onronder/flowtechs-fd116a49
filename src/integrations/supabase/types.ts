@@ -9,6 +9,36 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          resource_id: string
+          resource_type: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          resource_id: string
+          resource_type: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          resource_id?: string
+          resource_type?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       dataset_executions: {
         Row: {
           api_call_count: number | null
@@ -435,6 +465,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_dataset_cascade: {
+        Args: {
+          p_dataset_id: string
+        }
+        Returns: boolean
+      }
       insert_source: {
         Args: {
           p_name: string
