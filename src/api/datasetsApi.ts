@@ -57,7 +57,12 @@ export async function fetchDependentTemplates() {
 }
 
 // Create a predefined dataset
-export async function createPredefinedDataset(datasetData) {
+export async function createPredefinedDataset(datasetData: {
+  name: string;
+  description?: string;
+  sourceId: string;
+  templateId: string;
+}) {
   const { data, error } = await supabase
     .from("user_datasets")
     .insert({
@@ -74,7 +79,12 @@ export async function createPredefinedDataset(datasetData) {
 }
 
 // Create a dependent dataset
-export async function createDependentDataset(datasetData) {
+export async function createDependentDataset(datasetData: {
+  name: string;
+  description?: string;
+  sourceId: string;
+  templateId: string;
+}) {
   const { data, error } = await supabase
     .from("user_datasets")
     .insert({
@@ -91,7 +101,14 @@ export async function createDependentDataset(datasetData) {
 }
 
 // Create a custom dataset
-export async function createCustomDataset(datasetData) {
+export async function createCustomDataset(datasetData: {
+  name: string;
+  description?: string;
+  sourceId: string;
+  query: string;
+  resourceType: string;
+  selectedFields: string[];
+}) {
   const { data, error } = await supabase
     .from("user_datasets")
     .insert({
@@ -112,7 +129,7 @@ export async function createCustomDataset(datasetData) {
 }
 
 // Execute dataset
-export async function executeDataset(datasetId) {
+export async function executeDataset(datasetId: string) {
   const { data, error } = await supabase.functions.invoke(
     "Dataset_Execute",
     { body: { datasetId } }
@@ -123,7 +140,7 @@ export async function executeDataset(datasetId) {
 }
 
 // Fetch dataset preview
-export async function fetchDatasetPreview(executionId) {
+export async function fetchDatasetPreview(executionId: string) {
   const { data, error } = await supabase.functions.invoke(
     "Dataset_Preview",
     { body: { executionId } }
@@ -134,7 +151,7 @@ export async function fetchDatasetPreview(executionId) {
 }
 
 // Export dataset
-export async function exportDataset(executionId, format = 'json', saveToStorage = false) {
+export async function exportDataset(executionId: string, format = 'json', saveToStorage = false) {
   const { data, error } = await supabase.functions.invoke(
     "Dataset_Export",
     {
@@ -148,7 +165,7 @@ export async function exportDataset(executionId, format = 'json', saveToStorage 
 }
 
 // Delete dataset
-export async function deleteDataset(datasetId) {
+export async function deleteDataset(datasetId: string) {
   const { error } = await supabase
     .from("user_datasets")
     .delete()
@@ -159,23 +176,116 @@ export async function deleteDataset(datasetId) {
 }
 
 // Fetch Shopify GraphQL schema for custom queries
-export async function fetchShopifySchema(sourceId) {
+export async function fetchShopifySchema(sourceId: string) {
+  try {
+    const { data, error } = await supabase.functions.invoke(
+      "Cust_FetchSchema",
+      { body: { sourceId } }
+    );
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("Error fetching schema:", error);
+    throw error;
+  }
+}
+
+// Validate a custom query
+export async function validateCustomQuery(
+  sourceId: string, 
+  queryData: { query?: string; resourceType?: string; fields?: string[] }
+) {
+  try {
+    const { data, error } = await supabase.functions.invoke(
+      "Cust_ValidateQuery",
+      { body: { sourceId, ...queryData } }
+    );
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("Error validating query:", error);
+    throw error;
+  }
+}
+
+// Get dataset execution details
+export async function getDatasetExecutionDetails(executionId: string) {
+  const { data, error } = await supabase
+    .from("dataset_executions")
+    .select(`
+      *,
+      dataset:dataset_id(*)
+    `)
+    .eq("id", executionId)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+// Schedule dataset execution
+export async function scheduleDatasetExecution(scheduleData: {
+  datasetId: string;
+  scheduleType: 'one-time' | 'daily' | 'weekly' | 'monthly' | 'custom';
+  cronExpression?: string;
+  startTime?: string;
+  enabled?: boolean;
+}) {
   const { data, error } = await supabase.functions.invoke(
-    "Cust_FetchSchema",
-    { body: { sourceId } }
+    "Dataset_Schedule",
+    { body: scheduleData }
   );
 
   if (error) throw error;
   return data;
 }
 
-// Validate custom query
-export async function validateCustomQuery(sourceId, queryData) {
-  const { data, error } = await supabase.functions.invoke(
-    "Cust_ValidateQuery",
-    { body: { sourceId, ...queryData } }
-  );
+// Get dataset execution history
+export async function getDatasetExecutionHistory(datasetId: string, limit = 10) {
+  const { data, error } = await supabase
+    .from("dataset_executions")
+    .select(`
+      id,
+      status,
+      start_time,
+      end_time,
+      row_count,
+      execution_time_ms,
+      error_message
+    `)
+    .eq("dataset_id", datasetId)
+    .order("start_time", { ascending: false })
+    .limit(limit);
 
   if (error) throw error;
   return data;
+}
+
+// Get user's dataset exports
+export async function getUserExports(limit = 20) {
+  const { data, error } = await supabase
+    .from("user_storage_exports")
+    .select(`
+      *,
+      execution:execution_id(
+        dataset_id(name)
+      )
+    `)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return data;
+}
+
+// Get download URL for an export
+export async function getExportDownloadUrl(filePath: string) {
+  const { data, error } = await supabase.storage
+    .from("dataset_exports")
+    .createSignedUrl(filePath, 60); // URL valid for 60 seconds
+
+  if (error) throw error;
+  return data.signedUrl;
 }
