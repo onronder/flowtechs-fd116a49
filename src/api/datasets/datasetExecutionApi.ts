@@ -7,18 +7,31 @@ import { ExportOptions, DatasetExecution } from "./datasetsApiTypes";
  */
 export async function executeDataset(datasetId: string) {
   try {
+    // Add extensive logging
     console.log(`Executing dataset with ID: ${datasetId}`);
     
-    // Create a properly formatted payload object
+    if (!datasetId || typeof datasetId !== 'string') {
+      console.error("Invalid datasetId provided:", datasetId);
+      throw new Error("A valid dataset ID is required");
+    }
+    
+    // Create the payload as a simple object
     const payload = { datasetId };
-    console.log("Request payload:", payload);
+    
+    // Log the exact payload we're sending
+    console.log("Request payload (pre-stringify):", payload);
+    const stringifiedPayload = JSON.stringify(payload);
+    console.log("Stringified payload:", stringifiedPayload);
     
     // Ensure proper content-type is set and the body is formatted as JSON string
+    console.log("Invoking Dataset_Execute function...");
     const { data, error } = await supabase.functions.invoke(
       "Dataset_Execute",
       { 
-        body: JSON.stringify(payload),
-        headers: { 'Content-Type': 'application/json' }
+        body: stringifiedPayload,
+        headers: { 
+          'Content-Type': 'application/json'
+        }
       }
     );
     

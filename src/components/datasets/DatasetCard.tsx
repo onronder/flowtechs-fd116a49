@@ -28,20 +28,31 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
     try {
       setIsRunning(true);
       
-      // Log the dataset ID before calling executeDataset
-      console.log("Executing dataset with ID:", dataset.id);
-      
-      // Ensure dataset ID is valid before execution
-      if (!dataset.id) {
+      // Validate dataset ID
+      if (!dataset || !dataset.id) {
+        console.error("Invalid dataset object or missing ID:", dataset);
         throw new Error("Invalid dataset ID");
       }
       
-      // Make sure dataset ID is properly sent in the request body
-      const result = await executeDataset(dataset.id);
-      console.log("Execution result:", result);
+      console.log("Starting dataset execution with dataset:", {
+        id: dataset.id,
+        name: dataset.name,
+        type: dataset.dataset_type
+      });
       
-      if (!result || !result.executionId) {
-        throw new Error("Invalid response from execution function");
+      // Execute the dataset with proper error handling
+      const result = await executeDataset(dataset.id);
+      
+      console.log("Execution result received:", result);
+      
+      // Validate the result
+      if (!result) {
+        throw new Error("No response received from execution API");
+      }
+      
+      if (!result.executionId) {
+        console.error("Invalid execution result format:", result);
+        throw new Error("Invalid response from execution function - missing executionId");
       }
       
       setExecutionId(result.executionId);
@@ -50,6 +61,7 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
         title: "Dataset Executed",
         description: "Dataset execution has been initiated.",
       });
+      
       // Refresh the list to update last execution time
       onRefresh();
     } catch (error) {
