@@ -1,4 +1,5 @@
-// src/api/sourcesApi.ts
+
+// src/api/sourceApi.ts
 import { supabase } from "@/integrations/supabase/client";
 
 // Fetch user sources
@@ -30,6 +31,21 @@ export async function fetchSourceById(sourceId: string) {
     return data;
   } catch (error) {
     console.error("Error fetching source:", error);
+    throw error;
+  }
+}
+
+// Add function to fetch source schema
+export async function fetchSourceSchema(sourceId: string) {
+  try {
+    const { data, error } = await supabase.functions.invoke("fetchSourceSchema", {
+      body: { sourceId }
+    });
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("Error fetching source schema:", error);
     throw error;
   }
 }

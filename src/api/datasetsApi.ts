@@ -39,34 +39,69 @@ async function getCurrentUserId() {
 // Fetch user datasets
 export async function fetchUserDatasets() {
   try {
-    const { data, error } = await supabase
+    // First, fetch datasets
+    const { data: datasets, error: datasetsError } = await supabase
       .from("user_datasets")
       .select(`
         *,
-        source:source_id(*),
-        last_execution:dataset_executions(
-          id,
-          status,
-          start_time,
-          end_time,
-          row_count,
-          execution_time_ms
-        )
+        source:source_id(*)
       `)
       .order("created_at", { ascending: false });
       
-    if (error) throw error;
+    if (datasetsError) throw datasetsError;
     
-    // Process the data to add some computed properties
-    return data.map(dataset => ({
-      ...dataset,
-      last_execution_id: dataset.last_execution?.[0]?.id,
-      last_execution_time: dataset.last_execution?.[0]?.end_time,
-      last_row_count: dataset.last_execution?.[0]?.row_count
-    }));
+    if (!datasets || datasets.length === 0) {
+      return [];
+    }
+    
+    // Then, fetch most recent execution for each dataset separately
+    const datasetIds = datasets.map(d => d.id);
+    
+    const { data: executions, error: executionsError } = await supabase
+      .from("dataset_executions")
+      .select(`
+        id,
+        dataset_id,
+        status,
+        start_time,
+        end_time,
+        row_count,
+        execution_time_ms
+      `)
+      .in("dataset_id", datasetIds)
+      .order("end_time", { ascending: false });
+      
+    if (executionsError) {
+      console.error("Error fetching executions:", executionsError);
+      // Continue without execution data
+    }
+    
+    // Map executions to datasets
+    const executionsByDataset = {};
+    if (executions) {
+      executions.forEach(exec => {
+        if (!executionsByDataset[exec.dataset_id]) {
+          executionsByDataset[exec.dataset_id] = [];
+        }
+        executionsByDataset[exec.dataset_id].push(exec);
+      });
+    }
+    
+    // Merge datasets with executions
+    return datasets.map(dataset => {
+      const datasetExecutions = executionsByDataset[dataset.id] || [];
+      const lastExecution = datasetExecutions.length > 0 ? datasetExecutions[0] : null;
+      
+      return {
+        ...dataset,
+        last_execution_id: lastExecution?.id,
+        last_execution_time: lastExecution?.end_time,
+        last_row_count: lastExecution?.row_count
+      };
+    });
   } catch (error) {
     console.error("Error fetching datasets:", error);
-    throw error;
+    return [];
   }
 }
 
@@ -150,7 +185,7 @@ export async function createPredefinedDataset(datasetData: PredefinedDataset) {
       .from("user_datasets")
       .insert({
         name: datasetData.name,
-        description: datasetData.description,
+        description: datasetData.description || "",
         source_id: datasetData.sourceId,
         dataset_type: "predefined",
         template_id: datasetData.templateId,
@@ -175,7 +210,7 @@ export async function createDependentDataset(datasetData: DependentDataset) {
       .from("user_datasets")
       .insert({
         name: datasetData.name,
-        description: datasetData.description,
+        description: datasetData.description || "",
         source_id: datasetData.sourceId,
         dataset_type: "dependent",
         template_id: datasetData.templateId,
@@ -200,7 +235,7 @@ export async function createCustomDataset(datasetData: CustomDataset) {
       .from("user_datasets")
       .insert({
         name: datasetData.name,
-        description: datasetData.description,
+        description: datasetData.description || "",
         source_id: datasetData.sourceId,
         dataset_type: "custom",
         custom_query: datasetData.query,
