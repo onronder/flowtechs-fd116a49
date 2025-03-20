@@ -57,7 +57,7 @@ export default function PredefinedDatasetForm({
       const filteredTemplates = data
         .filter(template => 
           (source.source_type === "shopify" && template.resource_type) ||
-          template.source_type === source.source_type
+          template.resource_type === source.source_type
         )
         .sort((a, b) => a.display_name.localeCompare(b.display_name));
       
@@ -260,7 +260,7 @@ export default function PredefinedDatasetForm({
                 </p>
               </div>
               
-              {selectedTemplateObject.field_list && selectedTemplateObject.field_list.length > 0 && (
+              {selectedTemplateObject.field_list && Array.isArray(selectedTemplateObject.field_list) && selectedTemplateObject.field_list.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium flex items-center">
                     <Tag className="h-4 w-4 mr-1 text-muted-foreground" />
