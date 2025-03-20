@@ -27,12 +27,18 @@ export default function Datasets() {
       // Check for datasets that use the direct API access
       const enhancedData = data.map(dataset => {
         if (dataset.dataset_type === 'direct_api' && 
-            dataset.parameters?.edge_function === 'pre_recent_orders_dashboard') {
+            dataset.parameters && 
+            typeof dataset.parameters === 'object' && 
+            'edge_function' in dataset.parameters && 
+            dataset.parameters.edge_function === 'pre_recent_orders_dashboard') {
           return {
             ...dataset,
             _specialHandling: {
               previewFunction: fetchRecentOrdersDashboard,
-              displayName: dataset.parameters?.template_name || 'Recent Orders Dashboard'
+              displayName: (typeof dataset.parameters === 'object' && 
+                            'template_name' in dataset.parameters) 
+                            ? dataset.parameters.template_name 
+                            : 'Recent Orders Dashboard'
             }
           };
         }

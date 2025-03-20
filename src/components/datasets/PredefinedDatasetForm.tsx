@@ -36,11 +36,20 @@ export default function PredefinedDatasetForm({ source, onBack, onComplete }: Pr
       
       // Update templates to include a "Recent Orders Dashboard" template if source is Shopify
       if (source.source_type === 'shopify') {
+        // Create a custom template object with required properties to match the regular template type
         const recentOrdersTemplate = {
           id: 'recent-orders-dashboard',
           display_name: 'Recent Orders Dashboard',
           description: 'A dashboard of recent orders from your Shopify store with sorting and filtering capabilities.',
-          is_direct_api: true
+          name: 'recent_orders_dashboard',
+          type: 'predefined',
+          resource_type: 'orders',
+          query_template: '', // Not used for direct API
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          field_list: null,
+          is_direct_api: true // Custom property to identify direct API templates
         };
         
         // Add the template to the beginning of the array
