@@ -156,18 +156,21 @@ export type Database = {
         Row: {
           api_version: string
           created_at: string | null
+          processed_schema: Json | null
           schema: Json
           source_id: string
         }
         Insert: {
           api_version: string
           created_at?: string | null
+          processed_schema?: Json | null
           schema: Json
           source_id: string
         }
         Update: {
           api_version?: string
           created_at?: string | null
+          processed_schema?: Json | null
           schema?: Json
           source_id?: string
         }
