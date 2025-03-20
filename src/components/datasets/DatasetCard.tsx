@@ -27,7 +27,13 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
   async function handleRunDataset() {
     try {
       setIsRunning(true);
+      
+      // Log the dataset ID before calling executeDataset
+      console.log("Executing dataset with ID:", dataset.id);
+      
       const result = await executeDataset(dataset.id);
+      console.log("Execution result:", result);
+      
       setExecutionId(result.executionId);
       setShowPreview(true);
       toast({
