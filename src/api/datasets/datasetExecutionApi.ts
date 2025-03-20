@@ -9,14 +9,15 @@ export async function executeDataset(datasetId: string) {
   try {
     console.log(`Executing dataset with ID: ${datasetId}`);
     
-    // Explicitly stringify the payload with proper formatting
-    const payload = JSON.stringify({ datasetId });
+    // Create a properly formatted payload object
+    const payload = { datasetId };
     console.log("Request payload:", payload);
     
+    // Ensure proper content-type is set and the body is formatted as JSON string
     const { data, error } = await supabase.functions.invoke(
       "Dataset_Execute",
       { 
-        body: payload,
+        body: JSON.stringify(payload),
         headers: { 'Content-Type': 'application/json' }
       }
     );

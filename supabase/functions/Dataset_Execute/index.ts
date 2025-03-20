@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handleCors, errorResponse, successResponse } from "../_shared/cors.ts";
@@ -21,11 +20,11 @@ serve(async (req) => {
       
       if (contentType.includes("application/json")) {
         const text = await req.text();
-        console.log("Raw request body:", text);
+        console.log("Raw request body text:", text);
         
         if (!text || text.trim() === '') {
           console.error("Empty request body");
-          return errorResponse("Empty request body", 400);
+          return errorResponse("Empty request body. The datasetId is required.", 400);
         }
         
         try {

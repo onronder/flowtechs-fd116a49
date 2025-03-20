@@ -31,6 +31,12 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
       // Log the dataset ID before calling executeDataset
       console.log("Executing dataset with ID:", dataset.id);
       
+      // Ensure dataset ID is valid before execution
+      if (!dataset.id) {
+        throw new Error("Invalid dataset ID");
+      }
+      
+      // Make sure dataset ID is properly sent in the request body
       const result = await executeDataset(dataset.id);
       console.log("Execution result:", result);
       
