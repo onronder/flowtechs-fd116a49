@@ -86,7 +86,7 @@ serve(async (req) => {
 async function validateShopifyConnection(config: any, corsHeaders: Record<string, string>) {
   console.log("[validateShopifyConnection] Starting Shopify validation");
   
-  const { storeName, accessToken } = config;
+  const { storeName, accessToken, clientId } = config;
   
   if (!storeName || !accessToken) {
     console.error("[validateShopifyConnection] Missing required Shopify configuration");
@@ -97,40 +97,17 @@ async function validateShopifyConnection(config: any, corsHeaders: Record<string
   }
   
   try {
-    // First, get the current API version directly
-    console.log(`[validateShopifyConnection] Fetching current API version for store: ${storeName}`);
-    
-    // Use Admin API to get the latest version
+    // Properly format the shop URL
     const shopUrl = `https://${storeName}.myshopify.com`;
-    const adminUrl = `${shopUrl}/admin`;
+    console.log(`[validateShopifyConnection] Shop URL: ${shopUrl}`);
     
-    // Fetch the latest API version using a direct REST call
-    const versionResponse = await fetch(`${adminUrl}/api.json`, {
-      headers: {
-        "X-Shopify-Access-Token": accessToken,
-        "Content-Type": "application/json"
-      }
-    });
-    
-    if (!versionResponse.ok) {
-      console.error(`[validateShopifyConnection] Error fetching API versions: ${versionResponse.status} ${versionResponse.statusText}`);
-      const errorText = await versionResponse.text();
-      console.error(`[validateShopifyConnection] Error response: ${errorText.substring(0, 500)}...`);
-      throw new Error(`Failed to fetch API versions: ${versionResponse.statusText}`);
-    }
-    
-    const versionData = await versionResponse.json();
-    console.log(`[validateShopifyConnection] API versions response: ${JSON.stringify(versionData)}`);
-    
-    // Get the latest stable version
-    const apiVersion = versionData.supported?.find((v: any) => v.status === "stable")?.version || 
-                      versionData.versions?.[0] || 
-                      "2023-10"; // Fallback to a relatively recent version
-    
+    // Simplified API version detection
+    // Use a hardcoded recent version as fallback
+    const apiVersion = "2023-10";
     console.log(`[validateShopifyConnection] Using API version: ${apiVersion}`);
     
-    // Test connection with GraphQL to verify the credentials work
-    const graphqlEndpoint = `${adminUrl}/api/${apiVersion}/graphql.json`;
+    // Test GraphQL API to verify credentials
+    const graphqlEndpoint = `${shopUrl}/admin/api/${apiVersion}/graphql.json`;
     
     const testQuery = `
       query {
@@ -154,15 +131,30 @@ async function validateShopifyConnection(config: any, corsHeaders: Record<string
       body: JSON.stringify({ query: testQuery })
     });
     
+    const responseStatus = graphqlResponse.status;
+    console.log(`[validateShopifyConnection] GraphQL response status: ${responseStatus}`);
+    
+    // Handle various HTTP responses
+    if (responseStatus === 401 || responseStatus === 403) {
+      console.error(`[validateShopifyConnection] Authentication error: ${responseStatus}`);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Authentication failed. Please check your access token." 
+        }),
+        { headers: corsHeaders, status: 400 }
+      );
+    }
+    
     if (!graphqlResponse.ok) {
-      console.error(`[validateShopifyConnection] GraphQL error: ${graphqlResponse.status} ${graphqlResponse.statusText}`);
+      console.error(`[validateShopifyConnection] GraphQL error: ${responseStatus} ${graphqlResponse.statusText}`);
       const errorText = await graphqlResponse.text();
       console.error(`[validateShopifyConnection] GraphQL error response: ${errorText.substring(0, 500)}...`);
       
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: `Connection failed: ${graphqlResponse.status} ${graphqlResponse.statusText}` 
+          error: `Connection failed: ${responseStatus} ${graphqlResponse.statusText}` 
         }),
         { headers: corsHeaders, status: 400 }
       );
