@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import DatasetCard from "@/components/datasets/DatasetCard";
 import EmptyDatasetsState from "@/components/datasets/EmptyDatasetsState";
-import { fetchUserDatasets } from "@/api/datasetsApi";
+import { fetchUserDatasets, fetchRecentOrdersDashboard } from "@/api/datasetsApi";
 import NewDatasetModal from "@/components/datasets/NewDatasetModal";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 
@@ -23,7 +23,23 @@ export default function Datasets() {
     try {
       setLoading(true);
       const data = await fetchUserDatasets();
-      setDatasets(data);
+      
+      // Check for datasets that use the direct API access
+      const enhancedData = data.map(dataset => {
+        if (dataset.dataset_type === 'direct_api' && 
+            dataset.parameters?.edge_function === 'pre_recent_orders_dashboard') {
+          return {
+            ...dataset,
+            _specialHandling: {
+              previewFunction: fetchRecentOrdersDashboard,
+              displayName: dataset.parameters?.template_name || 'Recent Orders Dashboard'
+            }
+          };
+        }
+        return dataset;
+      });
+      
+      setDatasets(enhancedData);
     } catch (error) {
       console.error("Error loading datasets:", error);
       toast({

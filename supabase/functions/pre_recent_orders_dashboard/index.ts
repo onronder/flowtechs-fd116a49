@@ -51,16 +51,28 @@ serve(async (req) => {
       })
     }
 
-    // Fetch the Shopify credentials for this user
-    const { data: shopifyCredentials, error: credentialsError } = await supabase
-      .from('shopify_credentials')
+    // Fetch the Shopify credentials from sources table
+    const { data: sourceData, error: sourceError } = await supabase
+      .from('sources')
       .select('*')
       .eq('user_id', user.id)
+      .eq('source_type', 'shopify')
+      .eq('is_active', true)
       .single()
 
-    if (credentialsError || !shopifyCredentials) {
-      return new Response(JSON.stringify({ error: 'Shopify credentials not found' }), {
+    if (sourceError || !sourceData) {
+      return new Response(JSON.stringify({ error: 'Shopify source not found' }), {
         status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Extract Shopify credentials from source config
+    const { storeName, accessToken, api_version } = sourceData.config
+
+    if (!storeName || !accessToken) {
+      return new Response(JSON.stringify({ error: 'Invalid Shopify credentials' }), {
+        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
@@ -143,7 +155,7 @@ serve(async (req) => {
     `
 
     // Construct the query string based on parameters
-    const queryString = `created_at:>-${days}d status:${status}`
+    const queryString = `created_at:>-${days}d${status !== 'any' ? ` status:${status}` : ''}`
     
     // Variables for the GraphQL query
     const variables = {
@@ -153,17 +165,34 @@ serve(async (req) => {
     }
 
     // Make the request to Shopify
-    const response = await fetch(`https://${shopifyCredentials.shop_name}.myshopify.com/admin/api/2023-10/graphql.json`, {
+    const apiVersion = api_version || '2023-10'
+    const response = await fetch(`https://${storeName}.myshopify.com/admin/api/${apiVersion}/graphql.json`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Shopify-Access-Token': shopifyCredentials.access_token,
+        'X-Shopify-Access-Token': accessToken,
       },
       body: JSON.stringify({ query, variables }),
     })
 
     if (!response.ok) {
       const errorText = await response.text()
+      
+      // Log the error to audit_logs
+      await supabase
+        .from('audit_logs')
+        .insert([{
+          user_id: user.id,
+          action: 'fetch_recent_orders',
+          resource_type: 'shopify_api',
+          resource_id: sourceData.id,
+          details: { 
+            error: 'Shopify API error', 
+            status: response.status,
+            response: errorText.substring(0, 1000) // Truncate long responses
+          }
+        }])
+      
       return new Response(JSON.stringify({ error: 'Shopify API error', details: errorText }), {
         status: response.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -174,6 +203,20 @@ serve(async (req) => {
 
     // Check for GraphQL errors
     if (result.errors) {
+      // Log the GraphQL errors to audit_logs
+      await supabase
+        .from('audit_logs')
+        .insert([{
+          user_id: user.id,
+          action: 'fetch_recent_orders',
+          resource_type: 'shopify_api',
+          resource_id: sourceData.id,
+          details: { 
+            error: 'GraphQL errors', 
+            errors: result.errors 
+          }
+        }])
+      
       return new Response(JSON.stringify({ error: 'GraphQL errors', details: result.errors }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -184,17 +227,21 @@ serve(async (req) => {
     const orders = result.data.orders.edges.map((edge: any) => edge.node)
     const pageInfo = result.data.orders.pageInfo
 
-    // Log the operation
+    // Log the successful operation to audit_logs
     await supabase
-      .from('shopify_logs')
-      .insert([
-        {
-          user_id: user.id,
-          operation: 'fetch_recent_orders',
-          status: 'success',
-          details: { days, status, count: orders.length },
-        },
-      ])
+      .from('audit_logs')
+      .insert([{
+        user_id: user.id,
+        action: 'fetch_recent_orders',
+        resource_type: 'shopify_api',
+        resource_id: sourceData.id,
+        details: { 
+          days, 
+          status, 
+          count: orders.length,
+          has_next_page: pageInfo.hasNextPage
+        }
+      }])
 
     // Return the processed data
     return new Response(
@@ -208,6 +255,8 @@ serve(async (req) => {
     )
   } catch (error) {
     // Handle any unexpected errors
+    console.error("Error in pre_recent_orders_dashboard:", error);
+    
     return new Response(
       JSON.stringify({ error: error.message }),
       {

@@ -47,9 +47,26 @@ export {
   validateCustomQuery
 } from "./datasets/shopifySchemaApi";
 
-// Define deleteDataset function with proper error handling
+// Define fetchRecentOrdersDashboard function to use the edge function
 import { supabase } from "@/integrations/supabase/client";
 
+export async function fetchRecentOrdersDashboard(datasetId: string, params = {}) {
+  try {
+    // Call the edge function
+    const { data, error } = await supabase.functions.invoke("pre_recent_orders_dashboard", {
+      body: params
+    });
+    
+    if (error) throw error;
+    
+    return data;
+  } catch (error) {
+    console.error("Error fetching recent orders dashboard:", error);
+    throw error;
+  }
+}
+
+// Define deleteDataset function with proper error handling
 export async function deleteDataset(datasetId: string) {
   try {
     // Try to use the database function first
