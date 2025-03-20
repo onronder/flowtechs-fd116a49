@@ -1,36 +1,54 @@
-
-import { useState } from "react";
+// src/components/datasets/PredefinedDatasetForm.tsx
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft } from "lucide-react";
-import { createDatasetFromTemplate } from "@/api/datasetsApi";
-import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { fetchPredefinedTemplates, createPredefinedDataset } from "@/api/datasetsApi";
 
 interface PredefinedDatasetFormProps {
   source: any;
-  templates: any[];
   onBack: () => void;
   onComplete: () => void;
 }
 
-export default function PredefinedDatasetForm({ 
-  source, 
-  templates,
-  onBack, 
-  onComplete 
-}: PredefinedDatasetFormProps) {
+export default function PredefinedDatasetForm({ source, onBack, onComplete }: PredefinedDatasetFormProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [templateId, setTemplateId] = useState("");
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    loadTemplates();
+  }, []);
+
+  async function loadTemplates() {
+    try {
+      setLoading(true);
+      const data = await fetchPredefinedTemplates();
+      setTemplates(data);
+      if (data.length > 0) {
+        setSelectedTemplate(data[0].id);
+      }
+    } catch (error) {
+      console.error("Error loading templates:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load query templates. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    
     if (!name.trim()) {
       toast({
         title: "Error",
@@ -39,8 +57,7 @@ export default function PredefinedDatasetForm({
       });
       return;
     }
-    
-    if (!templateId) {
+    if (!selectedTemplate) {
       toast({
         title: "Error",
         description: "Please select a template.",
@@ -51,34 +68,18 @@ export default function PredefinedDatasetForm({
     
     try {
       setCreating(true);
-      
-      const result = await createDatasetFromTemplate({
+      await createPredefinedDataset({
         name,
         description,
-        source_id: source.id,
-        template_id: templateId
+        sourceId: source.id,
+        templateId: selectedTemplate
       });
-      
-      // Check for success based on response structure
-      if (result && !('error' in result)) {
-        toast({
-          title: "Success",
-          description: "Dataset created successfully!"
-        });
-        
-        onComplete();
-      } else {
-        toast({
-          title: "Error",
-          description: 'error' in result ? String(result.error) : "Failed to create dataset.",
-          variant: "destructive"
-        });
-      }
+      onComplete();
     } catch (error) {
       console.error("Error creating dataset:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        description: "Failed to create the dataset. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -86,69 +87,60 @@ export default function PredefinedDatasetForm({
     }
   }
 
+  if (loading) {
+    return <div className="py-4 text-center">Loading templates...</div>;
+  }
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium">Create From Template</h3>
-        <p className="text-muted-foreground">
-          Create a dataset using a predefined template for {source.name}
-        </p>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="space-y-2">
+        <Label htmlFor="name">Dataset Name</Label>
+        <Input
+          id="name"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          placeholder="My Shopify Products"
+          required
+        />
       </div>
-      
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="name">Dataset Name</Label>
-          <Input 
-            id="name" 
-            value={name} 
-            onChange={e => setName(e.target.value)}
-            placeholder="Enter dataset name"
-            required
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="description">Description (Optional)</Label>
-          <Textarea 
-            id="description" 
-            value={description} 
-            onChange={e => setDescription(e.target.value)}
-            placeholder="Enter a description for this dataset"
-            rows={3}
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="template">Select Template</Label>
-          <Select value={templateId} onValueChange={setTemplateId}>
-            <SelectTrigger id="template">
-              <SelectValue placeholder="Select a template" />
-            </SelectTrigger>
-            <SelectContent>
-              {templates.map(template => (
-                <SelectItem key={template.id} value={template.id}>
-                  {template.name}
-                </SelectItem>
-              ))}
-              {templates.length === 0 && (
-                <SelectItem value="none" disabled>
-                  No templates available
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div className="flex justify-between pt-4">
-          <Button type="button" variant="outline" onClick={onBack}>
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Back
-          </Button>
-          <Button type="submit" disabled={creating}>
-            {creating ? "Creating..." : "Create Dataset"}
-          </Button>
-        </div>
-      </form>
-    </div>
+      <div className="space-y-2">
+        <Label htmlFor="description">Description (Optional)</Label>
+        <Textarea
+          id="description"
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          placeholder="Description of what this dataset contains"
+          rows={3}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="template">Query Template</Label>
+        <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select a template" />
+          </SelectTrigger>
+          <SelectContent>
+            {templates.map(template => (
+              <SelectItem key={template.id} value={template.id}>
+                {template.display_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {selectedTemplate && (
+          <p className="text-sm text-muted-foreground mt-2">
+            {templates.find(t => t.id === selectedTemplate)?.description}
+          </p>
+        )}
+      </div>
+      <div className="flex justify-between pt-4 mt-6">
+        <Button type="button" variant="outline" onClick={onBack}>
+          Back
+        </Button>
+        <Button type="submit" disabled={creating}>
+          {creating ? "Creating..." : "Create Dataset"}
+        </Button>
+      </div>
+    </form>
   );
 }
