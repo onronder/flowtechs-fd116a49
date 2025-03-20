@@ -9,7 +9,10 @@ export async function executeDataset(datasetId: string) {
   try {
     const { data, error } = await supabase.functions.invoke(
       "Dataset_Execute",
-      { body: JSON.stringify({ datasetId }) }
+      { 
+        body: JSON.stringify({ datasetId }),
+        headers: { 'Content-Type': 'application/json' }
+      }
     );
     
     if (error) throw error;
@@ -27,7 +30,10 @@ export async function executeCustomDataset(sourceId: string, query: string) {
   try {
     const { data, error } = await supabase.functions.invoke(
       "Cust_ExecuteDataset",
-      { body: JSON.stringify({ sourceId, query }) }
+      { 
+        body: JSON.stringify({ sourceId, query }),
+        headers: { 'Content-Type': 'application/json' }
+      }
     );
     
     if (error) throw error;
@@ -45,7 +51,7 @@ export async function fetchDatasetPreview(executionId: string) {
   try {
     console.log(`Sending preview request for execution ID: ${executionId}`);
     
-    // Explicitly stringify the payload and log it
+    // Explicitly stringify the payload
     const payload = JSON.stringify({ executionId });
     console.log("Sending preview request with payload:", payload);
     
@@ -126,17 +132,30 @@ export async function getDatasetExecutionHistory(datasetId: string) {
  */
 export async function getExecutionDetails(executionId: string): Promise<DatasetExecution | null> {
   try {
-    const { data, error } = await supabase
+    // Avoid complex join and fetch data separately for reliability
+    const { data: execution, error: executionError } = await supabase
       .from("dataset_executions")
-      .select(`
-        *,
-        dataset:dataset_id(*)
-      `)
+      .select("*")
       .eq("id", executionId)
       .maybeSingle();
       
-    if (error) throw error;
-    return data;
+    if (executionError) throw executionError;
+    if (!execution) return null;
+    
+    // Fetch related dataset info
+    const { data: dataset, error: datasetError } = await supabase
+      .from("user_datasets")
+      .select("*")
+      .eq("id", execution.dataset_id)
+      .maybeSingle();
+    
+    if (datasetError) throw datasetError;
+    
+    // Combine the data manually
+    return {
+      ...execution,
+      dataset: dataset || null
+    };
   } catch (error) {
     console.error("Error fetching execution details:", error);
     return null;

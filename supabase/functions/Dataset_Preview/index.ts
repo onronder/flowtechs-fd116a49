@@ -59,13 +59,10 @@ serve(async (req) => {
 
     console.log(`Fetching execution ID: ${executionId} for user: ${user.id}`);
     
-    // Get execution data
+    // Get execution data - avoid the complex join that might be causing issues
     const { data: execution, error: executionError } = await supabaseClient
       .from("dataset_executions")
-      .select(`
-        *,
-        dataset:dataset_id(*)
-      `)
+      .select("*")
       .eq("id", executionId)
       .single();
 
@@ -75,6 +72,18 @@ serve(async (req) => {
     }
     
     console.log(`Found execution with status: ${execution.status}`);
+
+    // Get dataset details separately
+    const { data: dataset, error: datasetError } = await supabaseClient
+      .from("user_datasets")
+      .select("*")
+      .eq("id", execution.dataset_id)
+      .single();
+
+    if (datasetError) {
+      console.error("Error fetching dataset:", datasetError);
+      return errorResponse(`Dataset not found: ${datasetError.message}`, 404);
+    }
 
     // Return appropriate data based on execution status
     if (execution.status === "running" || execution.status === "pending") {
@@ -119,9 +128,9 @@ serve(async (req) => {
         apiCallCount: execution.api_call_count
       },
       dataset: {
-        id: execution.dataset.id,
-        name: execution.dataset.name,
-        type: execution.dataset.dataset_type
+        id: dataset.id,
+        name: dataset.name,
+        type: dataset.dataset_type
       },
       columns,
       preview,

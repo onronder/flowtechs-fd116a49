@@ -46,19 +46,27 @@ serve(async (req) => {
       return errorResponse("Authentication required", 401);
     }
 
-    // Get dataset details
+    // Get dataset details - avoid using the join that causes the error
     const { data: dataset, error: datasetError } = await supabaseClient
       .from("user_datasets")
-      .select(`
-        *,
-        source:source_id(*)
-      `)
+      .select("*")
       .eq("id", datasetId)
       .eq("user_id", user.id)
       .single();
 
-    if (datasetError) {
-      return errorResponse(`Dataset error: ${datasetError.message}`, 400);
+    if (datasetError || !dataset) {
+      return errorResponse(`Dataset error: ${datasetError?.message || "Dataset not found"}`, 400);
+    }
+
+    // If we need the source, fetch it separately
+    const { data: source, error: sourceError } = await supabaseClient
+      .from("sources")
+      .select("*")
+      .eq("id", dataset.source_id)
+      .single();
+
+    if (sourceError) {
+      return errorResponse(`Source error: ${sourceError.message}`, 400);
     }
 
     // Create execution record
