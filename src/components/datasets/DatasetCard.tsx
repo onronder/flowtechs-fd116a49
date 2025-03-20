@@ -6,6 +6,7 @@ import { executeDataset, deleteDataset } from "@/api/datasetsApi";
 import DatasetMetadata from "./DatasetMetadata";
 import DatasetInfo from "./DatasetInfo";
 import DatasetActions from "./DatasetActions";
+import DatasetPreviewModal from "./DatasetPreviewModal";
 
 type Dataset = {
   id: string;
@@ -29,13 +30,17 @@ interface DatasetCardProps {
 
 export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
   const [isRunning, setIsRunning] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [executionId, setExecutionId] = useState<string | null>(dataset.last_execution_id || null);
   const { toast } = useToast();
   
   async function handleRunDataset() {
     try {
       setIsRunning(true);
       
-      await executeDataset(dataset.id);
+      const result = await executeDataset(dataset.id);
+      setExecutionId(result.executionId);
+      setShowPreview(true);
       
       toast({
         title: "Dataset Executed",
@@ -43,7 +48,7 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
       });
       
       // Refresh the list to update last execution time
-      onRefresh();
+      setTimeout(() => onRefresh(), 2000);
     } catch (error) {
       console.error("Error executing dataset:", error);
       toast({
@@ -81,10 +86,8 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
   function handleViewPreview() {
     // Use the most recent execution ID if available
     if (dataset.last_execution_id) {
-      toast({
-        title: "Preview Available Soon",
-        description: "Dataset preview functionality is coming soon.",
-      });
+      setExecutionId(dataset.last_execution_id);
+      setShowPreview(true);
     } else {
       toast({
         title: "No Data Available",
@@ -118,6 +121,14 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
           onDeleteDataset={handleDeleteDataset}
         />
       </CardContent>
+      
+      {showPreview && executionId && (
+        <DatasetPreviewModal
+          executionId={executionId}
+          isOpen={showPreview}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </Card>
   );
 }
