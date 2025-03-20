@@ -1,5 +1,6 @@
 
 import React from "react";
+import { Badge } from "@/components/ui/badge";
 
 interface SourceValidationDetailsProps {
   sourceType: string;
@@ -26,7 +27,14 @@ export default function SourceValidationDetails({
             <div className="font-medium">Plan:</div>
             <div>{validationResult.shopInfo.plan?.displayName || "N/A"}</div>
             <div className="font-medium">API Version:</div>
-            <div>{credentials.api_version}</div>
+            <div className="flex items-center">
+              {credentials.api_version}
+              {credentials.api_version && (
+                <Badge className="ml-2" variant="outline">
+                  Current Version
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
       )}

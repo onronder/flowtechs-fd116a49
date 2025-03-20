@@ -97,11 +97,11 @@ async function validateShopifyConnection(config: any, corsHeaders: Record<string
     );
   }
   
-  // First attempt to detect latest API version
-  let apiVersion = "2023-07"; // Fallback version
+  // Always attempt to get the current API version
+  let apiVersion = "";
   
   try {
-    console.log(`[validateShopifyConnection] Attempting to fetch API versions for store: ${storeName}`);
+    console.log(`[validateShopifyConnection] Fetching current API version for store: ${storeName}`);
     const versionEndpoint = `https://${storeName}.myshopify.com/admin/api/versions`;
     console.log(`[validateShopifyConnection] Version endpoint: ${versionEndpoint}`);
     
@@ -116,25 +116,31 @@ async function validateShopifyConnection(config: any, corsHeaders: Record<string
       console.error(`[validateShopifyConnection] Version endpoint response not OK: ${versionResponse.status} ${versionResponse.statusText}`);
       const responseText = await versionResponse.text();
       console.error(`[validateShopifyConnection] Response body: ${responseText.substring(0, 500)}...`);
-      
-      // If we can't get the version, we'll try the connection with the fallback version
-      console.log(`[validateShopifyConnection] Proceeding with fallback API version: ${apiVersion}`);
+      throw new Error(`Failed to fetch API versions: ${versionResponse.statusText}`);
+    }
+    
+    const versionData = await versionResponse.json();
+    console.log(`[validateShopifyConnection] API versions response: ${JSON.stringify(versionData)}`);
+    
+    if (versionData.supported_versions && versionData.supported_versions.length > 0) {
+      // Get the most recent stable version (first in the list)
+      apiVersion = versionData.supported_versions[0].handle;
+      console.log(`[validateShopifyConnection] Using latest API version: ${apiVersion}`);
     } else {
-      const versionData = await versionResponse.json();
-      console.log(`[validateShopifyConnection] API versions response: ${JSON.stringify(versionData)}`);
-      
-      if (versionData.supported_versions && versionData.supported_versions.length > 0) {
-        apiVersion = versionData.supported_versions[0].handle;
-        console.log(`[validateShopifyConnection] Latest API version detected: ${apiVersion}`);
-      }
+      throw new Error("No API versions found in Shopify response");
     }
   } catch (error) {
-    console.error(`[validateShopifyConnection] Failed to auto-detect API version: ${error.message}`);
-    // Continue with fallback version
-    console.log(`[validateShopifyConnection] Proceeding with fallback API version: ${apiVersion}`);
+    console.error(`[validateShopifyConnection] Failed to get current API version: ${error.message}`);
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: `Failed to get current Shopify API version: ${error.message}` 
+      }),
+      { headers: corsHeaders, status: 400 }
+    );
   }
   
-  // Test connection with detected or fallback version
+  // Test connection with the current version
   const shopifyEndpoint = `https://${storeName}.myshopify.com/admin/api/${apiVersion}/graphql.json`;
   console.log(`[validateShopifyConnection] GraphQL endpoint: ${shopifyEndpoint}`);
   
@@ -190,13 +196,13 @@ async function validateShopifyConnection(config: any, corsHeaders: Record<string
       );
     }
     
-    // Update config with detected API version
+    // Return the updated config with current API version
     const updatedConfig = {
       ...config,
       api_version: apiVersion
     };
     
-    console.log("[validateShopifyConnection] Connection successful, returning updated config");
+    console.log(`[validateShopifyConnection] Connection successful, using API version: ${apiVersion}`);
     
     // Connection successful
     return new Response(

@@ -32,6 +32,7 @@ export async function saveSource(
   toast?: (props: ToastProps) => void
 ) {
   try {
+    console.log("=== SAVING SOURCE START ===");
     // Log for debugging (redact sensitive info)
     console.log("Saving source data:", {
       ...sourceData,
@@ -115,7 +116,8 @@ export async function saveSource(
         // Continue anyway - don't block source creation if schema fetch fails
       }
     }
-
+    
+    console.log("=== SAVING SOURCE COMPLETE ===");
     return result;
   } catch (error) {
     console.error("Error saving source:", error);

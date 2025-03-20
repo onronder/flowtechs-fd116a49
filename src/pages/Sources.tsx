@@ -22,9 +22,33 @@ const Sources = () => {
     const sourceToTest = sources.find(s => s.id === id);
     if (!sourceToTest) return;
     
-    const shouldRefresh = await testSourceConnection(id, sourceToTest, toast);
-    if (shouldRefresh) {
-      fetchSources();
+    try {
+      const result = await testSourceConnection(id, sourceToTest, toast);
+      
+      if (result.success) {
+        // Show a notification if the API version was updated
+        if (result.updated && result.message) {
+          toast({
+            title: "Connection successful",
+            description: result.message,
+          });
+        } else {
+          toast({
+            title: "Connection successful",
+            description: "Source connection is working correctly.",
+          });
+        }
+        
+        // Refresh the sources to get the updated data
+        fetchSources();
+      }
+    } catch (error) {
+      console.error("Error testing source:", error);
+      toast({
+        title: "Connection failed",
+        description: error instanceof Error ? error.message : "Failed to test connection",
+        variant: "destructive",
+      });
     }
   }
 

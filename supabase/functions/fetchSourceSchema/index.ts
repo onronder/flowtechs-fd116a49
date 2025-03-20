@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -81,7 +80,51 @@ async function fetchShopifySchema(source: any, supabaseClient: any) {
   const config = source.config;
   console.log(`Fetching Shopify schema for store: ${config.storeName}, API version: ${config.api_version}`);
   
-  const shopifyEndpoint = `https://${config.storeName}.myshopify.com/admin/api/${config.api_version}/graphql.json`;
+  // Make sure we're using a valid API version
+  let apiVersion = config.api_version;
+  
+  // If no API version is available, try to fetch the current one
+  if (!apiVersion) {
+    try {
+      console.log(`No API version found, fetching current version for store: ${config.storeName}`);
+      const versionEndpoint = `https://${config.storeName}.myshopify.com/admin/api/versions`;
+      
+      const versionResponse = await fetch(versionEndpoint, {
+        headers: {
+          "X-Shopify-Access-Token": config.accessToken,
+          "Content-Type": "application/json"
+        }
+      });
+      
+      if (versionResponse.ok) {
+        const versionData = await versionResponse.json();
+        
+        if (versionData.supported_versions && versionData.supported_versions.length > 0) {
+          apiVersion = versionData.supported_versions[0].handle;
+          console.log(`Fetched current API version: ${apiVersion}`);
+          
+          // Update the source with the current API version
+          await supabaseClient
+            .from("sources")
+            .update({ 
+              config: { ...config, api_version: apiVersion },
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", source.id);
+        }
+      }
+    } catch (error) {
+      console.error(`Error fetching current API version: ${error.message}`);
+      // Continue with default version
+      apiVersion = "2023-10"; // Fallback to a more recent version than 2023-07
+    }
+  }
+  
+  if (!apiVersion) {
+    throw new Error("Could not determine Shopify API version");
+  }
+  
+  const shopifyEndpoint = `https://${config.storeName}.myshopify.com/admin/api/${apiVersion}/graphql.json`;
   
   // Introspection query to fetch schema
   const introspectionQuery = `

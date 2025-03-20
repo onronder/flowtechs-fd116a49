@@ -25,6 +25,11 @@ function redactSensitiveInfo(credentials: any) {
  */
 export async function validateSourceConnection(sourceType: string, credentials: any) {
   try {
+    console.log("Validating credentials:", { 
+      sourceType, 
+      credentials: redactSensitiveInfo(credentials)
+    });
+    
     console.log("Validating source connection:", { 
       sourceType, 
       credentials: redactSensitiveInfo(credentials)
@@ -94,24 +99,61 @@ export async function testSourceConnection(sourceId: string, source: Source) {
     }
     
     // If successful and source type is Shopify, check if API version changed
-    if (data.success && source.source_type === "shopify" && 
-        data.config.api_version !== source.config.api_version) {
-      
-      const { error: updateError } = await supabase
-        .from("sources")
-        .update({ 
-          config: data.config,
-          last_validated_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", sourceId);
-      
-      if (updateError) {
-        console.error("Error updating source:", updateError);
-        throw new Error(updateError.message || "Failed to update source with new API version");
+    if (data.success && source.source_type === "shopify") {
+      // Always update the source if the API version has changed
+      if (data.config.api_version !== source.config.api_version) {
+        console.log(`Updating Shopify API version from ${source.config.api_version} to ${data.config.api_version}`);
+        
+        const { error: updateError } = await supabase
+          .from("sources")
+          .update({ 
+            config: data.config,
+            last_validated_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", sourceId);
+        
+        if (updateError) {
+          console.error("Error updating source:", updateError);
+          throw new Error(updateError.message || "Failed to update source with new API version");
+        }
+        
+        // Also update the schema when the API version changes
+        try {
+          console.log(`Fetching updated schema for source ${sourceId} with new API version ${data.config.api_version}`);
+          await fetchSourceSchema(sourceId, true);
+        } catch (schemaError) {
+          console.error("Error updating schema after API version change:", schemaError);
+          // Continue anyway
+        }
+        
+        return { success: true, updated: true, message: `Updated to latest Shopify API version: ${data.config.api_version}` };
       }
       
-      return { success: true, updated: true };
+      // If last validation was more than 7 days ago, update the schema
+      const lastValidatedAt = new Date(source.last_validated_at || 0);
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      if (lastValidatedAt < sevenDaysAgo) {
+        console.log(`Schema is older than 7 days (last update: ${lastValidatedAt.toISOString()}), refreshing`);
+        try {
+          await fetchSourceSchema(sourceId, true);
+          
+          // Update last_validated_at timestamp
+          await supabase
+            .from("sources")
+            .update({ 
+              last_validated_at: new Date().toISOString()
+            })
+            .eq("id", sourceId);
+            
+          return { success: true, updated: true, message: "Updated schema data (7+ days since last update)" };
+        } catch (schemaError) {
+          console.error("Error refreshing schema:", schemaError);
+          // Continue anyway
+        }
+      }
     }
     
     return { success: data.success, updated: false };

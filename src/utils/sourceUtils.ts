@@ -1,65 +1,60 @@
 
-import { useToast } from "@/hooks/use-toast";
 import { Source } from "@/hooks/useSources";
 import { testSourceConnection as apiTestSourceConnection, deleteSource as apiDeleteSource } from "@/api/sourceApi";
 
-export async function testSourceConnection(sourceId: string, sourceData: Source, toast: ReturnType<typeof useToast>["toast"]) {
+/**
+ * Tests a connection to a source
+ * @param id The ID of the source to test
+ * @param source The source object
+ * @param toast The toast function to display messages
+ * @returns A promise with the test result
+ */
+export async function testSourceConnection(id: string, source: Source, toast: any) {
   try {
-    toast({
-      title: "Testing connection...",
-      description: "Please wait while we test your source connection.",
-    });
-    
-    const result = await apiTestSourceConnection(sourceId, sourceData);
-    
-    if (result.success) {
+    const result = await apiTestSourceConnection(id, source);
+    return result;
+  } catch (error) {
+    console.error("Error testing source connection:", error);
+    if (toast) {
       toast({
-        title: "Connection Successful",
-        description: `Successfully connected to ${sourceData.name}`,
-      });
-      
-      return result.updated; // Indicate whether sources should be refreshed
-    } else {
-      toast({
-        title: "Connection Failed",
-        description: "Failed to connect to the source.",
+        title: "Connection failed",
+        description: error instanceof Error ? error.message : "Failed to test connection",
         variant: "destructive",
       });
-      return false;
     }
-  } catch (error) {
-    console.error("Error testing source:", error);
-    toast({
-      title: "Error",
-      description: error instanceof Error 
-        ? error.message 
-        : "An error occurred while testing the connection.",
-      variant: "destructive",
-    });
-    return false;
+    throw error;
   }
 }
 
-export async function deleteSource(sourceId: string, toast: ReturnType<typeof useToast>["toast"]) {
-  if (confirm("Are you sure you want to delete this source? This action cannot be undone.")) {
-    try {
-      await apiDeleteSource(sourceId);
-      
+/**
+ * Deletes a source
+ * @param id The ID of the source to delete
+ * @param toast The toast function to display messages
+ * @returns A promise that resolves to true if successful
+ */
+export async function deleteSource(id: string, toast: any) {
+  try {
+    await apiDeleteSource(id);
+    
+    if (toast) {
       toast({
-        title: "Source Deleted",
-        description: "The source has been deleted successfully.",
+        title: "Source deleted",
+        description: "Source has been successfully deleted.",
       });
-      
-      return true; // Indicate success
-    } catch (error) {
-      console.error("Error deleting source:", error);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error deleting source:", error);
+    
+    if (toast) {
       toast({
         title: "Error",
-        description: "Failed to delete the source. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to delete source",
         variant: "destructive",
       });
-      return false; // Indicate failure
     }
+    
+    return false;
   }
-  return false;
 }
