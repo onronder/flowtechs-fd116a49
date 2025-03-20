@@ -1,12 +1,10 @@
 
 import { useState, useEffect } from "react";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Check, ChevronsUpDown } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Label } from "@/components/ui/label";
+import SearchField from "./components/SearchField";
+import TreeView from "./components/TreeView";
+import ListView from "./components/ListView";
 
 interface FieldSelectorProps {
   resource: any;
@@ -15,7 +13,12 @@ interface FieldSelectorProps {
   onFieldsChange: (fields: string[]) => void;
 }
 
-export default function FieldSelector({ resource, schema, selectedFields, onFieldsChange }: FieldSelectorProps) {
+export default function FieldSelector({ 
+  resource, 
+  schema, 
+  selectedFields, 
+  onFieldsChange 
+}: FieldSelectorProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [fields, setFields] = useState<any[]>([]);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
@@ -117,15 +120,11 @@ export default function FieldSelector({ resource, schema, selectedFields, onFiel
         </div>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search fields..."
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          className="pl-8"
-        />
-      </div>
+      <SearchField 
+        searchTerm={searchTerm} 
+        setSearchTerm={setSearchTerm}
+        placeholder="Search fields..."
+      />
 
       <Tabs value={view} onValueChange={(v) => setView(v as 'tree' | 'list')}>
         <TabsList className="grid w-full grid-cols-2">
@@ -134,77 +133,21 @@ export default function FieldSelector({ resource, schema, selectedFields, onFiel
         </TabsList>
         
         <TabsContent value="tree" className="border rounded-md p-4">
-          <ScrollArea className="h-80">
-            {filteredFields.map(field => (
-              <div key={field.path} className="py-1">
-                <div className="flex items-center">
-                  <Checkbox
-                    id={`tree-${field.path}`}
-                    checked={selectedFields.includes(field.path)}
-                    onCheckedChange={() => toggleField(field.path)}
-                    disabled={!field.isScalar}
-                  />
-                  <Label
-                    htmlFor={`tree-${field.path}`}
-                    className={`ml-2 text-sm ${!field.isScalar ? 'font-medium' : ''} ${!field.isScalar ? 'cursor-pointer' : ''}`}
-                    onClick={() => !field.isScalar && toggleExpandNode(field.path)}
-                  >
-                    {field.name}
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      ({field.type})
-                    </span>
-                  </Label>
-                  {!field.isScalar && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="ml-auto h-6 w-6 p-0"
-                      onClick={() => toggleExpandNode(field.path)}
-                    >
-                      <ChevronsUpDown className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-                {field.description && (
-                  <p className="text-xs text-muted-foreground ml-6">
-                    {field.description}
-                  </p>
-                )}
-              </div>
-            ))}
-          </ScrollArea>
+          <TreeView 
+            fields={filteredFields}
+            selectedFields={selectedFields}
+            expandedNodes={expandedNodes}
+            onFieldToggle={toggleField}
+            onNodeToggle={toggleExpandNode}
+          />
         </TabsContent>
         
         <TabsContent value="list" className="border rounded-md p-4">
-          <ScrollArea className="h-80">
-            {filteredFields
-              .filter(field => field.isScalar)
-              .map(field => (
-                <div key={field.path} className="py-1 flex items-start">
-                  <Checkbox
-                    id={`list-${field.path}`}
-                    checked={selectedFields.includes(field.path)}
-                    onCheckedChange={() => toggleField(field.path)}
-                  />
-                  <div className="ml-2">
-                    <Label
-                      htmlFor={`list-${field.path}`}
-                      className="text-sm cursor-pointer"
-                    >
-                      {field.name}
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        ({field.type})
-                      </span>
-                    </Label>
-                    {field.description && (
-                      <p className="text-xs text-muted-foreground">
-                        {field.description}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-          </ScrollArea>
+          <ListView 
+            fields={filteredFields}
+            selectedFields={selectedFields}
+            onFieldToggle={toggleField}
+          />
         </TabsContent>
       </Tabs>
 

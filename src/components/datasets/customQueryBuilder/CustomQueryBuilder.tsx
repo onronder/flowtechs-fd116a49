@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { fetchShopifySchema } from "@/api/datasetsApi";
+import { Button } from "@/components/ui/button";
 import ResourceSelector from "./ResourceSelector";
 import FieldSelectionStep from "./FieldSelectionStep";
 import QueryValidationStep from "./QueryValidationStep";
