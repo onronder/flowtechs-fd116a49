@@ -87,7 +87,10 @@ export default function useSourceForm(
     try {
       setValidationResult(null);
       
-      const result = await validateSourceConnection(data);
+      const result = await validateSourceConnection({
+        sourceType: sourceData.type,
+        ...data
+      });
       
       setValidationResult(result);
       return result;
@@ -134,7 +137,7 @@ export default function useSourceForm(
       
       // Validate connection
       const result = await validateSourceConnection({
-        type: updatedSourceData.type,
+        sourceType: updatedSourceData.type,
         ...credentials
       });
       

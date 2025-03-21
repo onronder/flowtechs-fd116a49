@@ -86,6 +86,7 @@ export async function validateShopifyConnection(config: any): Promise<Response> 
     
     // Connection successful
     return successResponse({
+      success: true,
       config: updatedConfig,
       shopInfo: result.data.shop
     });

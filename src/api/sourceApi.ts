@@ -29,16 +29,53 @@ export async function fetchSourceById(id: string) {
 }
 
 export async function validateSourceConnection(connectionData: any) {
-  // We are calling the Supabase Edge function to validate the connection
-  const { data, error } = await supabase.functions.invoke("validateSourceConnection", {
-    body: connectionData,
-  });
+  try {
+    console.log("Validating source connection with data:", {
+      ...connectionData,
+      accessToken: connectionData.accessToken ? "REDACTED" : undefined,
+      apiSecret: connectionData.apiSecret ? "REDACTED" : undefined
+    });
+    
+    // Prepare the request body with the correct structure
+    const requestBody = {
+      sourceType: connectionData.type || connectionData.sourceType,
+      config: {
+        ...connectionData
+      }
+    };
+    
+    // If the type/sourceType was included in the main object, remove it from config
+    if (connectionData.type) {
+      delete requestBody.config.type;
+    }
+    if (connectionData.sourceType) {
+      delete requestBody.config.sourceType;
+    }
+    
+    console.log("Prepared request body:", {
+      ...requestBody,
+      config: {
+        ...requestBody.config,
+        accessToken: "REDACTED",
+        apiSecret: "REDACTED"
+      }
+    });
+    
+    // We are calling the Supabase Edge function to validate the connection
+    const { data, error } = await supabase.functions.invoke("validateSourceConnection", {
+      body: requestBody,
+    });
 
-  if (error) {
-    throw new Error(error.message);
+    if (error) {
+      console.error("Edge function error:", error);
+      throw new Error(error.message);
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in validateSourceConnection:", error);
+    throw error;
   }
-
-  return data;
 }
 
 export async function testSourceConnection(id: string) {

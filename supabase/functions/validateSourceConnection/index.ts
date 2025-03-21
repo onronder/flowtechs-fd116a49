@@ -35,6 +35,7 @@ serve(async (req) => {
       ...config,
       accessToken: config?.accessToken ? "REDACTED" : undefined,
       apiKey: config?.apiKey ? "REDACTED" : undefined,
+      apiSecret: config?.apiSecret ? "REDACTED" : undefined,
       password: config?.password ? "REDACTED" : undefined
     })}`);
     
