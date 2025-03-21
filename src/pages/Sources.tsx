@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +14,7 @@ export default function Sources() {
   const [sources, setSources] = useState([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadSources();
@@ -47,7 +49,11 @@ export default function Sources() {
   }
 
   function handleAddNew() {
-    window.location.href = "/sources/new";
+    navigate("/sources/new");
+  }
+
+  function handleEditSource(id: string) {
+    navigate(`/sources/${id}/edit`);
   }
 
   return (
@@ -74,7 +80,7 @@ export default function Sources() {
         <SourcesGrid
           sources={sources}
           onTest={handleTestConnection}
-          onEdit={(id) => window.location.href = `/sources/${id}/edit`}
+          onEdit={handleEditSource}
           onDelete={handleDeleteSource}
           onAddNew={handleAddNew}
         />

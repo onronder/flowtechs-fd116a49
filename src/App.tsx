@@ -12,6 +12,8 @@ import { AuthRoute } from "@/components/auth/AuthRoute";
 // Main pages
 import Dashboard from "./pages/Dashboard";
 import Sources from "./pages/Sources";
+import AddSource from "./pages/AddSource";
+import EditSource from "./pages/EditSource";
 import Datasets from "./pages/Datasets";
 import Transformations from "./pages/Transformations";
 import Destinations from "./pages/Destinations";
@@ -64,6 +66,8 @@ const App = () => {
               {/* Protected app routes with Layout */}
               <Route path="/dashboard" element={<AuthRoute><Layout><Dashboard /></Layout></AuthRoute>} />
               <Route path="/sources" element={<AuthRoute><Layout><Sources /></Layout></AuthRoute>} />
+              <Route path="/sources/new" element={<AuthRoute><Layout><AddSource /></Layout></AuthRoute>} />
+              <Route path="/sources/:id/edit" element={<AuthRoute><Layout><EditSource /></Layout></AuthRoute>} />
               <Route path="/datasets" element={<AuthRoute><Layout><Datasets /></Layout></AuthRoute>} />
               <Route path="/transformations" element={<AuthRoute><Layout><Transformations /></Layout></AuthRoute>} />
               <Route path="/destinations" element={<AuthRoute><Layout><Destinations /></Layout></AuthRoute>} />
