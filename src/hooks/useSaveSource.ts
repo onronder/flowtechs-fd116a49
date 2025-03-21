@@ -31,12 +31,8 @@ export default function useSaveSource() {
         });
       }
       
-      // Navigate to the source details page
-      if (result.source && result.source.id) {
-        navigate(`/sources/${result.source.id}`);
-      } else {
-        navigate("/sources");
-      }
+      // Navigate to the sources homepage instead of the source details page
+      navigate("/sources");
       
       return result;
     } catch (error) {
