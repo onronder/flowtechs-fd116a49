@@ -54,7 +54,7 @@ export async function testSourceConnection(id: string) {
     
     // Call the appropriate test function based on source type
     const { data, error } = await supabase.functions.invoke("testSourceConnection", {
-      body: { sourceId: id, sourceType: source.type, config: source.config }
+      body: { sourceId: id, sourceType: source.source_type, config: source.config }
     });
     
     if (error) {

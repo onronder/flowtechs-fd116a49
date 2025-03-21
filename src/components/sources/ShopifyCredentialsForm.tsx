@@ -1,3 +1,4 @@
+
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -23,6 +24,7 @@ import {
 const formSchema = z.object({
   storeName: z.string().min(1, "Store name is required"),
   clientId: z.string().min(1, "Client ID is required"),
+  apiSecret: z.string().min(1, "API Secret is required"),
   accessToken: z.string().min(1, "Access token is required"),
 });
 
@@ -30,6 +32,7 @@ interface ShopifyCredentialsFormProps {
   initialData?: {
     storeName?: string;
     clientId?: string;
+    apiSecret?: string;
     accessToken?: string;
   };
   onSubmit: (data: z.infer<typeof formSchema>) => void;
@@ -48,6 +51,7 @@ export default function ShopifyCredentialsForm({
     defaultValues: {
       storeName: initialData.storeName || "",
       clientId: initialData.clientId || "",
+      apiSecret: initialData.apiSecret || "",
       accessToken: initialData.accessToken || "",
     },
   });
@@ -93,6 +97,7 @@ export default function ShopifyCredentialsForm({
                   <li>Go to the "API credentials" tab</li>
                   <li>Copy the "Admin API access token" to use as the Access Token</li>
                   <li>Copy the "API key" to use as the Client ID</li>
+                  <li>Copy the "API secret key" to use as the API Secret</li>
                 </ol>
               </AccordionContent>
             </AccordionItem>
@@ -127,6 +132,23 @@ export default function ShopifyCredentialsForm({
               </FormControl>
               <FormDescription>
                 Your Shopify Private App API key
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="apiSecret"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>API Secret</FormLabel>
+              <FormControl>
+                <Input type="password" {...field} />
+              </FormControl>
+              <FormDescription>
+                Your Private App's API secret key
               </FormDescription>
               <FormMessage />
             </FormItem>

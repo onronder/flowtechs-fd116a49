@@ -9,11 +9,11 @@ import { corsHeaders, errorResponse, successResponse } from "../_shared/cors.ts"
 export async function validateShopifyConnection(config: any): Promise<Response> {
   console.log("[validateShopifyConnection] Starting Shopify validation");
   
-  const { storeName, accessToken, clientId, api_version } = config;
+  const { storeName, accessToken, clientId, apiSecret, api_version } = config;
   
-  if (!storeName || !accessToken) {
+  if (!storeName || !accessToken || !apiSecret) {
     console.error("[validateShopifyConnection] Missing required Shopify configuration");
-    return errorResponse("Missing required Shopify configuration: storeName or accessToken");
+    return errorResponse("Missing required Shopify configuration: storeName, accessToken or apiSecret");
   }
   
   try {

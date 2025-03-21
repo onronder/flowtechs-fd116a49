@@ -5,6 +5,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 export interface ShopifyConfig {
   storeName: string;
   api_version: string;
+  apiSecret: string;
   accessToken: string;
 }
 
@@ -21,7 +22,7 @@ export async function executeShopifyQuery(
   queryTemplate: string,
   variables: QueryOptions
 ): Promise<any> {
-  if (!shopifyConfig.storeName || !shopifyConfig.api_version || !shopifyConfig.accessToken) {
+  if (!shopifyConfig.storeName || !shopifyConfig.api_version || !shopifyConfig.accessToken || !shopifyConfig.apiSecret) {
     throw new Error("Missing Shopify configuration values");
   }
 

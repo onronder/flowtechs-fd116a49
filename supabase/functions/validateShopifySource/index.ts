@@ -13,13 +13,13 @@ serve(async (req) => {
   
   try {
     const body = await req.json();
-    const { storeName, clientId, accessToken } = body;
+    const { storeName, clientId, apiSecret, accessToken } = body;
     
     console.log(`[validateShopifySource] Validating Shopify store: ${storeName}`);
     
-    if (!storeName || !accessToken) {
+    if (!storeName || !accessToken || !apiSecret) {
       console.error("[validateShopifySource] Missing required parameters");
-      return errorResponse("Missing required parameters: storeName or accessToken");
+      return errorResponse("Missing required parameters: storeName, accessToken or apiSecret");
     }
     
     // Step 1: Detect latest Shopify API version
@@ -96,6 +96,7 @@ serve(async (req) => {
       config: {
         storeName,
         clientId,
+        apiSecret,
         accessToken,
         api_version: apiVersion
       },

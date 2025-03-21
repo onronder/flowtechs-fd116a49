@@ -48,6 +48,7 @@ export async function detectLatestShopifyVersion(storeName: string, accessToken:
  * @param sourceId The source ID in the database
  * @param storeName The Shopify store name
  * @param accessToken The access token for the store
+ * @param apiSecret The API secret for the store
  * @param apiVersion The API version to use
  * @param forceUpdate Whether to force a schema update even if cached
  */
@@ -55,6 +56,7 @@ export async function fetchAndCacheShopifySchema(
   sourceId: string,
   storeName: string, 
   accessToken: string,
+  apiSecret: string,
   apiVersion: string,
   forceUpdate = false
 ): Promise<boolean> {
@@ -174,8 +176,9 @@ export async function updateSourceApiVersionAndSchema(sourceId: string): Promise
     const config = source.config as Record<string, any>;
     const storeName = config.storeName as string;
     const accessToken = config.accessToken as string;
+    const apiSecret = config.apiSecret as string;
     
-    if (!storeName || !accessToken) {
+    if (!storeName || !accessToken || !apiSecret) {
       console.error(`Missing required credentials for source ${sourceId}`);
       return false;
     }
@@ -195,6 +198,7 @@ export async function updateSourceApiVersionAndSchema(sourceId: string): Promise
         sourceId,
         storeName,
         accessToken,
+        apiSecret,
         latestVersion,
         false
       );
@@ -223,6 +227,7 @@ export async function updateSourceApiVersionAndSchema(sourceId: string): Promise
       sourceId,
       storeName,
       accessToken,
+      apiSecret,
       latestVersion,
       true
     );

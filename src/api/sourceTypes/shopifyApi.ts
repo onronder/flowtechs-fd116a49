@@ -9,7 +9,7 @@ import { Source } from "@/hooks/useSources";
 export async function validateShopifyConnection(credentials: ShopifyCredentials): Promise<ValidationResult> {
   try {
     console.log("Validating Shopify credentials via Edge Function:", { 
-      credentials: { ...credentials, accessToken: "REDACTED" }
+      credentials: { ...credentials, accessToken: "REDACTED", apiSecret: "REDACTED" }
     });
     
     const { data, error } = await supabase.functions.invoke("validateShopifySource", {
@@ -97,13 +97,14 @@ export async function testShopifyConnection(sourceId: string, source: Source) {
   try {
     console.log("Testing Shopify connection:", { 
       sourceId, 
-      config: { ...source.config, accessToken: "REDACTED" }
+      config: { ...source.config, accessToken: "REDACTED", apiSecret: "REDACTED" }
     });
     
     // Validate credentials - ensure we're passing a properly typed object
     const shopifyCredentials: ShopifyCredentials = {
       storeName: source.config.storeName,
       clientId: source.config.clientId,
+      apiSecret: source.config.apiSecret,
       accessToken: source.config.accessToken,
       api_version: source.config.api_version
     };

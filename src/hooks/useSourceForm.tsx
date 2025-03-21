@@ -15,6 +15,7 @@ const defaultShopifySchema = z.object({
   description: z.string().optional(),
   storeName: z.string().min(1, { message: "Store name is required" }),
   clientId: z.string().min(1, { message: "Client ID is required" }),
+  apiSecret: z.string().min(1, { message: "API Secret is required" }),
   accessToken: z.string().min(1, { message: "Access token is required" }),
   api_version: z.string().min(1, { message: "API version is required" }),
 });
@@ -58,6 +59,7 @@ export default function useSourceForm(
       description: "",
       storeName: "",
       clientId: "",
+      apiSecret: "",
       accessToken: "",
       api_version: "2023-10",
     },

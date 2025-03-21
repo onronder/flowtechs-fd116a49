@@ -32,9 +32,9 @@ export async function fetchRecentOrders(
 }> {
   try {
     // Extract credentials
-    const { storeName, accessToken, api_version } = config;
+    const { storeName, accessToken, apiSecret, api_version } = config;
     
-    if (!storeName || !accessToken) {
+    if (!storeName || !accessToken || !apiSecret) {
       return {
         orders: [],
         pageInfo: { hasNextPage: false },
