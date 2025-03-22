@@ -20,7 +20,7 @@ export async function executeDataset(datasetId: string) {
     // Log the payload we're sending
     console.log("Request payload:", payload);
     
-    // Invoke dataset execution directly without checking for function existence
+    // Invoke dataset execution
     console.log("Invoking Dataset_Execute function...");
     const { data, error } = await supabase.functions.invoke(
       "Dataset_Execute",

@@ -57,8 +57,8 @@ export default function DatasetRunButton({
       onExecutionStarted(result.executionId);
       
       toast({
-        title: "Dataset Executed",
-        description: "Dataset execution has been initiated.",
+        title: "Dataset Execution Started",
+        description: "Dataset execution has been initiated. Results will be available in preview when complete.",
       });
       
       // Refresh the list to update last execution time

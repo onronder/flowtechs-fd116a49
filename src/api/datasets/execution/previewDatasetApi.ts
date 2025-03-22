@@ -12,7 +12,7 @@ export async function fetchDatasetPreview(executionId: string) {
     const payload = JSON.stringify({ executionId, limit: 100 }); // Increased limit for more comprehensive results
     console.log("Sending preview request with payload:", payload);
     
-    // Invoke the function directly without checking if it exists
+    // Invoke the function
     const { data, error } = await supabase.functions.invoke(
       "Dataset_Preview",
       { 

@@ -23,10 +23,10 @@ export async function validateShopifyConnection(config: any): Promise<Response> 
     
     // If the API version is provided, use it; otherwise detect it
     // Note: We expect the frontend to have already detected the version
-    const apiVersion = api_version || "2025-01";
+    const apiVersion = api_version || "2023-10";
     console.log(`[validateShopifyConnection] Using API version: ${apiVersion}`);
     
-    // Test GraphQL API to verify credentials
+    // Test GraphQL API to verify credentials with a very simple query
     const graphqlEndpoint = `${shopUrl}/admin/api/${apiVersion}/graphql.json`;
     
     const testQuery = `
