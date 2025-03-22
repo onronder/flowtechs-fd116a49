@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
 import { executeDataset } from "@/api/datasets/execution/executeDatasetApi";
@@ -24,6 +24,11 @@ export default function DatasetRunButton({
 
   // Use the most restrictive state - either parent or local
   const buttonDisabled = isRunning || localIsRunning;
+
+  // For debugging
+  useEffect(() => {
+    console.log(`DatasetRunButton rendered for dataset: ${datasetId}, isRunning: ${isRunning}`);
+  }, [datasetId, isRunning]);
 
   async function handleRunDataset() {
     try {
