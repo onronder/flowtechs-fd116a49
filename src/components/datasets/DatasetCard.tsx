@@ -23,6 +23,13 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
   const { toast } = useToast();
   const { handleScheduleHourly } = DatasetScheduler({ datasetId: dataset.id, onRefresh });
 
+  // Debug dataset info
+  useEffect(() => {
+    console.log("Dataset card rendered:", dataset.id, dataset.name);
+    console.log("Dataset source:", dataset.source);
+    console.log("Last execution ID:", dataset.last_execution_id);
+  }, [dataset]);
+
   // Reset running state when dataset changes (after refresh)
   useEffect(() => {
     setIsRunning(false);
@@ -112,7 +119,7 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
         ref={deletionRef}
       />
 
-      {/* This component is invisible but handles the run dataset functionality */}
+      {/* This component handles the run dataset functionality */}
       <div className="hidden">
         <DatasetRunButton
           datasetId={dataset.id}

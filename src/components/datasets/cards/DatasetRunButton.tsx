@@ -20,12 +20,16 @@ export default function DatasetRunButton({
 }: DatasetRunButtonProps) {
   const { toast } = useToast();
   const [localIsRunning, setLocalIsRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Use the most restrictive state - either parent or local
   const buttonDisabled = isRunning || localIsRunning;
 
   async function handleRunDataset() {
     try {
+      // Reset error state
+      setError(null);
+      
       // Validate dataset ID
       if (!datasetId) {
         console.error("Invalid dataset ID:", datasetId);
@@ -64,10 +68,12 @@ export default function DatasetRunButton({
       // Refresh the list to update last execution time
       onRefresh();
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to execute the dataset";
+      setError(errorMessage);
       console.error("Error executing dataset:", error);
       toast({
         title: "Execution Failed",
-        description: error instanceof Error ? error.message : "Failed to execute the dataset. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -78,14 +84,21 @@ export default function DatasetRunButton({
   }
 
   return (
-    <Button 
-      variant="default" 
-      size="sm"
-      onClick={handleRunDataset}
-      disabled={buttonDisabled}
-    >
-      <Play className="h-4 w-4 mr-1" />
-      {buttonDisabled ? "Running..." : "Run"}
-    </Button>
+    <div>
+      <Button 
+        variant="default" 
+        size="sm"
+        onClick={handleRunDataset}
+        disabled={buttonDisabled}
+      >
+        <Play className="h-4 w-4 mr-1" />
+        {buttonDisabled ? "Running..." : "Run"}
+      </Button>
+      {error && (
+        <div className="text-red-500 text-xs mt-1">
+          {error}
+        </div>
+      )}
+    </div>
   );
 }

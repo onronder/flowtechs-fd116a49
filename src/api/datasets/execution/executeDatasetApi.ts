@@ -2,7 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Execute dataset
+ * Execute dataset with improved error handling
  */
 export async function executeDataset(datasetId: string) {
   try {
@@ -34,7 +34,12 @@ export async function executeDataset(datasetId: string) {
     
     if (error) {
       console.error("Error from Dataset_Execute function:", error);
-      throw error;
+      throw new Error(`Execution error: ${error.message || JSON.stringify(error)}`);
+    }
+    
+    if (!data || !data.executionId) {
+      console.error("Invalid response format:", data);
+      throw new Error("Invalid response from execution function - missing executionId");
     }
     
     console.log("Dataset execution response:", data);
@@ -63,7 +68,7 @@ export async function executeCustomDataset(sourceId: string, query: string) {
     
     if (error) {
       console.error("Error from Cust_ExecuteDataset function:", error);
-      throw error;
+      throw new Error(`Execution error: ${error.message || JSON.stringify(error)}`);
     }
     
     console.log("Custom dataset execution response:", data);

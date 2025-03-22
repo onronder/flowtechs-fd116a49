@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -15,14 +15,13 @@ export default function Datasets() {
   const [showNewModal, setShowNewModal] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    loadDatasets();
-  }, []);
-
-  async function loadDatasets() {
+  const loadDatasets = useCallback(async () => {
     try {
+      console.log("Loading datasets...");
       setLoading(true);
+      
       const data = await fetchUserDatasets();
+      console.log(`Loaded ${data.length} datasets`);
       
       // Check for datasets that use the direct API access
       const enhancedData = data.map(dataset => {
@@ -56,7 +55,17 @@ export default function Datasets() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [toast]);
+
+  useEffect(() => {
+    loadDatasets();
+  }, [loadDatasets]);
+  
+  // Function to force refresh datasets
+  const handleRefresh = useCallback(() => {
+    console.log("Manually refreshing datasets...");
+    loadDatasets();
+  }, [loadDatasets]);
 
   return (
     <div className="h-full">
@@ -66,10 +75,15 @@ export default function Datasets() {
           <p className="text-muted-foreground">Manage your data extractions</p>
         </div>
         
-        <Button onClick={() => setShowNewModal(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Dataset
-        </Button>
+        <div className="flex space-x-2">
+          <Button variant="outline" onClick={handleRefresh}>
+            Refresh
+          </Button>
+          <Button onClick={() => setShowNewModal(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Dataset
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -84,7 +98,7 @@ export default function Datasets() {
             <DatasetCard 
               key={dataset.id}
               dataset={dataset}
-              onRefresh={loadDatasets}
+              onRefresh={handleRefresh}
             />
           ))}
         </div>
@@ -94,7 +108,7 @@ export default function Datasets() {
         <NewDatasetModal 
           isOpen={showNewModal}
           onClose={() => setShowNewModal(false)}
-          onDatasetCreated={loadDatasets}
+          onDatasetCreated={handleRefresh}
         />
       )}
     </div>
