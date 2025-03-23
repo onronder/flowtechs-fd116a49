@@ -59,7 +59,7 @@ serve(async (req) => {
 
     console.log(`Fetching execution ID: ${executionId} for user: ${user.id}`);
     
-    // Get execution data - avoid the complex join that might be causing issues
+    // Get execution data
     const { data: execution, error: executionError } = await supabaseClient
       .from("dataset_executions")
       .select("*")
@@ -96,7 +96,7 @@ serve(async (req) => {
       
       const { data: templateData, error: templateError } = await supabaseClient
         .from(templateTable)
-        .select("*")
+        .select("id, name")
         .eq("id", dataset.template_id)
         .single();
         
