@@ -23,12 +23,20 @@ export async function executeDataset(datasetId: string) {
     // Invoke dataset execution with REST API instead of WebSocket
     console.log("Invoking Dataset_Execute function...");
     
+    // Get the current auth token
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    
+    if (!token) {
+      throw new Error("Authentication required to execute dataset");
+    }
+    
     // Use direct fetch for more control over the request
-    const response = await fetch(`${supabase.supabaseUrl}/functions/v1/Dataset_Execute`, {
+    const response = await fetch("https://sxzgeevxciuxjyxfartx.supabase.co/functions/v1/Dataset_Execute", {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabase.auth.getSession().then(({ data }) => data.session?.access_token)}`
+        'Authorization': `Bearer ${token}`
       },
       body: payload
     });

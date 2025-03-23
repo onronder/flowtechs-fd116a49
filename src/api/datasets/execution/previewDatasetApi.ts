@@ -27,7 +27,7 @@ export async function fetchDatasetPreview(executionId: string) {
       throw new Error("Authentication required to fetch preview");
     }
     
-    const response = await fetch(`${supabase.supabaseUrl}/functions/v1/Dataset_Preview`, {
+    const response = await fetch("https://sxzgeevxciuxjyxfartx.supabase.co/functions/v1/Dataset_Preview", {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
