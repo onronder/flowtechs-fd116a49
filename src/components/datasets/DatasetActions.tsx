@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Play, Download, Edit, Trash, Eye, Clock } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+import { executeDataset } from "@/api/datasets/execution/executeDatasetApi";
 
 interface DatasetActionsProps {
   datasetId: string;
@@ -19,6 +20,8 @@ interface DatasetActionsProps {
   onRunDataset: () => void;
   onScheduleDataset: () => void;
   onDeleteDataset: () => void;
+  onExecutionStarted?: (executionId: string) => void;
+  onRefresh?: () => void;
 }
 
 export default function DatasetActions({
@@ -29,7 +32,9 @@ export default function DatasetActions({
   onViewPreview,
   onRunDataset,
   onScheduleDataset,
-  onDeleteDataset
+  onDeleteDataset,
+  onExecutionStarted,
+  onRefresh
 }: DatasetActionsProps) {
   const { toast } = useToast();
   
@@ -38,9 +43,43 @@ export default function DatasetActions({
     console.log(`DatasetActions: datasetId=${datasetId}, isRunning=${isRunning}, lastExecutionId=${lastExecutionId || 'none'}`);
   }, [isRunning, datasetId, lastExecutionId]);
   
-  const handleRunClick = () => {
+  const handleRunClick = async () => {
     console.log("RUN BUTTON CLICKED in DatasetActions");
+    
+    // Call the parent component's function to update UI state
     onRunDataset();
+    
+    try {
+      // Actually execute the dataset
+      console.log("Directly executing dataset with ID:", datasetId);
+      const result = await executeDataset(datasetId);
+      console.log("Dataset execution result:", result);
+      
+      if (result && result.executionId) {
+        console.log("Execution started successfully with ID:", result.executionId);
+        toast({
+          title: "Dataset Execution Started",
+          description: "Dataset execution has been initiated. Results will be available in preview when complete.",
+        });
+        
+        // Notify parent component about the execution
+        if (onExecutionStarted) {
+          onExecutionStarted(result.executionId);
+        }
+        
+        // Refresh the list to update
+        if (onRefresh) {
+          onRefresh();
+        }
+      }
+    } catch (error) {
+      console.error("Error executing dataset from DatasetActions:", error);
+      toast({
+        title: "Execution Failed",
+        description: error instanceof Error ? error.message : "Failed to execute the dataset",
+        variant: "destructive"
+      });
+    }
   };
   
   return (

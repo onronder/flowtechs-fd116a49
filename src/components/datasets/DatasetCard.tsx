@@ -101,6 +101,8 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
               onRunDataset={handleRunDatasetClick}
               onScheduleDataset={handleScheduleHourly}
               onDeleteDataset={handleDeleteDatasetClick}
+              onExecutionStarted={handleExecutionStarted}
+              onRefresh={onRefresh}
             />
           </div>
         </div>
@@ -118,16 +120,6 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
         onRefresh={onRefresh}
         ref={deletionRef}
       />
-
-      {/* This component handles the run dataset functionality - key to execution flow */}
-      <div className="hidden">
-        <DatasetRunButton
-          datasetId={dataset.id}
-          isRunning={isRunning}
-          onExecutionStarted={handleExecutionStarted}
-          onRefresh={onRefresh}
-        />
-      </div>
     </>
   );
 }
