@@ -33,7 +33,7 @@ serve(async (req) => {
       return errorResponse("Invalid JSON in request body", 400);
     }
 
-    const { executionId, datasetId, userId } = body;
+    const { executionId, datasetId, userId, template: passedTemplate } = body;
     
     if (!executionId || !datasetId || !userId) {
       console.error("Missing required parameters");
@@ -60,7 +60,22 @@ serve(async (req) => {
 
     try {
       // Get dataset and template details
-      const { dataset, template } = await fetchDatasetDetails(supabaseClient, datasetId, userId);
+      let dataset, template;
+      
+      if (passedTemplate) {
+        // Use the template passed from the parent function
+        console.log("Using passed template:", passedTemplate.id);
+        template = passedTemplate;
+        
+        // We still need the dataset with source
+        const { dataset: datasetData } = await fetchDatasetDetails(supabaseClient, datasetId, userId);
+        dataset = datasetData;
+      } else {
+        // Fetch both dataset and template
+        const result = await fetchDatasetDetails(supabaseClient, datasetId, userId);
+        dataset = result.dataset;
+        template = result.template;
+      }
 
       console.log("Using template:", template.id, "Query:", template.query_template?.substring(0, 100) + "...");
 

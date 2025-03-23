@@ -88,14 +88,11 @@ serve(async (req) => {
 
     console.log("Authenticated user:", user.id);
 
-    // Get dataset details in a single query
+    // Get dataset details - using a different approach to avoid 
+    // the "Could not find a relationship" error
     const { data: dataset, error: datasetError } = await supabaseClient
       .from("user_datasets")
-      .select(`
-        *,
-        source:source_id(*),
-        template:template_id(*)
-      `)
+      .select("*, source:source_id(*)")
       .eq("id", datasetId)
       .eq("user_id", user.id)
       .single();
@@ -118,6 +115,33 @@ serve(async (req) => {
     }
     
     console.log("Found source:", dataset.source.id, "Type:", dataset.source.source_type);
+
+    // If the dataset has a template_id, fetch it separately to avoid the join error
+    let template = null;
+    if (dataset.template_id) {
+      console.log("Fetching template with ID:", dataset.template_id);
+      
+      // Determine which template table to query based on dataset type
+      let templateTable = "query_templates";
+      if (dataset.dataset_type === "dependent") {
+        templateTable = "dependent_query_templates";
+      }
+      
+      const { data: templateData, error: templateError } = await supabaseClient
+        .from(templateTable)
+        .select("*")
+        .eq("id", dataset.template_id)
+        .single();
+        
+      if (templateError) {
+        console.error("Template fetch error:", templateError);
+        // Don't fail the execution just because we couldn't get the template
+        console.log("Continuing execution without template");
+      } else {
+        template = templateData;
+        console.log("Found template:", template.id, template.name);
+      }
+    }
 
     // Create execution record
     const { data: execution, error: executionError } = await supabaseClient
@@ -143,10 +167,6 @@ serve(async (req) => {
     
     switch (dataset.dataset_type) {
       case "predefined":
-        if (!dataset.template) {
-          console.error("Template not found for predefined dataset:", datasetId);
-          return errorResponse("Template not found for this predefined dataset", 400);
-        }
         executionFunction = "Pre_ExecuteDataset";
         break;
       case "dependent":
@@ -154,6 +174,17 @@ serve(async (req) => {
         break;
       case "custom":
         executionFunction = "Cust_ExecuteDataset";
+        break;
+      case "direct_api":
+        // Handle the pre_recent_orders_dashboard special case
+        if (dataset.parameters && 
+            typeof dataset.parameters === 'object' && 
+            dataset.parameters.edge_function === 'pre_recent_orders_dashboard') {
+          executionFunction = "pre_recent_orders_dashboard";
+        } else {
+          console.error("Unknown direct_api edge function");
+          return errorResponse("Unknown direct_api edge function specified", 400);
+        }
         break;
       default:
         console.error("Unknown dataset type:", dataset.dataset_type);
@@ -166,7 +197,9 @@ serve(async (req) => {
     const invokePayload = {
       executionId: execution.id,
       datasetId: datasetId,
-      userId: user.id
+      userId: user.id,
+      // Include the template if we fetched it separately
+      template: template
     };
     
     console.log("Invoking function with payload:", JSON.stringify(invokePayload));

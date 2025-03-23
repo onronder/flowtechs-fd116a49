@@ -5,7 +5,6 @@ import DatasetMetadata from "./DatasetMetadata";
 import DatasetInfo from "./DatasetInfo";
 import DatasetActions from "./DatasetActions";
 import { useToast } from "@/hooks/use-toast";
-import DatasetRunButton from "./cards/DatasetRunButton";
 import DatasetDeletion from "./cards/DatasetDeletion";
 import DatasetPreview from "./cards/DatasetPreview";
 import DatasetScheduler from "./cards/DatasetScheduler";
