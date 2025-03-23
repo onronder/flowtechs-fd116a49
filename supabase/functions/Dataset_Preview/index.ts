@@ -59,11 +59,12 @@ serve(async (req) => {
 
     console.log(`Fetching execution ID: ${executionId} for user: ${user.id}`);
     
-    // Get execution data
+    // Get execution data directly with a simple, non-relational query
     const { data: execution, error: executionError } = await supabaseClient
       .from("dataset_executions")
       .select("*")
       .eq("id", executionId)
+      .eq("user_id", user.id)
       .single();
 
     if (executionError) {
@@ -90,32 +91,22 @@ serve(async (req) => {
       });
     }
 
-    // Only fetch the dataset details if execution is successful
-    // Using a direct query without relying on relations or schema cache
-    const datasetQuery = `
-      SELECT id, name, description, dataset_type, template_id, source_id
-      FROM user_datasets
-      WHERE id = '${execution.dataset_id}'
-      AND user_id = '${user.id}'
-      LIMIT 1
-    `;
-    
-    console.log("Executing direct dataset query...");
-    
-    const { data: datasetResults, error: datasetQueryError } = await supabaseClient.rpc(
-      'execute_sql_query',
-      { query: datasetQuery }
-    );
+    // Get dataset without using relationships
+    const { data: dataset, error: datasetError } = await supabaseClient
+      .from("user_datasets")
+      .select("id, name, description, dataset_type, template_id, source_id")
+      .eq("id", execution.dataset_id)
+      .eq("user_id", user.id)
+      .single();
 
-    if (datasetQueryError || !datasetResults || datasetResults.length === 0) {
-      console.error("Error fetching dataset:", datasetQueryError || "No dataset found");
-      return errorResponse("Dataset not found or access denied", 404);
+    if (datasetError) {
+      console.error("Error fetching dataset:", datasetError);
+      return errorResponse(`Dataset not found: ${datasetError.message}`, 404);
     }
     
-    const dataset = datasetResults[0];
     console.log(`Found dataset: ${dataset.name} (${dataset.id}), type: ${dataset.dataset_type}`);
     
-    // Get template details if needed
+    // Get template details if needed, using separate queries based on dataset type
     let template = null;
     if (dataset.template_id) {
       const templateTable = dataset.dataset_type === "dependent" 
@@ -124,28 +115,17 @@ serve(async (req) => {
       
       console.log(`Fetching template from ${templateTable} with ID: ${dataset.template_id}`);
       
-      const templateQuery = `
-        SELECT id, name, display_name
-        FROM ${templateTable}
-        WHERE id = '${dataset.template_id}'
-        LIMIT 1
-      `;
+      const { data: templateData, error: templateError } = await supabaseClient
+        .from(templateTable)
+        .select("id, name, display_name")
+        .eq("id", dataset.template_id)
+        .single();
       
-      try {
-        const { data: templateResults, error: templateQueryError } = await supabaseClient.rpc(
-          'execute_sql_query',
-          { query: templateQuery }
-        );
-        
-        if (!templateQueryError && templateResults && templateResults.length > 0) {
-          template = templateResults[0];
-          console.log("Found template:", template.id, template.name || template.display_name);
-        } else {
-          console.log("Template not found, continuing without it:", templateQueryError?.message);
-        }
-      } catch (templateFetchError) {
-        console.error("Error fetching template:", templateFetchError);
-        // Continue without template data
+      if (templateError) {
+        console.log("Template not found, continuing without it:", templateError.message);
+      } else if (templateData) {
+        template = templateData;
+        console.log("Found template:", template.id, template.name || template.display_name);
       }
     }
 
