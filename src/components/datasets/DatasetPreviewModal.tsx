@@ -31,6 +31,7 @@ export default function DatasetPreviewModal({
     loading, 
     error, 
     loadPreview, 
+    dataSource,
     pollCount, 
     maxPollCount,
     startTime 
@@ -120,6 +121,7 @@ export default function DatasetPreviewModal({
         previewData={previewData} 
         onExport={handleExport} 
         isExporting={isExporting}
+        dataSource={dataSource}
       />
     );
   };

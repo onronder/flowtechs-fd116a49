@@ -1,18 +1,21 @@
 
 import { Button } from "@/components/ui/button";
-import { Download, Loader2 } from "lucide-react";
+import { Download, Loader2, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import TableView from "./TableView";
 
 interface PreviewContentProps {
   previewData: any;
   onExport: (format: 'json' | 'csv' | 'xlsx') => void;
   isExporting?: boolean;
+  dataSource?: 'preview' | 'direct';
 }
 
 export default function PreviewContent({ 
   previewData, 
   onExport, 
-  isExporting = false 
+  isExporting = false,
+  dataSource = 'preview'
 }: PreviewContentProps) {
   // Calculate execution time nicely formatted
   const formatExecutionTime = () => {
@@ -75,6 +78,15 @@ export default function PreviewContent({
           </Button>
         </div>
       </div>
+      
+      {dataSource === 'direct' && (
+        <Alert className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Using direct database access. Some features may be limited.
+          </AlertDescription>
+        </Alert>
+      )}
       
       <div className="flex-1 overflow-auto border rounded-md">
         {previewData?.preview && previewData.preview.length > 0 ? (

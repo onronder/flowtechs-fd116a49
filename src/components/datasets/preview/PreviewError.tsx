@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 import { useState } from "react";
@@ -12,10 +11,13 @@ interface PreviewErrorProps {
 export default function PreviewError({ error, onRetry, onClose }: PreviewErrorProps) {
   const [showDetails, setShowDetails] = useState(false);
   
+  // Extract error message and debug info
   let displayError = error;
   let errorDetails = null;
+  let debugInfo = null;
   
   try {
+    // Try to parse JSON error messages
     if (error.includes('{') && error.includes('}')) {
       const jsonStart = error.indexOf('{');
       const jsonEnd = error.lastIndexOf('}') + 1;
@@ -23,6 +25,13 @@ export default function PreviewError({ error, onRetry, onClose }: PreviewErrorPr
       const errorObj = JSON.parse(jsonString);
       
       displayError = errorObj.message || errorObj.error || "An error occurred";
+      
+      // Extract debug info if available
+      if (errorObj.debug) {
+        debugInfo = errorObj.debug;
+      }
+      
+      // Keep the raw JSON for technical details
       errorDetails = jsonString;
     }
   } catch (e) {
@@ -33,12 +42,25 @@ export default function PreviewError({ error, onRetry, onClose }: PreviewErrorPr
     <div className="flex-1 flex items-center justify-center p-8">
       <div className="text-center max-w-md">
         <div className="flex justify-center mb-4">
-          <AlertTriangle className="h-12 w-12 text-red-500" />
+          <AlertTriangle className="h-12 w-12 text-red-500" aria-hidden="true" />
         </div>
         <div className="bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 p-4 rounded-md mb-4">
           <h3 className="text-lg font-medium mb-2">Error Loading Dataset Preview</h3>
           <p className="text-sm break-words">{displayError}</p>
           
+          {/* Debug information if available */}
+          {debugInfo && (
+            <div className="mt-3 text-xs text-left bg-red-50 dark:bg-red-900 p-2 rounded">
+              <div className="font-medium mb-1">Execution details:</div>
+              <ul className="list-disc pl-5 space-y-1">
+                {Object.entries(debugInfo).map(([key, value]) => (
+                  <li key={key}>{key}: {String(value)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
+          {/* Technical details accordion */}
           {errorDetails && (
             <div className="mt-2">
               <Button 
@@ -46,12 +68,17 @@ export default function PreviewError({ error, onRetry, onClose }: PreviewErrorPr
                 size="sm" 
                 onClick={() => setShowDetails(!showDetails)}
                 className="text-xs"
+                aria-expanded={showDetails}
+                aria-controls="error-details"
               >
                 {showDetails ? "Hide Details" : "Show Technical Details"}
               </Button>
               
               {showDetails && (
-                <pre className="mt-2 p-2 bg-red-50 dark:bg-red-900 rounded text-xs text-left overflow-auto max-h-32">
+                <pre 
+                  id="error-details"
+                  className="mt-2 p-2 bg-red-50 dark:bg-red-900 rounded text-xs text-left overflow-auto max-h-32"
+                >
                   {errorDetails}
                 </pre>
               )}

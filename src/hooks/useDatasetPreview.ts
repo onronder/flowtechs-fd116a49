@@ -2,11 +2,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { fetchDatasetPreview } from "@/api/datasets/execution/previewDatasetApi";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
   const [previewData, setPreviewData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [dataSource, setDataSource] = useState<'preview' | 'direct'>('preview');
   const { toast } = useToast();
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const MAX_POLL_COUNT = 120; // 4 minutes at 2-second intervals
@@ -36,6 +38,94 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       pollingIntervalRef.current = null;
     }
   }, []);
+  
+  // Direct database fallback for when preview fails
+  const fetchDirectExecutionData = useCallback(async (execId: string) => {
+    if (!execId) return null;
+    
+    try {
+      console.log(`[Preview] Attempting direct data fetch for execution ID: ${execId}`);
+      setDataSource('direct');
+      
+      // First get the execution details
+      const { data: execution, error: executionError } = await supabase
+        .from("dataset_executions")
+        .select("*")
+        .eq("id", execId)
+        .single();
+      
+      if (executionError || !execution) {
+        console.error("[Preview] Direct fetch - execution error:", executionError);
+        throw new Error(executionError?.message || "Execution not found");
+      }
+      
+      // Get dataset details
+      const { data: dataset, error: datasetError } = await supabase
+        .from("user_datasets")
+        .select("*")
+        .eq("id", execution.dataset_id)
+        .single();
+      
+      if (datasetError || !dataset) {
+        console.error("[Preview] Direct fetch - dataset error:", datasetError);
+        throw new Error(datasetError?.message || "Dataset not found");
+      }
+      
+      // Process the data
+      let preview = [];
+      let totalCount = 0;
+      
+      // Data can sometimes be stored as JSON string, so handle that case
+      let processedData = execution.data;
+      if (typeof processedData === 'string') {
+        try {
+          processedData = JSON.parse(processedData);
+        } catch (e) {
+          console.log("[Preview] Data was string but not valid JSON");
+        }
+      }
+      
+      if (Array.isArray(processedData)) {
+        preview = processedData.slice(0, 100);
+        totalCount = processedData.length;
+      } else if (processedData && typeof processedData === 'object') {
+        preview = [processedData];
+        totalCount = 1;
+      } else {
+        preview = [];
+        totalCount = 0;
+      }
+      
+      // Get columns from first item
+      const columns = preview.length > 0
+        ? Object.keys(preview[0]).map(key => ({ key, label: key }))
+        : [];
+      
+      // Build response similar to the API
+      return {
+        status: execution.status,
+        execution: {
+          id: execution.id,
+          startTime: execution.start_time,
+          endTime: execution.end_time,
+          rowCount: execution.row_count || totalCount,
+          executionTimeMs: execution.execution_time_ms,
+          apiCallCount: execution.api_call_count
+        },
+        dataset: {
+          id: dataset.id,
+          name: dataset.name,
+          type: dataset.dataset_type
+        },
+        columns,
+        preview,
+        totalCount
+      };
+    } catch (err) {
+      console.error("[Preview] Error in direct data fetch:", err);
+      throw err;
+    }
+  }, []);
 
   const loadPreview = useCallback(async (showLoading = true) => {
     try {
@@ -48,68 +138,101 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       
       console.log(`[Preview] Fetching preview data for execution ID: ${executionId}, poll #${pollCountRef.current}`);
       
-      const data = await fetchDatasetPreview(executionId, {
-        // Adding retry capabilities at the API level
-        maxRetries: 2,
-        retryDelay: 1000
-      });
-      
-      if (!mountedRef.current) return;
-      
-      // Reset consecutive errors counter on success
-      consecutiveErrorsRef.current = 0;
-      
-      console.log("[Preview] Preview data received:", data);
-      setPreviewData(data);
-      
-      // If this is the first successful response and status is running or pending
-      // store the current time as the start time for elapsed time tracking
-      if (!startTimeRef.current && (data.status === "running" || data.status === "pending")) {
-        startTimeRef.current = new Date().toISOString();
-      }
-      
-      // If execution is complete or failed, stop polling
-      if (data.status === "completed" || data.status === "failed") {
-        console.log(`[Preview] Execution ${data.status}, stopping polling`);
-        resetPolling();
+      try {
+        // Try the standard preview endpoint first
+        const data = await fetchDatasetPreview(executionId, {
+          limit: 100,
+          maxRetries: 2,
+          retryDelay: 1000
+        });
         
-        if (data.status === "completed") {
+        if (!mountedRef.current) return;
+        
+        // Reset consecutive errors counter on success
+        consecutiveErrorsRef.current = 0;
+        setDataSource('preview');
+        
+        console.log("[Preview] Preview data received:", data);
+        setPreviewData(data);
+        
+        // If this is the first successful response and status is running or pending
+        // store the current time as the start time for elapsed time tracking
+        if (!startTimeRef.current && (data.status === "running" || data.status === "pending")) {
+          startTimeRef.current = new Date().toISOString();
+        }
+        
+        // If execution is complete or failed, stop polling
+        if (data.status === "completed" || data.status === "failed") {
+          console.log(`[Preview] Execution ${data.status}, stopping polling`);
+          resetPolling();
+          
+          if (data.status === "completed") {
+            toast({
+              title: "Execution Complete",
+              description: `Retrieved ${data.totalCount || 0} rows of data.`,
+            });
+          } else if (data.status === "failed") {
+            toast({
+              title: "Execution Failed",
+              description: data.error || "The dataset execution failed",
+              variant: "destructive"
+            });
+          }
+        }
+      } catch (err) {
+        if (!mountedRef.current) return;
+        
+        console.error("[Preview] Error loading from preview API:", err);
+        
+        // Try direct database access as fallback
+        try {
+          const directData = await fetchDirectExecutionData(executionId);
+          
+          if (!mountedRef.current) return;
+          
+          if (directData) {
+            console.log("[Preview] Successfully retrieved data directly from database:", directData);
+            setPreviewData(directData);
+            setDataSource('direct');
+            
+            // Reset error counters
+            consecutiveErrorsRef.current = 0;
+            
+            // Stop polling if the execution is complete or failed
+            if (directData.status === "completed" || directData.status === "failed") {
+              resetPolling();
+            }
+            
+            // Don't throw the original error since we recovered
+            return;
+          }
+        } catch (fallbackErr) {
+          console.error("[Preview] Fallback direct data fetch also failed:", fallbackErr);
+          // Continue to error handling with the original error
+        }
+        
+        // If we get here, both methods failed
+        consecutiveErrorsRef.current++;
+        
+        const errorMessage = err instanceof Error ? err.message : "Failed to load dataset preview";
+        setError(errorMessage);
+        
+        // If we've hit too many consecutive errors, stop polling
+        if (consecutiveErrorsRef.current >= MAX_CONSECUTIVE_ERRORS) {
+          console.log(`[Preview] ${MAX_CONSECUTIVE_ERRORS} consecutive errors, stopping polling`);
+          resetPolling();
+          
           toast({
-            title: "Execution Complete",
-            description: `Retrieved ${data.totalCount || 0} rows of data.`,
-          });
-        } else if (data.status === "failed") {
-          toast({
-            title: "Execution Failed",
-            description: data.error || "The dataset execution failed",
+            title: "Error",
+            description: "Failed to load dataset preview after multiple attempts",
             variant: "destructive"
           });
         }
       }
-    } catch (err) {
-      if (!mountedRef.current) return;
-      
-      consecutiveErrorsRef.current++;
-      console.error("[Preview] Error loading preview:", err);
-      
-      const errorMessage = err instanceof Error ? err.message : "Failed to load dataset preview";
-      setError(errorMessage);
-      
-      // If we've hit too many consecutive errors, stop polling
-      if (consecutiveErrorsRef.current >= MAX_CONSECUTIVE_ERRORS) {
-        console.log(`[Preview] ${MAX_CONSECUTIVE_ERRORS} consecutive errors, stopping polling`);
-        resetPolling();
-        
-        toast({
-          title: "Error",
-          description: "Failed to load dataset preview after multiple attempts",
-          variant: "destructive"
-        });
-      }
     } finally {
       if (showLoading && mountedRef.current) setLoading(false);
     }
-  }, [executionId, toast, resetPolling]);
+  }, [executionId, toast, resetPolling, fetchDirectExecutionData]);
 
   useEffect(() => {
     if (isOpen && executionId) {
@@ -159,6 +282,7 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
     loading,
     error,
     loadPreview,
+    dataSource,
     pollCount: pollCountRef.current,
     maxPollCount: MAX_POLL_COUNT,
     startTime: startTimeRef.current
