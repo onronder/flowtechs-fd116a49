@@ -94,7 +94,11 @@ serve(async (req) => {
     }
 
     if (execution.status === "failed") {
-      return errorResponse(execution.error_message || "Dataset execution failed", 400);
+      return successResponse({
+        status: "failed",
+        error: execution.error_message || "Dataset execution failed",
+        message: "Dataset execution failed"
+      });
     }
 
     // Get preview data

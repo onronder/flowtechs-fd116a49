@@ -20,22 +20,26 @@ export async function executeDataset(datasetId: string) {
     // Log the payload we're sending
     console.log("Request payload:", payload);
     
-    // Invoke dataset execution
+    // Invoke dataset execution with REST API instead of WebSocket
     console.log("Invoking Dataset_Execute function...");
-    const { data, error } = await supabase.functions.invoke(
-      "Dataset_Execute",
-      { 
-        body: payload,
-        headers: { 
-          'Content-Type': 'application/json'
-        }
-      }
-    );
     
-    if (error) {
-      console.error("Error from Dataset_Execute function:", error);
-      throw new Error(`Execution error: ${error.message || JSON.stringify(error)}`);
+    // Use direct fetch for more control over the request
+    const response = await fetch(`${supabase.supabaseUrl}/functions/v1/Dataset_Execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabase.auth.getSession().then(({ data }) => data.session?.access_token)}`
+      },
+      body: payload
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Error response from Dataset_Execute function:", response.status, errorText);
+      throw new Error(`Execution error (${response.status}): ${errorText}`);
     }
+    
+    const data = await response.json();
     
     if (!data || !data.executionId) {
       console.error("Invalid response format:", data);

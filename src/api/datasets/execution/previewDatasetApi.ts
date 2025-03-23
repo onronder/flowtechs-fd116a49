@@ -16,21 +16,35 @@ export async function fetchDatasetPreview(executionId: string) {
     const payload = JSON.stringify({ executionId, limit: 100 }); // Increased limit for more comprehensive results
     console.log("Sending preview request with payload:", payload);
     
-    // Invoke the function with proper debugging
+    // Use direct fetch for more control over the request
     console.time('preview_request');
-    const { data, error } = await supabase.functions.invoke(
-      "Dataset_Preview",
-      { 
-        body: payload,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    );
+    
+    // Get the current auth token
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    
+    if (!token) {
+      throw new Error("Authentication required to fetch preview");
+    }
+    
+    const response = await fetch(`${supabase.supabaseUrl}/functions/v1/Dataset_Preview`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: payload
+    });
+    
     console.timeEnd('preview_request');
     
-    if (error) {
-      console.error("Error fetching dataset preview:", error);
-      throw new Error(`Preview error: ${error.message || JSON.stringify(error)}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Error response from Dataset_Preview function:", response.status, errorText);
+      throw new Error(`Preview error (${response.status}): ${errorText}`);
     }
+    
+    const data = await response.json();
     
     if (!data) {
       console.error("No data returned from preview function");
