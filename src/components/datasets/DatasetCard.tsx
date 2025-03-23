@@ -119,7 +119,7 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
         ref={deletionRef}
       />
 
-      {/* This component handles the run dataset functionality */}
+      {/* This component handles the run dataset functionality - key to execution flow */}
       <div className="hidden">
         <DatasetRunButton
           datasetId={dataset.id}

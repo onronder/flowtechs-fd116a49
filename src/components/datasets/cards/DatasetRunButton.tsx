@@ -60,6 +60,8 @@ export default function DatasetRunButton({
       
       // Execute the dataset with proper error handling
       console.log("Calling executeDataset API with ID:", datasetId);
+      
+      // This is the key API call that triggers the execution
       const result = await executeDataset(datasetId);
       
       console.log("Execution result received:", result);

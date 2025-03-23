@@ -2,7 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Fetch dataset preview with improved error handling
+ * Fetch dataset preview with enhanced error handling and debugging
  */
 export async function fetchDatasetPreview(executionId: string) {
   try {
@@ -16,7 +16,8 @@ export async function fetchDatasetPreview(executionId: string) {
     const payload = JSON.stringify({ executionId, limit: 100 }); // Increased limit for more comprehensive results
     console.log("Sending preview request with payload:", payload);
     
-    // Invoke the function
+    // Invoke the function with proper debugging
+    console.time('preview_request');
     const { data, error } = await supabase.functions.invoke(
       "Dataset_Preview",
       { 
@@ -24,6 +25,7 @@ export async function fetchDatasetPreview(executionId: string) {
         headers: { 'Content-Type': 'application/json' }
       }
     );
+    console.timeEnd('preview_request');
     
     if (error) {
       console.error("Error fetching dataset preview:", error);
@@ -36,7 +38,7 @@ export async function fetchDatasetPreview(executionId: string) {
     }
     
     // Log the response structure to help diagnose issues
-    console.log("Dataset preview response structure:", Object.keys(data));
+    console.log("Dataset preview response received:", data);
     console.log("Dataset preview status:", data.status);
     
     if (data.status === "failed" && data.error) {
@@ -44,7 +46,6 @@ export async function fetchDatasetPreview(executionId: string) {
       throw new Error(`Execution failed: ${data.error}`);
     }
     
-    console.log("Dataset preview response received");
     return data;
   } catch (error) {
     console.error("Error fetching dataset preview:", error);

@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { fetchDatasetPreview } from "@/api/datasets/execution/index";
+import { fetchDatasetPreview } from "@/api/datasets/execution/previewDatasetApi";
 import { useToast } from "@/hooks/use-toast";
 
 export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
@@ -9,7 +9,7 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const MAX_POLL_COUNT = 60; // Increased for longer operations - 2 minutes at 2-second intervals
+  const MAX_POLL_COUNT = 120; // Increased for longer operations - 4 minutes at 2-second intervals
   const POLL_INTERVAL = 2000; // 2 seconds between polls
   const pollCountRef = useRef(0);
   const mountedRef = useRef(true);
