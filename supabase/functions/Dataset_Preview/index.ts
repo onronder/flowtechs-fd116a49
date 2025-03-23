@@ -85,6 +85,29 @@ serve(async (req) => {
       return errorResponse(`Dataset not found: ${datasetError.message}`, 404);
     }
 
+    // If the dataset has a template_id, fetch it separately
+    let template = null;
+    if (dataset.template_id) {
+      // Determine which template table to query based on dataset type
+      let templateTable = "query_templates";
+      if (dataset.dataset_type === "dependent") {
+        templateTable = "dependent_query_templates";
+      }
+      
+      const { data: templateData, error: templateError } = await supabaseClient
+        .from(templateTable)
+        .select("*")
+        .eq("id", dataset.template_id)
+        .single();
+        
+      if (!templateError) {
+        template = templateData;
+        console.log("Found template:", template.id, template.name);
+      } else {
+        console.log("Template not found, continuing without it");
+      }
+    }
+
     // Return appropriate data based on execution status
     if (execution.status === "running" || execution.status === "pending") {
       return successResponse({
@@ -134,7 +157,11 @@ serve(async (req) => {
       dataset: {
         id: dataset.id,
         name: dataset.name,
-        type: dataset.dataset_type
+        type: dataset.dataset_type,
+        template: template ? {
+          id: template.id,
+          name: template.name
+        } : null
       },
       columns,
       preview,
