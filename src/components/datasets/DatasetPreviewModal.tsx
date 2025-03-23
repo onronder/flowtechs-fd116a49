@@ -4,6 +4,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useDatasetPreview } from "@/hooks/useDatasetPreview";
 import { exportDataset } from "@/api/datasets/execution/index";
 import { useToast } from "@/hooks/use-toast";
+import { ExportOptions } from "@/api/datasets/datasetsApiTypes";
 import PreviewHeader from "./preview/PreviewHeader";
 import PreviewLoading from "./preview/PreviewLoading";
 import PreviewError from "./preview/PreviewError";
@@ -35,7 +36,7 @@ export default function DatasetPreviewModal({
     startTime 
   } = useDatasetPreview(executionId, isOpen);
 
-  async function handleExport(format: string) {
+  async function handleExport(format: 'json' | 'csv' | 'xlsx') {
     try {
       setIsExporting(true);
       toast({
@@ -44,7 +45,7 @@ export default function DatasetPreviewModal({
       });
       
       // Simple implementation - you can expand this later
-      const result = await exportDataset(executionId, { format });
+      const result = await exportDataset(executionId, { format } as ExportOptions);
       
       if (result?.data) {
         // For direct download

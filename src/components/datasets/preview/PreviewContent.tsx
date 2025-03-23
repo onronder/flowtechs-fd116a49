@@ -5,7 +5,7 @@ import TableView from "./TableView";
 
 interface PreviewContentProps {
   previewData: any;
-  onExport: (format: string) => void;
+  onExport: (format: 'json' | 'csv' | 'xlsx') => void;
   isExporting?: boolean;
 }
 
