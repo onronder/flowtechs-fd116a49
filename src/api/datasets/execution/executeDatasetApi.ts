@@ -20,19 +20,33 @@ export async function executeDataset(datasetId: string) {
     // Log the payload we're sending
     console.log("Request payload:", payload);
     
+    // Check authentication status first
+    console.log("Checking authentication...");
+    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    
+    if (authError) {
+      console.error("Authentication error:", authError);
+      throw new Error(`Authentication error: ${authError.message}`);
+    }
+    
+    if (!session) {
+      console.error("No active session found");
+      throw new Error("Authentication required to execute dataset. Please sign in.");
+    }
+    
+    const token = session.access_token;
+    console.log("Authentication token obtained successfully");
+    
     // Invoke dataset execution with REST API instead of WebSocket
     console.log("Invoking Dataset_Execute function...");
     
-    // Get the current auth token
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
-    
-    if (!token) {
-      throw new Error("Authentication required to execute dataset");
-    }
+    // Construct the full endpoint URL
+    const endpoint = "https://sxzgeevxciuxjyxfartx.supabase.co/functions/v1/Dataset_Execute";
+    console.log("Edge function endpoint:", endpoint);
     
     // Use direct fetch for more control over the request
-    const response = await fetch("https://sxzgeevxciuxjyxfartx.supabase.co/functions/v1/Dataset_Execute", {
+    console.log("Sending request to edge function...");
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -41,14 +55,30 @@ export async function executeDataset(datasetId: string) {
       body: payload
     });
     
+    // Check for HTTP errors
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Error response from Dataset_Execute function:", response.status, errorText);
-      throw new Error(`Execution error (${response.status}): ${errorText}`);
+      let errorMessage = `HTTP error: ${response.status}`;
+      try {
+        const errorBody = await response.text();
+        console.error("Error response from Dataset_Execute function:", response.status, errorBody);
+        errorMessage = `Execution error (${response.status}): ${errorBody}`;
+      } catch (textError) {
+        console.error("Failed to read error response body:", textError);
+      }
+      throw new Error(errorMessage);
     }
     
-    const data = await response.json();
+    // Parse the response
+    console.log("Parsing response...");
+    let data;
+    try {
+      data = await response.json();
+    } catch (jsonError) {
+      console.error("Failed to parse JSON response:", jsonError);
+      throw new Error("Invalid response format from execution function");
+    }
     
+    // Validate the response format
     if (!data || !data.executionId) {
       console.error("Invalid response format:", data);
       throw new Error("Invalid response from execution function - missing executionId");

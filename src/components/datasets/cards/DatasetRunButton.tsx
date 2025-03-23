@@ -39,6 +39,8 @@ export default function DatasetRunButton({
 
   const handleRunDataset = useCallback(async () => {
     try {
+      console.log("RUN BUTTON CLICKED - handleRunDataset called");
+      
       // Reset error state
       setError(null);
       
@@ -61,37 +63,42 @@ export default function DatasetRunButton({
       // Execute the dataset with proper error handling
       console.log("Calling executeDataset API with ID:", datasetId);
       
-      // This is the key API call that triggers the execution
-      const result = await executeDataset(datasetId);
-      
-      console.log("Execution result received:", result);
-      
-      // Validate the result
-      if (!result) {
-        throw new Error("No response received from execution API");
+      try {
+        // This is the key API call that triggers the execution
+        console.log("BEFORE executeDataset call");
+        const result = await executeDataset(datasetId);
+        console.log("AFTER executeDataset call - result:", result);
+        
+        // Validate the result
+        if (!result) {
+          throw new Error("No response received from execution API");
+        }
+        
+        if (!result.executionId) {
+          console.error("Invalid execution result format:", result);
+          throw new Error("Invalid response from execution function - missing executionId");
+        }
+        
+        // Reset retry count on success
+        if (currentRetry > 0) {
+          setRetryCount(0);
+        }
+        
+        // Call the parent callback with the execution ID
+        console.log("Execution started successfully, execution ID:", result.executionId);
+        onExecutionStarted(result.executionId);
+        
+        toast({
+          title: "Dataset Execution Started",
+          description: "Dataset execution has been initiated. Results will be available in preview when complete.",
+        });
+        
+        // Refresh the list to update last execution time
+        onRefresh();
+      } catch (executeError) {
+        console.error("Error during executeDataset:", executeError);
+        throw executeError;
       }
-      
-      if (!result.executionId) {
-        console.error("Invalid execution result format:", result);
-        throw new Error("Invalid response from execution function - missing executionId");
-      }
-      
-      // Reset retry count on success
-      if (currentRetry > 0) {
-        setRetryCount(0);
-      }
-      
-      // Call the parent callback with the execution ID
-      console.log("Execution started successfully, execution ID:", result.executionId);
-      onExecutionStarted(result.executionId);
-      
-      toast({
-        title: "Dataset Execution Started",
-        description: "Dataset execution has been initiated. Results will be available in preview when complete.",
-      });
-      
-      // Refresh the list to update last execution time
-      onRefresh();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to execute the dataset";
       setError(errorMessage);

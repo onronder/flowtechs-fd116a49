@@ -35,8 +35,13 @@ export default function DatasetActions({
   
   // For debugging
   useEffect(() => {
-    console.log(`DatasetActions: isRunning=${isRunning} for datasetId=${datasetId}`);
-  }, [isRunning, datasetId]);
+    console.log(`DatasetActions: datasetId=${datasetId}, isRunning=${isRunning}, lastExecutionId=${lastExecutionId || 'none'}`);
+  }, [isRunning, datasetId, lastExecutionId]);
+  
+  const handleRunClick = () => {
+    console.log("RUN BUTTON CLICKED in DatasetActions");
+    onRunDataset();
+  };
   
   return (
     <div className="flex justify-between items-center w-full">
@@ -54,8 +59,9 @@ export default function DatasetActions({
         <Button 
           variant="default" 
           size="sm"
-          onClick={onRunDataset}
+          onClick={handleRunClick}
           disabled={isRunning}
+          data-testid="run-dataset-button"
         >
           <Play className="h-4 w-4 mr-1" />
           {isRunning ? "Running..." : "Run"}
