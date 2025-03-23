@@ -1,10 +1,27 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
+interface PreviewOptions {
+  limit?: number;
+  retryCount?: number;
+  maxRetries?: number;
+  retryDelay?: number;
+}
+
 /**
- * Fetch dataset preview with enhanced error handling and debugging
+ * Fetch dataset preview with enhanced error handling, debugging, and retry capabilities
  */
-export async function fetchDatasetPreview(executionId: string) {
+export async function fetchDatasetPreview(
+  executionId: string, 
+  options: PreviewOptions = {}
+) {
+  const { 
+    limit = 100,
+    retryCount = 0,
+    maxRetries = 3,
+    retryDelay = 1000
+  } = options;
+  
   try {
     if (!executionId) {
       throw new Error("Execution ID is required");
@@ -13,7 +30,7 @@ export async function fetchDatasetPreview(executionId: string) {
     console.log(`Sending preview request for execution ID: ${executionId}`);
     
     // Explicitly stringify the payload
-    const payload = JSON.stringify({ executionId, limit: 100 }); // Increased limit for more comprehensive results
+    const payload = JSON.stringify({ executionId, limit }); 
     console.log("Sending preview request with payload:", payload);
     
     // Use direct fetch for more control over the request
@@ -38,13 +55,51 @@ export async function fetchDatasetPreview(executionId: string) {
     
     console.timeEnd('preview_request');
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Error response from Dataset_Preview function:", response.status, errorText);
-      throw new Error(`Preview error (${response.status}): ${errorText}`);
+    // Handle different HTTP error scenarios
+    if (response.status === 429 && retryCount < maxRetries) {
+      // Rate limiting - implement exponential backoff
+      console.log(`Rate limited. Retry ${retryCount + 1}/${maxRetries} after ${retryDelay}ms`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      return fetchDatasetPreview(executionId, {
+        limit,
+        retryCount: retryCount + 1,
+        maxRetries,
+        retryDelay: retryDelay * 2
+      });
     }
     
-    const data = await response.json();
+    if (!response.ok) {
+      let errorMessage = `HTTP error ${response.status}`;
+      
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+        console.error("Error response details:", errorData);
+      } catch (parseError) {
+        const errorText = await response.text();
+        console.error("Error response (text):", errorText);
+        errorMessage = errorText || errorMessage;
+      }
+      
+      throw new Error(`Preview error (${response.status}): ${errorMessage}`);
+    }
+    
+    const responseText = await response.text();
+    
+    // Handle empty responses
+    if (!responseText) {
+      console.error("Empty response from preview function");
+      throw new Error("Empty response from preview function");
+    }
+    
+    // Try to parse the response
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (jsonError) {
+      console.error("JSON parse error:", jsonError, "Response text:", responseText);
+      throw new Error(`Invalid JSON response: ${jsonError.message}`);
+    }
     
     if (!data) {
       console.error("No data returned from preview function");

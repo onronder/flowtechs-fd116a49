@@ -1,65 +1,69 @@
 
-import LoadingSpinner from "@/components/ui/loading-spinner";
+import { useEffect, useState } from "react";
 import { Progress } from "@/components/ui/progress";
-import { Clock } from "lucide-react";
+import LoadingSpinner from "@/components/ui/loading-spinner";
 
 interface PreviewInProgressProps {
   pollCount: number;
   maxPollCount: number;
-  startTime?: string;
+  startTime?: string | null;
 }
 
-export default function PreviewInProgress({ pollCount, maxPollCount, startTime }: PreviewInProgressProps) {
-  // Calculate progress percentage
-  const progressPercentage = (pollCount / maxPollCount) * 100;
+export default function PreviewInProgress({ 
+  pollCount, 
+  maxPollCount, 
+  startTime 
+}: PreviewInProgressProps) {
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const progressPercent = Math.min(Math.round((pollCount / maxPollCount) * 100), 99);
   
-  // Format elapsed time if startTime is provided
-  let elapsedTimeDisplay = "";
-  if (startTime) {
-    try {
-      const startTimeDate = new Date(startTime);
-      const now = new Date();
-      const elapsedSeconds = Math.floor((now.getTime() - startTimeDate.getTime()) / 1000);
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+    
+    if (startTime) {
+      const calculateElapsed = () => {
+        const start = new Date(startTime).getTime();
+        const now = new Date().getTime();
+        const elapsed = Math.floor((now - start) / 1000);
+        setElapsedSeconds(elapsed);
+      };
       
-      if (elapsedSeconds < 60) {
-        elapsedTimeDisplay = `${elapsedSeconds} seconds`;
-      } else {
-        const minutes = Math.floor(elapsedSeconds / 60);
-        const seconds = elapsedSeconds % 60;
-        elapsedTimeDisplay = `${minutes}m ${seconds}s`;
-      }
-    } catch (e) {
-      console.error("Error calculating elapsed time:", e);
+      // Calculate initially
+      calculateElapsed();
+      
+      // Then update every second
+      intervalId = setInterval(calculateElapsed, 1000);
     }
-  }
+    
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [startTime]);
+  
+  // Format elapsed time as mm:ss
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
   
   return (
-    <div className="flex-1 flex items-center justify-center p-8">
-      <div className="text-center w-full max-w-md">
-        <LoadingSpinner size="lg" className="mx-auto mb-4" />
-        <h3 className="text-lg font-medium mb-2">Execution in Progress</h3>
-        <p className="text-muted-foreground mb-4">
-          The dataset is being executed. This preview will update automatically when complete.
-        </p>
-        
-        <div className="mb-2">
-          <Progress value={progressPercentage} className="h-2" />
-        </div>
-        
-        <div className="flex justify-between text-sm text-muted-foreground">
-          <div>
-            Polling attempt: {pollCount}/{maxPollCount}
+    <div className="flex-1 flex flex-col items-center justify-center p-8">
+      <div className="flex items-center mb-4">
+        <LoadingSpinner size="lg" />
+        <div className="ml-4 flex flex-col">
+          <div className="font-medium">Dataset execution in progress...</div>
+          <div className="text-sm text-muted-foreground">
+            Data is being fetched and processed
           </div>
-          {elapsedTimeDisplay && (
-            <div className="flex items-center">
-              <Clock className="h-3 w-3 mr-1" />
-              {elapsedTimeDisplay}
-            </div>
-          )}
         </div>
-
-        <div className="mt-6 px-4 py-3 bg-yellow-50 dark:bg-yellow-900/30 rounded-md text-yellow-800 dark:text-yellow-200 text-sm">
-          <p>If execution takes too long, you can close this preview and check results later.</p>
+      </div>
+      
+      <div className="w-full max-w-md mt-4">
+        <Progress value={progressPercent} className="h-2" />
+        <div className="flex justify-between text-xs text-muted-foreground mt-2">
+          <div>Poll {pollCount}/{maxPollCount}</div>
+          {startTime && <div>Time elapsed: {formatTime(elapsedSeconds)}</div>}
         </div>
       </div>
     </div>

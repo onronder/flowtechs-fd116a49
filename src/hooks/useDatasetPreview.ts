@@ -9,11 +9,13 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const MAX_POLL_COUNT = 120; // Increased for longer operations - 4 minutes at 2-second intervals
+  const MAX_POLL_COUNT = 120; // 4 minutes at 2-second intervals
   const POLL_INTERVAL = 2000; // 2 seconds between polls
   const pollCountRef = useRef(0);
   const mountedRef = useRef(true);
   const startTimeRef = useRef<string | null>(null);
+  const consecutiveErrorsRef = useRef(0);
+  const MAX_CONSECUTIVE_ERRORS = 3;
 
   // Cleanup function
   useEffect(() => {
@@ -23,6 +25,16 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
         clearInterval(pollingIntervalRef.current);
       }
     };
+  }, []);
+
+  // Function to reset polling
+  const resetPolling = useCallback(() => {
+    pollCountRef.current = 0;
+    consecutiveErrorsRef.current = 0;
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
   }, []);
 
   const loadPreview = useCallback(async (showLoading = true) => {
@@ -35,10 +47,19 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       }
       
       console.log(`[Preview] Fetching preview data for execution ID: ${executionId}, poll #${pollCountRef.current}`);
-      const data = await fetchDatasetPreview(executionId);
-      console.log("[Preview] Preview data received:", data);
+      
+      const data = await fetchDatasetPreview(executionId, {
+        // Adding retry capabilities at the API level
+        maxRetries: 2,
+        retryDelay: 1000
+      });
       
       if (!mountedRef.current) return;
+      
+      // Reset consecutive errors counter on success
+      consecutiveErrorsRef.current = 0;
+      
+      console.log("[Preview] Preview data received:", data);
       setPreviewData(data);
       
       // If this is the first successful response and status is running or pending
@@ -50,10 +71,7 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       // If execution is complete or failed, stop polling
       if (data.status === "completed" || data.status === "failed") {
         console.log(`[Preview] Execution ${data.status}, stopping polling`);
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = null;
-        }
+        resetPolling();
         
         if (data.status === "completed") {
           toast({
@@ -71,25 +89,27 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
     } catch (err) {
       if (!mountedRef.current) return;
       
+      consecutiveErrorsRef.current++;
       console.error("[Preview] Error loading preview:", err);
+      
       const errorMessage = err instanceof Error ? err.message : "Failed to load dataset preview";
       setError(errorMessage);
       
-      // Stop polling on error
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
+      // If we've hit too many consecutive errors, stop polling
+      if (consecutiveErrorsRef.current >= MAX_CONSECUTIVE_ERRORS) {
+        console.log(`[Preview] ${MAX_CONSECUTIVE_ERRORS} consecutive errors, stopping polling`);
+        resetPolling();
+        
+        toast({
+          title: "Error",
+          description: "Failed to load dataset preview after multiple attempts",
+          variant: "destructive"
+        });
       }
-      
-      toast({
-        title: "Error",
-        description: "Failed to load dataset preview.",
-        variant: "destructive"
-      });
     } finally {
       if (showLoading && mountedRef.current) setLoading(false);
     }
-  }, [executionId, toast]);
+  }, [executionId, toast, resetPolling]);
 
   useEffect(() => {
     if (isOpen && executionId) {
@@ -97,7 +117,7 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       setLoading(true);
       setError(null);
       setPreviewData(null);
-      pollCountRef.current = 0;
+      resetPolling();
       startTimeRef.current = null;
       
       console.log(`[Preview] Starting preview polling for execution ID: ${executionId}`);
@@ -109,10 +129,7 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       pollingIntervalRef.current = setInterval(() => {
         if (pollCountRef.current >= MAX_POLL_COUNT) {
           console.log("[Preview] Max polling attempts reached, stopping polling");
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-          }
+          resetPolling();
           
           // Show a timeout error if we still don't have data
           if (!previewData || (previewData.status === "running" || previewData.status === "pending")) {
@@ -132,13 +149,10 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       }, POLL_INTERVAL);
       
       return () => {
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = null;
-        }
+        resetPolling();
       };
     }
-  }, [isOpen, executionId, loadPreview, previewData]);
+  }, [isOpen, executionId, loadPreview, previewData, resetPolling, toast]);
 
   return {
     previewData,

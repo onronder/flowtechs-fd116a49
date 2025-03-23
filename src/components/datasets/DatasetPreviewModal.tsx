@@ -11,23 +11,42 @@ import PreviewInProgress from "./preview/PreviewInProgress";
 import PreviewFailed from "./preview/PreviewFailed";
 import PreviewContent from "./preview/PreviewContent";
 
-export default function DatasetPreviewModal({ executionId, isOpen, onClose }) {
+interface DatasetPreviewModalProps {
+  executionId: string;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function DatasetPreviewModal({ 
+  executionId, 
+  isOpen, 
+  onClose 
+}: DatasetPreviewModalProps) {
   const { toast } = useToast();
+  const [isExporting, setIsExporting] = useState(false);
+  
   const { 
     previewData, 
     loading, 
     error, 
     loadPreview, 
     pollCount, 
-    maxPollCount 
+    maxPollCount,
+    startTime 
   } = useDatasetPreview(executionId, isOpen);
 
-  async function handleExport(format) {
+  async function handleExport(format: string) {
     try {
+      setIsExporting(true);
+      toast({
+        title: "Starting Export",
+        description: `Preparing ${format.toUpperCase()} export...`
+      });
+      
       // Simple implementation - you can expand this later
       const result = await exportDataset(executionId, { format });
       
-      if (result.data) {
+      if (result?.data) {
         // For direct download
         const blob = new Blob(
           [result.data],
@@ -51,9 +70,11 @@ export default function DatasetPreviewModal({ executionId, isOpen, onClose }) {
       console.error("Error exporting dataset:", error);
       toast({
         title: "Export Failed",
-        description: "Failed to export the dataset.",
+        description: error instanceof Error ? error.message : "Failed to export dataset",
         variant: "destructive"
       });
+    } finally {
+      setIsExporting(false);
     }
   }
 
@@ -63,31 +84,63 @@ export default function DatasetPreviewModal({ executionId, isOpen, onClose }) {
     }
     
     if (error) {
-      return <PreviewError error={error} onRetry={() => loadPreview()} onClose={onClose} />;
+      // Enhanced error handling with retry capability
+      return (
+        <PreviewError 
+          error={error} 
+          onRetry={() => loadPreview(true)} 
+          onClose={onClose} 
+        />
+      );
     }
     
     if (previewData?.status === "running" || previewData?.status === "pending") {
-      return <PreviewInProgress pollCount={pollCount} maxPollCount={maxPollCount} />;
+      return (
+        <PreviewInProgress 
+          pollCount={pollCount} 
+          maxPollCount={maxPollCount} 
+          startTime={startTime}
+        />
+      );
     }
     
     if (previewData?.status === "failed") {
-      return <PreviewFailed errorMessage={previewData.error} onClose={onClose} />;
+      return (
+        <PreviewFailed 
+          errorMessage={previewData.error} 
+          onClose={onClose} 
+          onRetry={() => loadPreview(true)}
+        />
+      );
     }
     
-    return <PreviewContent previewData={previewData} onExport={handleExport} />;
+    return (
+      <PreviewContent 
+        previewData={previewData} 
+        onExport={handleExport} 
+        isExporting={isExporting}
+      />
+    );
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent 
-        className="max-w-5xl max-h-[90vh] flex flex-col"
+        className="max-w-5xl max-h-[90vh] flex flex-col overflow-hidden"
         aria-describedby="dataset-preview-description"
       >
         <div id="dataset-preview-description" className="sr-only">
           Dataset preview showing execution results and data visualization
         </div>
-        <PreviewHeader title={previewData?.dataset?.name || "Dataset Preview"} />
-        {renderContent()}
+        <PreviewHeader 
+          title={previewData?.dataset?.name || "Dataset Preview"} 
+          datasetType={previewData?.dataset?.type}
+          templateName={previewData?.dataset?.template?.name}
+        />
+        
+        <div className="flex-1 overflow-hidden flex flex-col">
+          {renderContent()}
+        </div>
       </DialogContent>
     </Dialog>
   );

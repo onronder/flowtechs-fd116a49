@@ -1,23 +1,39 @@
 
 import { Button } from "@/components/ui/button";
+import { Download, Loader2 } from "lucide-react";
 import TableView from "./TableView";
 
 interface PreviewContentProps {
   previewData: any;
   onExport: (format: string) => void;
+  isExporting?: boolean;
 }
 
-export default function PreviewContent({ previewData, onExport }: PreviewContentProps) {
+export default function PreviewContent({ 
+  previewData, 
+  onExport, 
+  isExporting = false 
+}: PreviewContentProps) {
+  // Calculate execution time nicely formatted
+  const formatExecutionTime = () => {
+    if (!previewData?.execution?.executionTimeMs) return 'Unknown';
+    
+    const ms = previewData.execution.executionTimeMs;
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(2)}s`;
+  };
+  
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 p-4">
       <div className="flex justify-between items-center mb-4">
         <div>
           <p className="text-sm text-muted-foreground">
             Showing {previewData?.preview?.length || 0} of {previewData?.totalCount || 0} rows
           </p>
           <p className="text-xs text-muted-foreground">
-            Execution time: {previewData?.execution?.executionTimeMs ? 
-              `${(previewData.execution.executionTimeMs / 1000).toFixed(2)}s` : 'Unknown'}
+            Execution time: {formatExecutionTime()}
+            {previewData?.execution?.apiCallCount && 
+              ` • API calls: ${previewData.execution.apiCallCount}`}
           </p>
         </div>
         <div className="flex space-x-2">
@@ -25,15 +41,37 @@ export default function PreviewContent({ previewData, onExport }: PreviewContent
             variant="outline"
             size="sm"
             onClick={() => onExport('json')}
+            disabled={isExporting}
           >
-            Export JSON
+            {isExporting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                Exporting...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4 mr-1" />
+                Export JSON
+              </>
+            )}
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => onExport('csv')}
+            disabled={isExporting}
           >
-            Export CSV
+            {isExporting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                Exporting...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4 mr-1" />
+                Export CSV
+              </>
+            )}
           </Button>
         </div>
       </div>
