@@ -73,10 +73,10 @@ serve(async (req) => {
     
     console.log(`Found execution with status: ${execution.status}`);
 
-    // Get dataset details separately
+    // Get dataset details without using joins that might rely on schema cache
     const { data: dataset, error: datasetError } = await supabaseClient
       .from("user_datasets")
-      .select("*")
+      .select("id, name, description, dataset_type, template_id, source_id")
       .eq("id", execution.dataset_id)
       .single();
 
@@ -84,27 +84,38 @@ serve(async (req) => {
       console.error("Error fetching dataset:", datasetError);
       return errorResponse(`Dataset not found: ${datasetError.message}`, 404);
     }
+    
+    console.log(`Found dataset: ${dataset.name} (${dataset.id}), type: ${dataset.dataset_type}`);
 
     // If the dataset has a template_id, fetch it separately
     let template = null;
     if (dataset.template_id) {
+      console.log(`Dataset has template_id: ${dataset.template_id}`);
+      
       // Determine which template table to query based on dataset type
       let templateTable = "query_templates";
       if (dataset.dataset_type === "dependent") {
         templateTable = "dependent_query_templates";
       }
       
-      const { data: templateData, error: templateError } = await supabaseClient
-        .from(templateTable)
-        .select("id, name")
-        .eq("id", dataset.template_id)
-        .single();
-        
-      if (!templateError) {
-        template = templateData;
-        console.log("Found template:", template.id, template.name);
-      } else {
-        console.log("Template not found, continuing without it");
+      console.log(`Using template table: ${templateTable}`);
+      
+      try {
+        const { data: templateData, error: templateError } = await supabaseClient
+          .from(templateTable)
+          .select("id, name, display_name")
+          .eq("id", dataset.template_id)
+          .single();
+          
+        if (!templateError && templateData) {
+          template = templateData;
+          console.log("Found template:", template.id, template.name);
+        } else {
+          console.log("Template not found, continuing without it:", templateError?.message);
+        }
+      } catch (templateFetchError) {
+        console.error("Error fetching template:", templateFetchError);
+        // Continue without template data
       }
     }
 
@@ -160,7 +171,7 @@ serve(async (req) => {
         type: dataset.dataset_type,
         template: template ? {
           id: template.id,
-          name: template.name
+          name: template.name || template.display_name
         } : null
       },
       columns,

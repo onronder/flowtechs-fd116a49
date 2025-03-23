@@ -83,6 +83,9 @@ export default function DatasetPreviewModal({ executionId, isOpen, onClose }) {
         className="max-w-5xl max-h-[90vh] flex flex-col"
         aria-describedby="dataset-preview-description"
       >
+        <div id="dataset-preview-description" className="sr-only">
+          Dataset preview showing execution results and data visualization
+        </div>
         <PreviewHeader title={previewData?.dataset?.name || "Dataset Preview"} />
         {renderContent()}
       </DialogContent>
