@@ -471,6 +471,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      get_execution_raw_data: {
+        Args: {
+          p_execution_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       insert_source: {
         Args: {
           p_name: string

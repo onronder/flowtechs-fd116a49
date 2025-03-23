@@ -71,6 +71,83 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
         throw new Error(datasetError?.message || "Dataset not found");
       }
       
+      // Try using the SQL_Utils function to get data directly
+      try {
+        const { data: directData, error: directError } = await supabase.functions.invoke(
+          "SQL_Utils",
+          {
+            body: {
+              operation: "get_execution_data",
+              parameters: { executionId: execId }
+            }
+          }
+        );
+        
+        if (directError) {
+          console.error("[Preview] SQL_Utils error:", directError);
+          throw new Error(directError.message || "Failed to get execution data");
+        }
+        
+        if (directData && directData.data) {
+          console.log("[Preview] Successfully retrieved data from SQL_Utils:", directData);
+          
+          // Process the raw data
+          let rawData = directData.data;
+          let preview = [];
+          let totalCount = 0;
+          
+          // Data can sometimes be stored as JSON string, so handle that case
+          if (typeof rawData === 'string') {
+            try {
+              rawData = JSON.parse(rawData);
+            } catch (e) {
+              console.log("[Preview] Data was string but not valid JSON");
+            }
+          }
+          
+          if (Array.isArray(rawData)) {
+            preview = rawData.slice(0, 100);
+            totalCount = rawData.length;
+          } else if (rawData && typeof rawData === 'object') {
+            if (rawData.results && Array.isArray(rawData.results)) {
+              preview = rawData.results.slice(0, 100);
+              totalCount = rawData.results.length;
+            } else {
+              preview = [rawData];
+              totalCount = 1;
+            }
+          }
+          
+          // Get columns from first item
+          const columns = preview.length > 0
+            ? Object.keys(preview[0]).map(key => ({ key, label: key }))
+            : [];
+          
+          return {
+            status: execution.status,
+            execution: {
+              id: execution.id,
+              startTime: execution.start_time,
+              endTime: execution.end_time,
+              rowCount: execution.row_count || totalCount,
+              executionTimeMs: execution.execution_time_ms,
+              apiCallCount: execution.api_call_count
+            },
+            dataset: {
+              id: dataset.id,
+              name: dataset.name,
+              type: dataset.dataset_type
+            },
+            columns,
+            preview,
+            totalCount
+          };
+        }
+      } catch (sqlUtilsError) {
+        console.error("[Preview] SQL_Utils fetch failed:", sqlUtilsError);
+        // Fall through to default processing
+      }
+      
       // Process the data
       let preview = [];
       let totalCount = 0;
