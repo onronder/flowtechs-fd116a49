@@ -5,7 +5,7 @@ import { formatDistanceToNow } from "date-fns";
 interface DatasetInfoProps {
   sourceName?: string;
   lastExecutionTime?: string;
-  rowCount?: number;
+  rowCount?: number | null;
   schedule?: {
     id: string;
     type: string;
@@ -28,7 +28,7 @@ export default function DatasetInfo({ sourceName, lastExecutionTime, rowCount, s
         <div className="flex items-center gap-1">
           <span className="text-xs">
             Last executed: {formatDistanceToNow(new Date(lastExecutionTime), { addSuffix: true })}
-            {rowCount !== undefined && ` • ${rowCount.toLocaleString()} rows`}
+            {rowCount !== undefined && rowCount !== null && ` • ${rowCount.toLocaleString()} rows`}
           </span>
         </div>
       )}
