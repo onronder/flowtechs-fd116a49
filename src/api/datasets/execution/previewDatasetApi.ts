@@ -48,6 +48,12 @@ export async function fetchDatasetPreview(executionId: string) {
     return data;
   } catch (error) {
     console.error("Error fetching dataset preview:", error);
-    throw error;
+    
+    // Enhance error with more details
+    const enhancedError = error instanceof Error 
+      ? new Error(`Preview fetch failed: ${error.message}`)
+      : new Error(`Preview fetch failed: ${JSON.stringify(error)}`);
+      
+    throw enhancedError;
   }
 }

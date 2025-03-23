@@ -1,7 +1,7 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Play } from "lucide-react";
+import { Play, Loader2 } from "lucide-react";
 import { executeDataset } from "@/api/datasets/execution/executeDatasetApi";
 import { useToast } from "@/hooks/use-toast";
 
@@ -21,16 +21,23 @@ export default function DatasetRunButton({
   const { toast } = useToast();
   const [localIsRunning, setLocalIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Use the most restrictive state - either parent or local
   const buttonDisabled = isRunning || localIsRunning;
 
   // For debugging
   useEffect(() => {
-    console.log(`DatasetRunButton rendered for dataset: ${datasetId}, isRunning: ${isRunning}`);
-  }, [datasetId, isRunning]);
+    console.log(`DatasetRunButton rendered for dataset: ${datasetId}, isRunning: ${isRunning}, localIsRunning: ${localIsRunning}`);
+    
+    // If the button was previously running but parent state has reset, clear local state too
+    if (localIsRunning && !isRunning && retryCount === 0) {
+      console.log(`Resetting local running state to match parent state for dataset: ${datasetId}`);
+      setLocalIsRunning(false);
+    }
+  }, [datasetId, isRunning, localIsRunning, retryCount]);
 
-  async function handleRunDataset() {
+  const handleRunDataset = useCallback(async () => {
     try {
       // Reset error state
       setError(null);
@@ -44,6 +51,12 @@ export default function DatasetRunButton({
       // Set local running state to true
       setLocalIsRunning(true);
       console.log("Starting dataset execution with dataset ID:", datasetId);
+      
+      // Track retry attempt
+      const currentRetry = retryCount;
+      if (currentRetry > 0) {
+        console.log(`Retry attempt ${currentRetry} for dataset ID: ${datasetId}`);
+      }
       
       // Execute the dataset with proper error handling
       console.log("Calling executeDataset API with ID:", datasetId);
@@ -61,6 +74,11 @@ export default function DatasetRunButton({
         throw new Error("Invalid response from execution function - missing executionId");
       }
       
+      // Reset retry count on success
+      if (currentRetry > 0) {
+        setRetryCount(0);
+      }
+      
       // Call the parent callback with the execution ID
       console.log("Execution started successfully, execution ID:", result.executionId);
       onExecutionStarted(result.executionId);
@@ -76,6 +94,10 @@ export default function DatasetRunButton({
       const errorMessage = error instanceof Error ? error.message : "Failed to execute the dataset";
       setError(errorMessage);
       console.error("Error executing dataset:", error);
+      
+      // Increment retry count for tracking purposes
+      setRetryCount(prev => prev + 1);
+      
       toast({
         title: "Execution Failed",
         description: errorMessage,
@@ -86,7 +108,7 @@ export default function DatasetRunButton({
       console.log("Resetting local running state for dataset:", datasetId);
       setLocalIsRunning(false);
     }
-  }
+  }, [datasetId, onExecutionStarted, onRefresh, toast, retryCount]);
 
   return (
     <div>
@@ -96,11 +118,20 @@ export default function DatasetRunButton({
         onClick={handleRunDataset}
         disabled={buttonDisabled}
       >
-        <Play className="h-4 w-4 mr-1" />
-        {buttonDisabled ? "Running..." : "Run"}
+        {buttonDisabled ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            Running...
+          </>
+        ) : (
+          <>
+            <Play className="h-4 w-4 mr-1" />
+            {retryCount > 0 ? "Retry Run" : "Run"}
+          </>
+        )}
       </Button>
       {error && (
-        <div className="text-red-500 text-xs mt-1">
+        <div className="text-red-500 text-xs mt-1 max-w-[200px] break-words">
           {error}
         </div>
       )}

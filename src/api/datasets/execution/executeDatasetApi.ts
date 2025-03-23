@@ -46,7 +46,13 @@ export async function executeDataset(datasetId: string) {
     return data;
   } catch (error) {
     console.error("Error executing dataset:", error);
-    throw error;
+    
+    // Enhance the error with more details
+    const enhancedError = error instanceof Error 
+      ? new Error(`Dataset execution failed: ${error.message}`)
+      : new Error(`Dataset execution failed: ${JSON.stringify(error)}`);
+      
+    throw enhancedError;
   }
 }
 
@@ -56,7 +62,19 @@ export async function executeDataset(datasetId: string) {
 export async function executeCustomDataset(sourceId: string, query: string) {
   try {
     console.log(`Executing custom dataset query for source ID: ${sourceId}`);
+    
+    if (!sourceId || typeof sourceId !== 'string') {
+      console.error("Invalid sourceId provided:", sourceId);
+      throw new Error("A valid source ID is required");
+    }
+    
+    if (!query || typeof query !== 'string' || query.trim() === '') {
+      console.error("Invalid query provided:", query);
+      throw new Error("A valid query is required");
+    }
+    
     const payload = JSON.stringify({ sourceId, query });
+    console.log("Request payload for custom dataset:", payload);
     
     const { data, error } = await supabase.functions.invoke(
       "Cust_ExecuteDataset",
@@ -75,6 +93,12 @@ export async function executeCustomDataset(sourceId: string, query: string) {
     return data;
   } catch (error) {
     console.error("Error executing custom dataset:", error);
-    throw error;
+    
+    // Enhance the error with more details
+    const enhancedError = error instanceof Error 
+      ? new Error(`Custom dataset execution failed: ${error.message}`)
+      : new Error(`Custom dataset execution failed: ${JSON.stringify(error)}`);
+      
+    throw enhancedError;
   }
 }

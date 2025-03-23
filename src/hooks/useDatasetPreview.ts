@@ -9,10 +9,11 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const MAX_POLL_COUNT = 30; // Increased for longer operations
+  const MAX_POLL_COUNT = 60; // Increased for longer operations - 2 minutes at 2-second intervals
   const POLL_INTERVAL = 2000; // 2 seconds between polls
   const pollCountRef = useRef(0);
   const mountedRef = useRef(true);
+  const startTimeRef = useRef<string | null>(null);
 
   // Cleanup function
   useEffect(() => {
@@ -39,6 +40,12 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       
       if (!mountedRef.current) return;
       setPreviewData(data);
+      
+      // If this is the first successful response and status is running or pending
+      // store the current time as the start time for elapsed time tracking
+      if (!startTimeRef.current && (data.status === "running" || data.status === "pending")) {
+        startTimeRef.current = new Date().toISOString();
+      }
       
       // If execution is complete or failed, stop polling
       if (data.status === "completed" || data.status === "failed") {
@@ -91,6 +98,7 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       setError(null);
       setPreviewData(null);
       pollCountRef.current = 0;
+      startTimeRef.current = null;
       
       console.log(`[Preview] Starting preview polling for execution ID: ${executionId}`);
       
@@ -130,7 +138,7 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
         }
       };
     }
-  }, [isOpen, executionId, loadPreview]);
+  }, [isOpen, executionId, loadPreview, previewData]);
 
   return {
     previewData,
@@ -138,6 +146,7 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
     error,
     loadPreview,
     pollCount: pollCountRef.current,
-    maxPollCount: MAX_POLL_COUNT
+    maxPollCount: MAX_POLL_COUNT,
+    startTime: startTimeRef.current
   };
 }
