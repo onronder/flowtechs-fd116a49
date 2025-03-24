@@ -24,6 +24,11 @@ export interface PreviewDataset {
   template?: {
     name: string;
   };
+  source?: {
+    id?: string;
+    name?: string;
+    config?: Record<string, any>;
+  };
 }
 
 export interface PreviewColumn {
@@ -39,4 +44,15 @@ export interface PreviewData {
   columns?: PreviewColumn[];
   totalCount: number;
   error?: string;
+}
+
+// Additional types for type safety in the preview components
+export interface FormattedPreviewRow {
+  [key: string]: any;
+}
+
+export interface StuckExecutionInfo {
+  isStuck: boolean;
+  since: string;
+  details?: string;
 }
