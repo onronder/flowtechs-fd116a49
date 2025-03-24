@@ -33,16 +33,16 @@ export async function fetchDatasetPreview(
     const payload = JSON.stringify({ executionId, limit }); 
     console.log("Sending preview request with payload:", payload);
     
-    // Use direct fetch for more control over the request
-    console.time('preview_request');
-    
     // Get the current auth token
     const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
+    const token = sessionData?.session?.access_token;
     
     if (!token) {
       throw new Error("Authentication required to fetch preview");
     }
+
+    // Use direct fetch with explicit authentication header
+    console.time('preview_request');
     
     const response = await fetch("https://sxzgeevxciuxjyxfartx.supabase.co/functions/v1/Dataset_Preview", {
       method: 'POST',

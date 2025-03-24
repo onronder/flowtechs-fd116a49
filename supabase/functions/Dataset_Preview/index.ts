@@ -41,6 +41,13 @@ serve(async (req) => {
       return errorResponse("Server configuration error", 500);
     }
 
+    // Extract auth token from request
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      console.error("Missing Authorization header");
+      return errorResponse("Authentication required", 401);
+    }
+
     // Create an auth client to validate user has permission
     const authClient = createClient(
       supabaseUrl,
@@ -48,7 +55,7 @@ serve(async (req) => {
       {
         global: {
           headers: {
-            Authorization: req.headers.get("Authorization") || ""
+            Authorization: authHeader
           }
         }
       }
@@ -94,9 +101,9 @@ serve(async (req) => {
         end_time, 
         row_count, 
         execution_time_ms,
-        error,
+        error_message,
         metadata,
-        columns,
+        data,
         dataset:dataset_id (id, name, dataset_type, template:template_id(name))
       `)
       .eq("id", executionId)
@@ -124,32 +131,29 @@ serve(async (req) => {
         type: execution.dataset?.dataset_type,
         template: execution.dataset?.template
       },
-      columns: execution.columns || []
+      columns: [],
+      error: execution.error_message
     };
 
     // Handle different execution states
     if (execution.status === "completed") {
-      // Get preview data
-      const { data: previewData, error: previewError } = await supabase.rpc(
-        'get_execution_raw_data',
-        { p_execution_id: executionId, p_user_id: user.id }
-      );
-
-      if (previewError) {
-        console.error("Error fetching preview data:", previewError);
-        return errorResponse(`Preview error: ${previewError.message}`, 500);
+      // Extract columns from data if available
+      if (execution.data && Array.isArray(execution.data) && execution.data.length > 0) {
+        const firstRow = execution.data[0];
+        if (typeof firstRow === 'object' && firstRow !== null) {
+          response.columns = Object.keys(firstRow).map(key => ({
+            key,
+            label: key
+          }));
+        }
       }
 
-      const preview = Array.isArray(previewData) 
-        ? previewData.slice(0, limit) 
+      // Set preview data
+      response.preview = Array.isArray(execution.data) 
+        ? execution.data.slice(0, limit) 
         : [];
       
-      response.preview = preview;
       response.totalCount = execution.row_count || 0;
-    } else if (execution.status === "failed") {
-      response.error = execution.error;
-      response.preview = [];
-      response.totalCount = 0;
     } else {
       // Pending or running
       response.preview = [];

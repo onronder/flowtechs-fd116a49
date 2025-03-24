@@ -22,7 +22,7 @@ export async function fetchDirectExecutionData(executionId: string) {
     // First check if the execution exists and belongs to the user
     const { data: executionCheck, error: checkError } = await supabase
       .from("dataset_executions")
-      .select("id, status, dataset_id")
+      .select("id, dataset_id")
       .eq("id", executionId)
       .eq("user_id", user.id)
       .single();

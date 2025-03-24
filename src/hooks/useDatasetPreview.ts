@@ -2,7 +2,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { usePreviewPolling } from "./usePreviewPolling";
-import { usePreviewDataLoader } from "./usePreviewDataLoader";
+import { usePreviewDataLoader, DataSourceType } from "./usePreviewDataLoader";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface PreviewData {
   status: string;
@@ -50,6 +51,19 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
     isMounted
   } = usePreviewPolling();
 
+  // Check authentication status
+  useEffect(() => {
+    if (isOpen) {
+      // Pre-check authentication status
+      supabase.auth.getSession().then(({ data: { session }}) => {
+        if (!session) {
+          setError("Authentication required to view preview data");
+          setLoading(false);
+        }
+      });
+    }
+  }, [isOpen]);
+
   const loadPreview = useCallback(async (showLoading = true) => {
     try {
       if (!isMounted() || !executionId) return;
@@ -95,12 +109,22 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       const errorMessage = err instanceof Error ? err.message : "Failed to load dataset preview";
       setError(errorMessage);
       
-      // Handle polling error (stops polling if too many consecutive errors)
-      const pollingStopped = handlePollingError();
-      
-      if (pollingStopped && previewData && 
-         (previewData.status === "running" || previewData.status === "pending")) {
-        setError("Execution is taking longer than expected. Please check back later.");
+      // Check if it's an authentication error
+      if (errorMessage.includes("Authentication required")) {
+        toast({
+          title: "Authentication Error",
+          description: "Please sign in again to view dataset preview",
+          variant: "destructive"
+        });
+        resetPolling(); // Stop polling on auth errors
+      } else {
+        // Handle polling error (stops polling if too many consecutive errors)
+        const pollingStopped = handlePollingError();
+        
+        if (pollingStopped && previewData && 
+           (previewData.status === "running" || previewData.status === "pending")) {
+          setError("Execution is taking longer than expected. Please check back later.");
+        }
       }
     } finally {
       if (showLoading && isMounted()) setLoading(false);

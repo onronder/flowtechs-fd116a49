@@ -4,8 +4,10 @@ import { fetchDatasetPreview } from "@/api/datasets/execution/previewDatasetApi"
 import { fetchDirectExecutionData } from "@/api/datasets/execution/directDatabaseAccess";
 import { supabase } from "@/integrations/supabase/client";
 
+export type DataSourceType = 'preview' | 'direct' | 'minimal';
+
 export function usePreviewDataLoader() {
-  const [dataSource, setDataSource] = useState<'preview' | 'direct' | 'minimal'>('preview');
+  const [dataSource, setDataSource] = useState<DataSourceType>('preview');
   
   const loadPreviewData = useCallback(async (executionId: string, options: { limit?: number; maxRetries?: number; retryDelay?: number } = {}) => {
     if (!executionId) throw new Error("Execution ID is required");
@@ -13,6 +15,13 @@ export function usePreviewDataLoader() {
     console.log(`[Preview] Fetching preview data for execution ID: ${executionId}`);
     
     try {
+      // Check if user is authenticated first
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.error("[Preview] No active session found");
+        throw new Error("Authentication required to view preview data");
+      }
+      
       // Try the standard preview endpoint first
       const data = await fetchDatasetPreview(executionId, options);
       setDataSource('preview');
@@ -37,6 +46,12 @@ export function usePreviewDataLoader() {
         
         // As a last resort, try querying the database directly for just the execution status
         try {
+          // Check if user is authenticated first
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) {
+            throw new Error("Authentication required to view preview data");
+          }
+          
           const { data: execution, error } = await supabase
             .from("dataset_executions")
             .select("id, status, start_time, end_time, row_count")
