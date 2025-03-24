@@ -111,13 +111,15 @@ export async function exportDataset(options: ExportOptions): Promise<ExportRespo
         URL.revokeObjectURL(url);
       }, 100);
       
-      // Return simplified response without any recursive structure
-      return {
+      // Return simplified response to avoid type recursion issues
+      const response: ExportResponse = {
         success: true,
         fileName: fileName || `export.${format}`,
         fileType: data.type,
         fileSize: data.size
       };
+      
+      return response;
     } else {
       // Return data directly with explicit type assertion
       return data as ExportResponse;

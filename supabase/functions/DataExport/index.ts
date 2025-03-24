@@ -21,11 +21,25 @@ serve(async (req) => {
   try {
     // Parse request with proper error handling
     let requestData: ExportOptions;
+    let requestText = '';
+    
     try {
-      const text = await req.text();
-      requestData = JSON.parse(text);
+      requestText = await req.text();
+      console.log("Request body:", requestText);
+      
+      if (!requestText || requestText.trim() === '') {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Empty request body" 
+          }),
+          { headers: corsHeaders, status: 400 }
+        );
+      }
+      
+      requestData = JSON.parse(requestText);
     } catch (parseError) {
-      console.error("Error parsing request JSON:", parseError);
+      console.error("Error parsing request JSON:", parseError, "Raw text:", requestText);
       return new Response(
         JSON.stringify({ 
           success: false, 
