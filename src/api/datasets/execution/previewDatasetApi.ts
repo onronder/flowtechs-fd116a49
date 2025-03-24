@@ -29,6 +29,13 @@ export async function fetchDatasetPreview(
     
     console.log(`Sending preview request for execution ID: ${executionId}`);
     
+    // First check authentication status
+    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    if (authError || !session) {
+      console.error("Authentication error or no session:", authError);
+      throw new Error("Authentication required to view preview data");
+    }
+    
     // Prepare the payload
     const payload = { executionId, limit }; 
     console.log("Sending preview request with payload:", JSON.stringify(payload));

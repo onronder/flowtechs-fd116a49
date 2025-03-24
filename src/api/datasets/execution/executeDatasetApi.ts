@@ -14,27 +14,22 @@ export async function executeDataset(datasetId: string) {
       throw new Error("A valid dataset ID is required");
     }
     
+    // Check authentication status first
+    console.log("Checking authentication...");
+    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    
+    if (authError || !session) {
+      console.error("Authentication error or no session:", authError);
+      throw new Error("Authentication required to execute dataset. Please sign in.");
+    }
+    
+    console.log("Authentication token obtained successfully");
+    
     // Create the payload with the dataset ID
     const payload = { datasetId };
     
     // Log the payload we're sending
     console.log("Request payload:", JSON.stringify(payload));
-    
-    // Check authentication status first
-    console.log("Checking authentication...");
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
-    
-    if (authError) {
-      console.error("Authentication error:", authError);
-      throw new Error(`Authentication error: ${authError.message}`);
-    }
-    
-    if (!session) {
-      console.error("No active session found");
-      throw new Error("Authentication required to execute dataset. Please sign in.");
-    }
-    
-    console.log("Authentication token obtained successfully");
     
     // Use supabase.functions.invoke instead of direct fetch
     console.log("Invoking Dataset_Execute function via supabase client...");
@@ -82,6 +77,14 @@ export async function executeCustomDataset(sourceId: string, query: string) {
     if (!query || typeof query !== 'string' || query.trim() === '') {
       console.error("Invalid query provided:", query);
       throw new Error("A valid query is required");
+    }
+    
+    // Check authentication status first
+    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    
+    if (authError || !session) {
+      console.error("Authentication error or no session:", authError);
+      throw new Error("Authentication required to execute custom dataset. Please sign in.");
     }
     
     const payload = { sourceId, query };

@@ -2,6 +2,7 @@
 /**
  * Functions to handle dataset execution
  */
+import { corsHeaders } from "../_shared/cors.ts";
 
 /**
  * Invoke the appropriate dataset execution function
@@ -20,7 +21,8 @@ export async function invokeExecutionFunction(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": authHeader || ""
+        "Authorization": authHeader || "",
+        ...corsHeaders
       },
       body: JSON.stringify(payload)
     });

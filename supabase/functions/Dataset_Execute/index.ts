@@ -1,6 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { handleCors, errorResponse, successResponse } from "../_shared/cors.ts";
+import { corsHeaders, handleCors, errorResponse, successResponse } from "../_shared/cors.ts";
 import { parseRequestBody, createSupabaseClient, validateEnvironment } from "./utils.ts";
 import { fetchDataset, fetchTemplate, createExecutionRecord, determineExecutionFunction } from "./databaseService.ts";
 import { invokeExecutionFunction, prepareExecutionPayload } from "./executionService.ts";
