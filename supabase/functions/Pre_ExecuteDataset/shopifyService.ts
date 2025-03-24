@@ -22,39 +22,48 @@ export async function executeShopifyQuery(
   queryTemplate: string,
   variables: QueryOptions
 ): Promise<any> {
-  if (!shopifyConfig.storeName || !shopifyConfig.api_version || !shopifyConfig.accessToken || !shopifyConfig.apiSecret) {
-    throw new Error("Missing Shopify configuration values");
+  if (!shopifyConfig.storeName || !shopifyConfig.accessToken) {
+    throw new Error("Missing required Shopify configuration values: storeName and accessToken");
   }
 
-  const endpoint = `https://${shopifyConfig.storeName}.myshopify.com/admin/api/${shopifyConfig.api_version || '2023-10'}/graphql.json`;
+  const api_version = shopifyConfig.api_version || '2023-10';
+  const endpoint = `https://${shopifyConfig.storeName}.myshopify.com/admin/api/${api_version}/graphql.json`;
   
   console.log(`Making API call to Shopify endpoint: ${endpoint}`);
+  console.log(`Query template: ${queryTemplate.substring(0, 100)}...`);
+  console.log(`Variables: ${JSON.stringify(variables)}`);
   
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Shopify-Access-Token": shopifyConfig.accessToken
-    },
-    body: JSON.stringify({
-      query: queryTemplate,
-      variables
-    })
-  });
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": shopifyConfig.accessToken
+      },
+      body: JSON.stringify({
+        query: queryTemplate,
+        variables
+      })
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("Shopify API error:", response.status, errorText);
-    throw new Error(`Shopify API error: ${response.status} - ${errorText.substring(0, 200)}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Shopify API error:", response.status, errorText);
+      throw new Error(`Shopify API error: ${response.status} - ${errorText.substring(0, 200)}`);
+    }
+
+    const result = await response.json();
+    
+    if (result.errors) {
+      console.error("GraphQL errors:", result.errors);
+      throw new Error(`GraphQL error: ${result.errors[0].message}`);
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Error executing Shopify GraphQL query:", error);
+    throw error;
   }
-
-  const result = await response.json();
-  if (result.errors) {
-    console.error("GraphQL errors:", result.errors);
-    throw new Error(`GraphQL error: ${result.errors[0].message}`);
-  }
-
-  return result;
 }
 
 /**
@@ -65,51 +74,62 @@ export async function fetchPaginatedData(
   queryTemplate: string, 
   resourceType: string
 ): Promise<{ results: any[], apiCallCount: number, executionTime: number }> {
+  console.log(`Starting paginated data fetch for resource: ${resourceType}`);
+  console.log(`Shop: ${shopifyConfig.storeName}, API version: ${shopifyConfig.api_version}`);
+  
   const startTime = Date.now();
   let allResults: any[] = [];
   let apiCallCount = 0;
   let hasNextPage = true;
   let cursor = null;
 
-  while (hasNextPage) {
-    apiCallCount++;
-    
-    // Execute GraphQL query
-    const variables = {
-      first: 250, // Shopify max per page
-      after: cursor
-    };
+  try {
+    while (hasNextPage) {
+      apiCallCount++;
+      
+      // Execute GraphQL query
+      const variables = {
+        first: 250, // Shopify max per page
+        after: cursor
+      };
 
-    const result = await executeShopifyQuery(shopifyConfig, queryTemplate, variables);
-    
-    // Extract the results
-    if (!resourceType || !result.data || !result.data[resourceType]) {
-      console.error("Invalid response structure:", JSON.stringify(result).substring(0, 200));
-      throw new Error(`Invalid response structure. Resource type '${resourceType}' not found in response`);
+      const result = await executeShopifyQuery(shopifyConfig, queryTemplate, variables);
+      
+      // Extract the results
+      if (!resourceType || !result.data || !result.data[resourceType]) {
+        console.error("Invalid response structure:", JSON.stringify(result).substring(0, 200));
+        throw new Error(`Invalid response structure. Resource type '${resourceType}' not found in response`);
+      }
+      
+      const resource = result.data[resourceType];
+      const edges = resource.edges || [];
+      const pageInfo = resource.pageInfo;
+      
+      // Process nodes
+      const nodes = edges.map((edge: any) => edge.node);
+      allResults = [...allResults, ...nodes];
+
+      console.log(`Retrieved ${nodes.length} nodes, total so far: ${allResults.length}`);
+
+      // Update pagination
+      hasNextPage = pageInfo.hasNextPage;
+      cursor = pageInfo.endCursor;
+
+      // If we have more pages, add a delay to respect rate limits
+      if (hasNextPage) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
     }
-    
-    const resource = result.data[resourceType];
-    const edges = resource.edges || [];
-    const pageInfo = resource.pageInfo;
-    
-    // Process nodes
-    const nodes = edges.map((edge: any) => edge.node);
-    allResults = [...allResults, ...nodes];
-
-    console.log(`Retrieved ${nodes.length} nodes, total so far: ${allResults.length}`);
-
-    // Update pagination
-    hasNextPage = pageInfo.hasNextPage;
-    cursor = pageInfo.endCursor;
-
-    // If we have more pages, add a delay to respect rate limits
-    if (hasNextPage) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
+  } catch (error) {
+    console.error("Error in fetchPaginatedData:", error);
+    throw error;
   }
 
   const endTime = Date.now();
   const executionTime = endTime - startTime;
+
+  console.log(`Fetch completed in ${executionTime}ms with ${apiCallCount} API calls`);
+  console.log(`Total results: ${allResults.length}`);
 
   return {
     results: allResults,

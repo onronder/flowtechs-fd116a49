@@ -78,6 +78,14 @@ serve(async (req) => {
       }
 
       console.log("Using template:", template.id, "Query:", template.query_template?.substring(0, 100) + "...");
+      
+      if (!dataset.source || !dataset.source.config) {
+        throw new Error("Missing or invalid source configuration");
+      }
+      
+      if (!template || !template.query_template) {
+        throw new Error("Missing or invalid template query");
+      }
 
       // Execute the query with pagination
       const { results, apiCallCount, executionTime } = await fetchPaginatedData(
@@ -91,6 +99,13 @@ serve(async (req) => {
       // Update execution record with results
       await markExecutionAsCompleted(supabaseClient, executionId, results, executionTime, apiCallCount);
       
+      return successResponse({
+        message: "Dataset execution completed successfully",
+        executionId,
+        rowCount: results.length,
+        executionTime
+      });
+      
     } catch (executionError) {
       console.error("Execution error:", executionError);
       
@@ -99,12 +114,6 @@ serve(async (req) => {
 
       return errorResponse(`Execution error: ${executionError.message}`, 500);
     }
-
-    // Return a response
-    return successResponse({
-      message: "Dataset execution completed successfully",
-      executionId
-    });
   } catch (error) {
     console.error("Error in Pre_ExecuteDataset:", error);
     return errorResponse(error.message || "An unexpected error occurred", 500);

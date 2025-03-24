@@ -48,51 +48,37 @@ export async function fetchTemplate(supabaseClient: any, dataset: any) {
   
   console.log("Fetching template with ID:", dataset.template_id);
   
-  // Determine which template table to query based on dataset type
-  let templateTable = "query_templates";
+  // Use direct query approach to avoid schema cache issues
   let template = null;
-  let error = null;
   
-  if (dataset.dataset_type === "dependent") {
-    templateTable = "dependent_query_templates";
-  }
-  
-  // Try the primary template table first
-  const { data: primaryTemplate, error: primaryError } = await supabaseClient
-    .from(templateTable)
+  // Try fetching from query_templates first
+  const { data: queryTemplate, error: queryError } = await supabaseClient
+    .from("query_templates")
     .select("*")
     .eq("id", dataset.template_id)
-    .single();
+    .maybeSingle();
     
-  if (primaryError) {
-    console.log(`Template not found in ${templateTable}: ${primaryError.message}`);
-    error = primaryError;
-    
-    // Try the alternate template table as fallback
-    const fallbackTable = templateTable === "query_templates" ? "dependent_query_templates" : "query_templates";
-    console.log(`Trying fallback template table: ${fallbackTable}`);
-    
-    const { data: fallbackTemplate, error: fallbackError } = await supabaseClient
-      .from(fallbackTable)
-      .select("*")
-      .eq("id", dataset.template_id)
-      .single();
-      
-    if (fallbackError) {
-      console.error(`Template also not found in fallback table: ${fallbackError.message}`);
-    } else {
-      template = fallbackTemplate;
-      console.log(`Found template in fallback table: ${fallbackTable}, ID: ${template.id}, Name: ${template.name}`);
-      return template;
-    }
-  } else {
-    template = primaryTemplate;
-    console.log(`Found template in primary table: ${templateTable}, ID: ${template.id}, Name: ${template.name}`);
-    return template;
+  if (queryTemplate) {
+    console.log("Found template in query_templates:", queryTemplate.id, queryTemplate.name);
+    return queryTemplate;
   }
   
-  // If we get here, no template was found in either table
-  console.log("No template found, continuing without template");
+  // If not found in query_templates, try dependent_query_templates
+  const { data: dependentTemplate, error: dependentError } = await supabaseClient
+    .from("dependent_query_templates")
+    .select("*")
+    .eq("id", dataset.template_id)
+    .maybeSingle();
+  
+  if (dependentTemplate) {
+    console.log("Found template in dependent_query_templates:", dependentTemplate.id, dependentTemplate.name);
+    return dependentTemplate;
+  }
+  
+  console.log("No template found with ID:", dataset.template_id);
+  console.log("Query error:", queryError?.message);
+  console.log("Dependent error:", dependentError?.message);
+  
   return null;
 }
 

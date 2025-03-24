@@ -33,7 +33,17 @@ export default function PreviewFailed({ errorMessage, onClose, onRetry }: Previe
   
   // Handle common error cases with more helpful messages
   if (parsedError.includes("Could not find a relationship between 'user_datasets' and 'template_id'")) {
-    parsedError = "There was an issue connecting to the template for this dataset. This might be because the template no longer exists or the dataset was configured with an incorrect template.";
+    parsedError = "There was an issue connecting to the template for this dataset. The system is trying to fix this automatically - please try again.";
+  } else if (parsedError.includes("Missing or invalid template query")) {
+    parsedError = "The query template for this dataset appears to be missing or invalid. Please check your dataset configuration.";
+  } else if (parsedError.includes("Missing or invalid source configuration")) {
+    parsedError = "The connection configuration for your data source appears to be missing or invalid. Please check your source settings.";
+  } else if (parsedError.includes("Missing required Shopify configuration values")) {
+    parsedError = "Your Shopify connection is missing required configuration values. Please update your source connection settings.";
+  } else if (parsedError.includes("Shopify API error")) {
+    parsedError = "There was an error connecting to the Shopify API. Please verify your API credentials and permissions.";
+  } else if (parsedError.includes("GraphQL error")) {
+    parsedError = "There was an error in the GraphQL query sent to Shopify. Please check the query template for any syntax errors.";
   }
   
   return (
