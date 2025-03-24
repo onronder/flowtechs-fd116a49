@@ -23,13 +23,9 @@ export async function fetchDatasetPreview(
     try {
       console.log(`Sending preview request for execution ID: ${executionId}`);
       
-      // Performance timer
-      const timerName = 'preview_request';
-      try {
-        console.time(timerName);
-      } catch (e) {
-        // Timer might already exist, ignore
-      }
+      // Unique timer name for each call to avoid conflicts
+      const timerName = `preview_request_${executionId}_${Date.now()}`;
+      console.time(timerName);
       
       // Prepare the payload
       const payload = { 
@@ -46,25 +42,19 @@ export async function fetchDatasetPreview(
       });
       
       // End the performance timer
-      try {
-        console.timeEnd(timerName);
-      } catch (e) {
-        // Timer might not exist, ignore
-      }
+      console.timeEnd(timerName);
       
       if (error) {
         console.error("Error from Dataset_Preview function:", error);
         throw new Error(`Preview fetch error: ${error.message || JSON.stringify(error)}`);
       }
       
-      console.log("Dataset preview response received:", data);
-      
       if (!data) {
         throw new Error("Invalid response from preview function - empty response");
       }
       
-      // Log the status for debugging
-      console.log("Dataset preview status:", data.status);
+      // Log the status and other important details
+      console.log(`Dataset preview response: status=${data.status}, rows=${data.preview?.length || 0}, totalCount=${data.totalCount || 0}`);
       
       return data;
     } catch (error) {
