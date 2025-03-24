@@ -49,12 +49,10 @@ serve(async (req) => {
       return errorResponse("Server configuration error", 500);
     }
     
-    // Create Supabase client
-    // Use the service key to ensure we have full access regardless of user permissions
+    // Create Supabase client with service role key for admin access
     const supabaseClient = createSupabaseClient(
       supabaseUrl,
-      supabaseServiceKey || supabaseAnonKey,
-      req.headers.get("Authorization") || ""
+      supabaseServiceKey || supabaseAnonKey
     );
 
     try {
@@ -81,6 +79,7 @@ serve(async (req) => {
           template = result.template;
         }
 
+        console.log("Using dataset:", dataset?.id, "Dataset type:", dataset?.dataset_type);
         console.log("Using template:", template?.id, "Query:", template?.query_template?.substring(0, 100) + "...");
       } catch (fetchError) {
         console.error("Failed to fetch dataset or template:", fetchError);
@@ -88,7 +87,7 @@ serve(async (req) => {
         return errorResponse(`Fetch error: ${fetchError.message}`, 500);
       }
       
-      if (!dataset.source || !dataset.source.config) {
+      if (!dataset || !dataset.source || !dataset.source.config) {
         const errorMsg = "Missing or invalid source configuration";
         console.error(errorMsg);
         await markExecutionAsFailed(supabaseClient, executionId, errorMsg);
@@ -108,7 +107,7 @@ serve(async (req) => {
         const { results, apiCallCount, executionTime } = await fetchPaginatedData(
           dataset.source.config,
           template.query_template,
-          template.resource_type
+          template.resource_type || "Product" // Default to Product if not specified
         );
 
         console.log(`Dataset execution completed: ${executionId} - ${results.length} rows in ${executionTime}ms`);

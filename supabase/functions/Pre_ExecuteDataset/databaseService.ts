@@ -10,7 +10,7 @@ export async function markExecutionAsRunning(supabaseClient: any, executionId: s
   try {
     console.log(`Marking execution ${executionId} as running`);
     
-    await supabaseClient
+    const { error } = await supabaseClient
       .from('dataset_executions')
       .update({
         status: 'running',
@@ -18,6 +18,11 @@ export async function markExecutionAsRunning(supabaseClient: any, executionId: s
         updated_at: new Date().toISOString()
       })
       .eq('id', executionId);
+      
+    if (error) {
+      console.error(`Error marking execution ${executionId} as running:`, error);
+      throw new Error(`Database error: ${error.message}`);
+    }
       
     console.log(`Successfully marked execution ${executionId} as running`);
   } catch (error) {
@@ -42,7 +47,7 @@ export async function markExecutionAsCompleted(
     // Store only the first 1000 rows in the data field to avoid huge payloads
     const previewData = results.slice(0, 1000);
     
-    await supabaseClient
+    const { error } = await supabaseClient
       .from('dataset_executions')
       .update({
         status: 'completed',
@@ -56,6 +61,11 @@ export async function markExecutionAsCompleted(
         }
       })
       .eq('id', executionId);
+      
+    if (error) {
+      console.error(`Error marking execution ${executionId} as completed:`, error);
+      throw new Error(`Database error: ${error.message}`);
+    }
       
     console.log(`Successfully marked execution ${executionId} as completed`);
   } catch (error) {
@@ -75,7 +85,7 @@ export async function markExecutionAsFailed(
   try {
     console.log(`Marking execution ${executionId} as failed: ${errorMessage}`);
     
-    await supabaseClient
+    const { error } = await supabaseClient
       .from('dataset_executions')
       .update({
         status: 'failed',
@@ -84,6 +94,11 @@ export async function markExecutionAsFailed(
         error_message: errorMessage
       })
       .eq('id', executionId);
+      
+    if (error) {
+      console.error(`Error marking execution ${executionId} as failed:`, error);
+      throw new Error(`Database error: ${error.message}`);
+    }
       
     console.log(`Successfully marked execution ${executionId} as failed`);
   } catch (error) {
@@ -122,20 +137,14 @@ export async function fetchDatasetDetails(supabaseClient: any, datasetId: string
   try {
     console.log(`Fetching dataset details for dataset ${datasetId}, user ${userId}`);
     
-    // Get dataset
+    // Get dataset with separate queries to avoid join issues
     const { data: dataset, error: datasetError } = await supabaseClient
       .from('user_datasets')
       .select(`
         id,
         name,
         dataset_type,
-        template_id,
-        source:source_id (
-          id,
-          name,
-          source_type,
-          config
-        )
+        template_id
       `)
       .eq('id', datasetId)
       .eq('user_id', userId)
@@ -152,6 +161,38 @@ export async function fetchDatasetDetails(supabaseClient: any, datasetId: string
     }
     
     console.log(`Found dataset: ${dataset.id}, type: ${dataset.dataset_type}`);
+    
+    // Get source information in a separate query
+    const { data: sourceData, error: sourceError } = await supabaseClient
+      .from('user_datasets')
+      .select(`
+        source_id
+      `)
+      .eq('id', datasetId)
+      .single();
+      
+    if (sourceError) {
+      console.error(`Failed to fetch source ID: ${sourceError.message}`);
+      throw new Error(`Failed to fetch source ID: ${sourceError.message}`);
+    }
+    
+    // Get the full source details
+    const { data: source, error: fullSourceError } = await supabaseClient
+      .from('sources')
+      .select('*')
+      .eq('id', sourceData.source_id)
+      .single();
+      
+    if (fullSourceError) {
+      console.error(`Failed to fetch source: ${fullSourceError.message}`);
+      throw new Error(`Failed to fetch source: ${fullSourceError.message}`);
+    }
+    
+    // Combine the dataset with the source
+    const datasetWithSource = {
+      ...dataset,
+      source
+    };
     
     // Handle template fetch separately to avoid join issues
     let template = null;
@@ -182,11 +223,12 @@ export async function fetchDatasetDetails(supabaseClient: any, datasetId: string
           console.error(`Template not found with ID: ${dataset.template_id}`);
           if (queryError) console.error("Query templates error:", queryError.message);
           if (dependentError) console.error("Dependent templates error:", dependentError.message);
+          throw new Error(`Template not found with ID: ${dataset.template_id}`);
         }
       }
     }
     
-    return { dataset, template };
+    return { dataset: datasetWithSource, template };
   } catch (error) {
     console.error('Error in fetchDatasetDetails:', error);
     throw error;
