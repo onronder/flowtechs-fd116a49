@@ -17,7 +17,6 @@ interface DatasetPreviewProps {
 }
 
 export default function DatasetPreview({ executionId, isOpen, onClose }: DatasetPreviewProps) {
-  const [isExporting, setIsExporting] = useState(false);
   const [currentExecutionId, setCurrentExecutionId] = useState<string | null>(null);
   
   // Update current execution ID when props change
@@ -39,7 +38,9 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
     startTime,
     shouldShowStuckUi,
     checkForStuckExecution,
-    isPolling
+    isPolling,
+    isExporting,
+    setIsExporting
   } = useDatasetPreview(currentExecutionId, isOpen);
   
   // Clean up when component unmounts or modal closes

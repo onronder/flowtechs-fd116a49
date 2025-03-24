@@ -1,48 +1,87 @@
 
-import { useState, useEffect, useCallback } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { usePreviewPolling } from "./usePreviewPolling";
-import { usePreviewDataLoader } from "./usePreviewDataLoader";
+import { useState } from "react";
 import { useStuckExecutionDetector } from "./useStuckExecutionDetector";
-import { PreviewData } from "./previewTypes";
+import { usePreviewExecutionState } from "./usePreviewExecutionState";
+import { usePreviewLoader } from "./usePreviewLoader";
+import { usePreviewModalIntegration } from "./usePreviewModalIntegration";
+import { usePreviewStatusManager } from "./usePreviewStatusManager";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
-  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
+  const [isExporting, setIsExporting] = useState(false);
   
-  const { 
-    dataSource, 
-    loadPreviewData 
-  } = usePreviewDataLoader();
+  // Hook for managing execution state
+  const {
+    previewData,
+    setPreviewData,
+    loading,
+    setLoading,
+    error,
+    setError,
+    resetExecutionState
+  } = usePreviewExecutionState();
   
+  // Hook for modal integration
+  const { currentExecutionId } = usePreviewModalIntegration(isOpen, executionId);
+  
+  // Status manager with polling capabilities
   const {
     pollCount,
     maxPollCount,
     startTime,
-    startPolling,
-    resetPolling,
-    stopPolling,
-    handlePollingError,
-    handlePollingSuccess,
+    isPolling,
     isMounted,
-    isPolling
-  } = usePreviewPolling({
-    maxPollCount: 120, // 4 minutes at 2-second intervals
-    pollInterval: 2000,
-    maxConsecutiveErrors: 3
+    checkForStuckExecution
+  } = usePreviewStatusManager({
+    isOpen,
+    executionId: currentExecutionId,
+    previewData,
+    loadPreview: async (executionId, showLoading, checkStatus, handlePollingSuccess, handlePollingError) => {
+      return loadPreviewFn(
+        executionId!, 
+        showLoading, 
+        checkStatus, 
+        handlePollingSuccess, 
+        handlePollingError
+      );
+    }
   });
-
+  
+  // Hook for preview loading
+  const { loadPreview, dataSource } = usePreviewLoader({
+    setPreviewData,
+    setLoading,
+    setError,
+    isMounted
+  });
+  
+  // Create a wrapper function to pass all necessary parameters
+  const loadPreviewFn = async (
+    executionId: string, 
+    showLoading = true, 
+    checkStatus = false,
+    handlePollingSuccess: () => void,
+    handlePollingError: () => boolean
+  ) => {
+    return loadPreview(
+      executionId, 
+      showLoading, 
+      checkStatus,
+      handlePollingSuccess,
+      handlePollingError
+    );
+  };
+  
+  // Hook for stuck execution detection
   const { shouldShowStuckUi } = useStuckExecutionDetector({
     isOpen,
-    executionId,
+    executionId: currentExecutionId,
     previewData,
     startTime,
     pollCount
   });
-
+  
   // Check authentication status
   useEffect(() => {
     let isMountedLocal = true;
@@ -58,148 +97,34 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
     }
     
     return () => { isMountedLocal = false; };
-  }, [isOpen]);
-
-  const loadPreview = useCallback(async (showLoading = true, checkStatus = false) => {
-    try {
-      if (!isMounted() || !executionId) return;
-      
-      if (showLoading) {
-        setLoading(true);
-        setError(null);
-      }
-      
-      console.log(`[Preview] Loading preview data for execution ID: ${executionId}, checkStatus: ${checkStatus}`);
-      
-      const data = await loadPreviewData(executionId, {
-        limit: 5, // Limit to 5 records
-        maxRetries: 2,
-        retryDelay: 1000,
-        checkStatus
-      });
-      
-      if (!isMounted()) return;
-      
-      console.log(`[Preview] Preview data loaded with status: ${data.status}`);
-      
-      // Handle successful data load
-      handlePollingSuccess();
-      setPreviewData(data);
-      setLoading(false); // Always ensure loading is set to false when data is received
-      
-      // If execution is complete, failed, or stuck, explicitly stop polling
-      if (data.status === "completed" || data.status === "failed" || data.status === "stuck") {
-        console.log(`[Preview] Execution ${data.status}, stopping polling`);
-        stopPolling(); // Make sure to stop the polling
-        resetPolling();
-        
-        // Only show toast for failures, not for completions in the preview modal
-        if (data.status === "failed") {
-          toast({
-            title: "Execution Failed",
-            description: data.error || "The dataset execution failed",
-            variant: "destructive"
-          });
-        }
-      }
-    } catch (err) {
-      if (!isMounted()) return;
-      
-      const errorMessage = err instanceof Error ? err.message : "Failed to load dataset preview";
-      console.error(`[Preview] Error loading preview:`, errorMessage);
-      
-      setError(errorMessage);
-      setLoading(false); // Ensure loading is set to false even on error
-      
-      // Check if it's an authentication error
-      if (errorMessage.includes("Authentication required")) {
-        toast({
-          title: "Authentication Error",
-          description: "Please sign in again to view dataset preview",
-          variant: "destructive"
-        });
-        stopPolling(); // Explicitly stop polling
-        resetPolling(); // Stop polling on auth errors
-      } else {
-        // Handle polling error (stops polling if too many consecutive errors)
-        const pollingStopped = handlePollingError();
-        
-        if (pollingStopped && previewData && 
-           (previewData.status === "running" || previewData.status === "pending")) {
-          setError("Execution is taking longer than expected. Please check back later.");
-        }
-      }
-    }
-  }, [executionId, toast, resetPolling, stopPolling, loadPreviewData, 
-       handlePollingError, handlePollingSuccess, isMounted, previewData]);
-
-  // Explicitly check for stuck executions on demand
-  const checkForStuckExecution = useCallback(() => {
-    return loadPreview(true, true);
-  }, [loadPreview]);
-
-  // Main effect for loading data and managing polling
+  }, [isOpen, setError, setLoading]);
+  
+  // Reset state when opening the modal
   useEffect(() => {
-    // Create a local flag for this effect instance
-    let effectActive = true;
-    let cleanup: (() => void) | undefined;
-    
-    if (isOpen && executionId) {
-      // Reset state when opening with a new execution ID
-      if (effectActive) {
-        setLoading(true);
-        setError(null);
-      }
-      
-      // Don't reset preview data here to avoid flickering
-      // Only clear it if it's for a different execution ID
-      if (previewData && previewData.execution?.id !== executionId && effectActive) {
-        setPreviewData(null);
-      }
-      
-      resetPolling();
-      
-      console.log(`[Preview] Starting preview polling for execution ID: ${executionId}`);
-      
-      // Load initial data to see status
-      loadPreview(true, false).then(() => {
-        // Only start polling if the execution is still in progress and this effect is still active
-        if (effectActive && previewData && (previewData.status === "running" || previewData.status === "pending")) {
-          // Start polling only for in-progress executions
-          cleanup = startPolling(() => loadPreview(false));
-        }
-      }).catch(error => {
-        console.error("[Preview] Error in initial load:", error);
-      });
+    if (isOpen && currentExecutionId) {
+      resetExecutionState();
     }
-    
-    return () => {
-      effectActive = false;
-      
-      if (cleanup) {
-        cleanup();
-      }
-      
-      stopPolling();
-      
-      // Only reset polling if the modal is closed
-      if (!isOpen) {
-        resetPolling();
-      }
-    };
-  }, [isOpen, executionId, loadPreview, resetPolling, startPolling, stopPolling, previewData]);
-
+  }, [isOpen, currentExecutionId, resetExecutionState]);
+  
   return {
     previewData,
     loading,
     error,
-    loadPreview,
+    loadPreview: (showLoading = true, checkStatus = false) => {
+      if (!currentExecutionId) return Promise.resolve(null);
+      // Create dummy functions since we're not using them in this context
+      const dummySuccess = () => {};
+      const dummyError = () => false;
+      return loadPreviewFn(currentExecutionId, showLoading, checkStatus, dummySuccess, dummyError);
+    },
     dataSource,
     pollCount,
     maxPollCount,
     startTime,
     shouldShowStuckUi,
     checkForStuckExecution,
-    isPolling
+    isPolling,
+    isExporting,
+    setIsExporting
   };
 }
