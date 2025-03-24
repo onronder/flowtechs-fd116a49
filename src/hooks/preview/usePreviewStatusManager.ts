@@ -80,7 +80,10 @@ export function usePreviewStatusManager({
               false,
               handlePollingSuccess,
               handlePollingError
-            );
+            ).then(() => {
+              // Return void to satisfy the Promise<void> requirement
+              return;
+            });
           };
           
           cleanup = startPolling(pollingFunction);

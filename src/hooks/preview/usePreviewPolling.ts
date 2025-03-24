@@ -21,7 +21,7 @@ export function usePreviewPolling(options: PollingOptions = {}) {
   const pollingRef = useRef<number | null>(null);
   const consecutiveErrorsRef = useRef(0);
   const isPollingRef = useRef(false);
-  const pollingFunctionRef = useRef<(() => Promise<void>) | null>(null);
+  const pollingFunctionRef = useRef<(() => Promise<any>) | null>(null);
   
   // Function to check if component is still mounted
   const isMounted = useCallback(() => mountedRef.current, []);
@@ -56,7 +56,7 @@ export function usePreviewPolling(options: PollingOptions = {}) {
   }, [clearPollingTimeout]);
   
   // Function to start polling
-  const startPolling = useCallback((pollingFn: () => Promise<void>) => {
+  const startPolling = useCallback((pollingFn: () => Promise<any>) => {
     // Don't start polling if it's already active
     if (isPollingRef.current) {
       console.log("[Preview] Polling already in progress, not starting again");
