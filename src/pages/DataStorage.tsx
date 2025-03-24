@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { getUserExports } from "@/api/datasets/exportApi";
 import { Button } from "@/components/ui/button";
@@ -32,7 +31,6 @@ const DataStorage = () => {
   }, []);
   
   const handleDownload = (fileUrl: string, fileName: string) => {
-    // Create an anchor element and trigger the download
     const a = document.createElement("a");
     a.href = fileUrl;
     a.download = fileName;

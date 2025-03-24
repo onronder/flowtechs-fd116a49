@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Save, MoreHorizontal } from "lucide-react";
@@ -9,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { exportDataset, ExportFormat } from "@/api/datasets/exportApi";
+import { exportDataset, ExportFormat, ExportOptions } from "@/api/datasets/exportApi";
 import { useToast } from "@/hooks/use-toast";
 
 interface DataExportProps {
@@ -56,13 +55,15 @@ export default function DataExport({
       const sanitizedName = (datasetName || "dataset").replace(/[^a-z0-9]/gi, "_").toLowerCase();
       const fileName = `${sanitizedName}_${timestamp}.${format}`;
 
-      await exportDataset({
+      const exportOptions: ExportOptions = {
         executionId,
         format,
         fileName,
         saveToStorage,
         dataSource: data,
-      });
+      };
+
+      await exportDataset(exportOptions);
 
       if (saveToStorage) {
         toast({
