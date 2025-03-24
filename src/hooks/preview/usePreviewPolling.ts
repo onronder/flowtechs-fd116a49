@@ -1,112 +1,146 @@
 
-import { useState, useCallback, useRef, useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { useState, useRef, useCallback, useEffect } from "react";
 
-export interface PollingOptions {
+interface PollingOptions {
   maxPollCount?: number;
   pollInterval?: number;
   maxConsecutiveErrors?: number;
 }
 
-export function usePreviewPolling({
-  maxPollCount = 120, // 4 minutes at 2-second intervals
-  pollInterval = 2000, // 2 seconds between polls
-  maxConsecutiveErrors = 3
-}: PollingOptions = {}) {
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const pollCountRef = useRef(0);
-  const mountedRef = useRef(true);
-  const startTimeRef = useRef<string | null>(null);
-  const consecutiveErrorsRef = useRef(0);
-  const { toast } = useToast();
+export function usePreviewPolling(options: PollingOptions = {}) {
+  const {
+    maxPollCount = 60,
+    pollInterval = 2000,
+    maxConsecutiveErrors = 3
+  } = options;
   
-  // Cleanup function
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false;
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-    };
-  }, []);
-
-  // Function to reset polling
+  const [pollCount, setPollCount] = useState(0);
+  const [startTime] = useState<Date>(new Date());
+  
+  const mountedRef = useRef(true);
+  const pollingRef = useRef<number | null>(null);
+  const consecutiveErrorsRef = useRef(0);
+  const isPollingRef = useRef(false);
+  
+  // Function to check if component is still mounted
+  const isMounted = useCallback(() => mountedRef.current, []);
+  
+  // Function to reset polling state
   const resetPolling = useCallback(() => {
-    pollCountRef.current = 0;
+    console.log("[Preview] Resetting polling");
+    setPollCount(0);
     consecutiveErrorsRef.current = 0;
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
+    
+    // Clear any existing polling interval
+    if (pollingRef.current !== null) {
+      clearTimeout(pollingRef.current);
+      pollingRef.current = null;
     }
+    
+    isPollingRef.current = false;
+  }, []);
+  
+  // Explicitly stop polling
+  const stopPolling = useCallback(() => {
+    console.log("[Preview] Explicitly stopping polling");
+    if (pollingRef.current !== null) {
+      clearTimeout(pollingRef.current);
+      pollingRef.current = null;
+    }
+    isPollingRef.current = false;
   }, []);
   
   // Function to start polling
-  const startPolling = useCallback((callback: () => Promise<void>) => {
+  const startPolling = useCallback((pollingFn: () => Promise<void>) => {
     resetPolling();
-    startTimeRef.current = new Date().toISOString();
+    isPollingRef.current = true;
     
-    // Initial load
-    callback();
-    
-    // Set up polling
-    pollingIntervalRef.current = setInterval(() => {
-      if (pollCountRef.current >= maxPollCount) {
-        console.log("[Preview] Max polling attempts reached, stopping polling");
-        resetPolling();
+    const poll = async () => {
+      if (!mountedRef.current || !isPollingRef.current) return;
+      
+      try {
+        await pollingFn();
         
-        toast({
-          title: "Execution Timeout",
-          description: "The dataset execution is taking longer than expected. Please try again later.",
-          variant: "destructive"
-        });
-        return;
+        // If still mounted and polling hasn't been manually stopped
+        if (mountedRef.current && isPollingRef.current) {
+          setPollCount(prev => prev + 1);
+          
+          // Check if we've reached the max poll count
+          if (pollCount >= maxPollCount) {
+            console.log(`[Preview] Reached max poll count (${maxPollCount}), stopping`);
+            isPollingRef.current = false;
+            return;
+          }
+          
+          // Schedule next poll
+          pollingRef.current = window.setTimeout(poll, pollInterval);
+        }
+      } catch (err) {
+        console.error("[Preview] Error during polling:", err);
+        
+        // If component is still mounted, schedule next poll
+        if (mountedRef.current && isPollingRef.current) {
+          pollingRef.current = window.setTimeout(poll, pollInterval);
+        }
       }
-      
-      pollCountRef.current++;
-      console.log(`[Preview] Polling attempt ${pollCountRef.current}/${maxPollCount}`);
-      callback();
-    }, pollInterval);
-    
-    return () => {
-      resetPolling();
     };
-  }, [maxPollCount, pollInterval, resetPolling, toast]);
-  
-  // Function to handle consecutive errors
-  const handlePollingError = useCallback(() => {
-    consecutiveErrorsRef.current++;
     
-    // If we've hit too many consecutive errors, stop polling
+    // Start the initial poll
+    poll();
+    
+    // Return a cleanup function
+    return () => {
+      if (pollingRef.current !== null) {
+        clearTimeout(pollingRef.current);
+        pollingRef.current = null;
+      }
+      isPollingRef.current = false;
+    };
+  }, [maxPollCount, pollCount, pollInterval, resetPolling]);
+  
+  // Function to handle polling errors
+  const handlePollingError = useCallback(() => {
+    consecutiveErrorsRef.current += 1;
+    
+    // If we've reached the max consecutive errors, stop polling
     if (consecutiveErrorsRef.current >= maxConsecutiveErrors) {
-      console.log(`[Preview] ${maxConsecutiveErrors} consecutive errors, stopping polling`);
-      resetPolling();
-      
-      toast({
-        title: "Error",
-        description: "Failed to load dataset preview after multiple attempts",
-        variant: "destructive"
-      });
-      
+      console.log(`[Preview] Reached max consecutive errors (${maxConsecutiveErrors}), stopping polling`);
+      isPollingRef.current = false;
       return true; // Polling stopped
     }
     
     return false; // Polling continues
-  }, [maxConsecutiveErrors, resetPolling, toast]);
+  }, [maxConsecutiveErrors]);
   
   // Function to handle polling success
   const handlePollingSuccess = useCallback(() => {
-    // Reset consecutive errors counter on success
     consecutiveErrorsRef.current = 0;
   }, []);
   
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      
+      if (pollingRef.current !== null) {
+        clearTimeout(pollingRef.current);
+        pollingRef.current = null;
+      }
+      
+      isPollingRef.current = false;
+    };
+  }, []);
+  
   return {
-    pollCount: pollCountRef.current,
+    pollCount,
     maxPollCount,
-    startTime: startTimeRef.current,
+    startTime,
     startPolling,
     resetPolling,
+    stopPolling,
     handlePollingError,
     handlePollingSuccess,
-    isMounted: () => mountedRef.current
+    isMounted,
+    isPolling: isPollingRef.current
   };
 }

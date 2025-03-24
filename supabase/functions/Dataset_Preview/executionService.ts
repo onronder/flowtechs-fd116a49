@@ -1,4 +1,3 @@
-
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.5.0";
 
 /**
@@ -104,6 +103,7 @@ export async function fetchExecutionDetails(
         }
       }
       
+      // Limit the number of rows to the requested limit
       const preview = execution.data.slice(0, limit);
       console.log(`Returning preview with ${preview.length} rows and ${columns.length} columns`);
       

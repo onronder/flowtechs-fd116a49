@@ -24,6 +24,7 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
     startTime,
     startPolling,
     resetPolling,
+    stopPolling,
     handlePollingError,
     handlePollingSuccess,
     isMounted
@@ -64,7 +65,7 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       }
       
       const data = await loadPreviewData(executionId, {
-        limit: 100,
+        limit: 5, // Limit to 5 records
         maxRetries: 2,
         retryDelay: 1000,
         checkStatus
@@ -75,10 +76,12 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       // Handle successful data load
       handlePollingSuccess();
       setPreviewData(data);
+      setLoading(false); // Always ensure loading is set to false when data is received
       
-      // If execution is complete, failed, or stuck, stop polling
+      // If execution is complete, failed, or stuck, explicitly stop polling
       if (data.status === "completed" || data.status === "failed" || data.status === "stuck") {
         console.log(`[Preview] Execution ${data.status}, stopping polling`);
+        stopPolling(); // Make sure to stop the polling
         resetPolling();
         
         if (data.status === "completed") {
@@ -99,6 +102,7 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       
       const errorMessage = err instanceof Error ? err.message : "Failed to load dataset preview";
       setError(errorMessage);
+      setLoading(false); // Ensure loading is set to false even on error
       
       // Check if it's an authentication error
       if (errorMessage.includes("Authentication required")) {
@@ -107,6 +111,7 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
           description: "Please sign in again to view dataset preview",
           variant: "destructive"
         });
+        stopPolling(); // Explicitly stop polling
         resetPolling(); // Stop polling on auth errors
       } else {
         // Handle polling error (stops polling if too many consecutive errors)
@@ -117,10 +122,8 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
           setError("Execution is taking longer than expected. Please check back later.");
         }
       }
-    } finally {
-      if (showLoading && isMounted()) setLoading(false);
     }
-  }, [executionId, toast, resetPolling, loadPreviewData, 
+  }, [executionId, toast, resetPolling, stopPolling, loadPreviewData, 
        handlePollingError, handlePollingSuccess, isMounted, previewData]);
 
   // Explicitly check for stuck executions on demand
@@ -141,9 +144,12 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       // Start polling
       const cleanup = startPolling(() => loadPreview(false));
       
-      return cleanup;
+      return () => {
+        cleanup();
+        stopPolling(); // Ensure polling is stopped on unmount
+      };
     }
-  }, [isOpen, executionId, loadPreview, resetPolling, startPolling]);
+  }, [isOpen, executionId, loadPreview, resetPolling, startPolling, stopPolling]);
 
   return {
     previewData,

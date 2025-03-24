@@ -30,7 +30,7 @@ export async function fetchDatasetPreview(
       // Prepare the payload
       const payload = { 
         executionId,
-        limit,
+        limit, // Pass the limit parameter to restrict the number of records
         checkStatus
       };
       
