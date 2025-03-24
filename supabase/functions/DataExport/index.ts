@@ -25,9 +25,10 @@ serve(async (req) => {
     
     try {
       requestText = await req.text();
-      console.log("Request body:", requestText);
+      console.log("Request body length:", requestText.length);
       
       if (!requestText || requestText.trim() === '') {
+        console.error("Empty request body received");
         return new Response(
           JSON.stringify({ 
             success: false, 
@@ -38,6 +39,7 @@ serve(async (req) => {
       }
       
       requestData = JSON.parse(requestText);
+      console.log("Parsed request data:", JSON.stringify(requestData));
     } catch (parseError) {
       console.error("Error parsing request JSON:", parseError, "Raw text:", requestText);
       return new Response(

@@ -89,12 +89,13 @@ export async function exportDataset(options: ExportOptions): Promise<ExportRespo
         URL.revokeObjectURL(url);
       }, 100);
       
+      // Return simplified response with type assertion
       return {
         success: true,
         fileName: data.fileName,
         fileType: data.fileType,
         fileSize: data.data.length
-      };
+      } as ExportResponse;
     } else if (data instanceof Blob) {
       // Handle case where the response is a Blob
       const url = URL.createObjectURL(data);
@@ -111,15 +112,13 @@ export async function exportDataset(options: ExportOptions): Promise<ExportRespo
         URL.revokeObjectURL(url);
       }, 100);
       
-      // Return simplified response to avoid type recursion issues
-      const response: ExportResponse = {
+      // Return simplified response with type assertion
+      return {
         success: true,
         fileName: fileName || `export.${format}`,
         fileType: data.type,
         fileSize: data.size
-      };
-      
-      return response;
+      } as ExportResponse;
     } else {
       // Return data directly with explicit type assertion
       return data as ExportResponse;
