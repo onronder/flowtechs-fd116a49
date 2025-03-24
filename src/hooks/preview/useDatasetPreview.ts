@@ -93,12 +93,8 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
         stopPolling(); // Make sure to stop the polling
         resetPolling();
         
-        if (data.status === "completed") {
-          toast({
-            title: "Execution Complete",
-            description: `Retrieved ${data.totalCount || 0} rows of data.`,
-          });
-        } else if (data.status === "failed") {
+        // Only show toast for failures, not for completions in the preview modal
+        if (data.status === "failed") {
           toast({
             title: "Execution Failed",
             description: data.error || "The dataset execution failed",

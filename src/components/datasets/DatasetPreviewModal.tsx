@@ -28,7 +28,6 @@ export default function DatasetPreviewModal({
         className="max-w-5xl max-h-[90vh] flex flex-col overflow-hidden"
         aria-describedby="dataset-preview-description"
       >
-        {/* Hidden title for accessibility */}
         <DialogTitle className="sr-only">
           {title} Dataset Preview
         </DialogTitle>
