@@ -39,41 +39,35 @@ export async function fetchDatasetPreview(
       console.log("Sending preview request with payload:", JSON.stringify(payload));
       
       try {
-        // Call the edge function with timeout handling
-        const functionPromise = supabase.functions.invoke("Dataset_Preview", {
+        // Start a timer for performance tracking
+        const timerName = `preview_request_${requestId}`;
+        console.time(timerName);
+        
+        // Call the edge function
+        const { data, error } = await supabase.functions.invoke("Dataset_Preview", {
           body: payload
         });
         
-        // Set up timeout promise
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error("Preview request timed out after 30 seconds")), 30000);
-        });
+        // End the timer
+        console.timeEnd(timerName);
         
-        // Race between the function call and the timeout
-        const result = await Promise.race([functionPromise, timeoutPromise]) as { data: any, error: any };
-        
-        if (result.error) {
-          console.error("Error from Dataset_Preview function:", result.error);
-          throw new Error(`Preview fetch error: ${result.error.message || JSON.stringify(result.error)}`);
+        if (error) {
+          console.error("Error from Dataset_Preview function:", error);
+          throw new Error(`Preview fetch error: ${error.message || JSON.stringify(error)}`);
         }
         
-        if (!result.data) {
+        if (!data) {
           throw new Error("Invalid response from preview function - empty response");
         }
         
         // Log the status and other important details
-        console.log(`Dataset preview response: status=${result.data.status}, rows=${result.data.preview?.length || 0}, totalCount=${result.data.totalCount || 0}`);
+        console.log(`Dataset preview response: status=${data.status}, rows=${data.preview?.length || 0}, totalCount=${data.totalCount || 0}`);
         
-        return result.data;
+        return data;
       } catch (fetchError) {
         throw fetchError;
       }
     } catch (error) {
-      if ((error as Error).message.includes("timed out")) {
-        console.error("Preview request timed out");
-        throw new Error("Preview request timed out after 30 seconds");
-      }
-      
       if (retry < maxRetries) {
         console.log(`Retry ${retry + 1}/${maxRetries} after error:`, error);
         // Wait before retrying
