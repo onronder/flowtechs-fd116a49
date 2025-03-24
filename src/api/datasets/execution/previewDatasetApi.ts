@@ -13,7 +13,7 @@ export async function fetchDatasetPreview(
     checkStatus?: boolean;
   } = {}
 ) {
-  const limit = options.limit || 100;
+  const limit = options.limit || 5; // Reduced default limit to 5 records
   const maxRetries = options.maxRetries || 0;
   const retryDelay = options.retryDelay || 1000;
   const checkStatus = options.checkStatus || false;

@@ -29,7 +29,8 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
     maxPollCount,
     startTime,
     shouldShowStuckUi,
-    checkForStuckExecution
+    checkForStuckExecution,
+    isPolling
   } = useDatasetPreview(executionId, isOpen);
   
   // Ensure we reload preview data when the execution ID changes
@@ -38,6 +39,13 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
       loadPreview();
     }
   }, [executionId, isOpen, loadPreview]);
+  
+  // Clean up when component unmounts or modal closes
+  useEffect(() => {
+    return () => {
+      // Any additional cleanup needed when modal closes
+    };
+  }, [isOpen]);
   
   const handleExport = (format: 'json' | 'csv' | 'xlsx') => {
     setIsExporting(true);

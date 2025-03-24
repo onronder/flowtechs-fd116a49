@@ -6,7 +6,7 @@ interface StuckExecutionDetectorProps {
   isOpen: boolean;
   executionId: string | null;
   previewData: PreviewData | null;
-  startTime: string | null;
+  startTime: string;
   pollCount: number;
 }
 

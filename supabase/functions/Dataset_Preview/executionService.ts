@@ -1,3 +1,4 @@
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.5.0";
 
 /**
@@ -6,7 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.5.0";
 export async function fetchExecutionDetails(
   req: Request,
   executionId: string,
-  limit: number = 100,
+  limit: number = 5, // Default limit reduced to 5
   checkStatus: boolean = false
 ): Promise<any> {
   console.log(`Fetching execution details for ID: ${executionId}, limit: ${limit}, checkStatus: ${checkStatus}`);
@@ -85,27 +86,39 @@ export async function fetchExecutionDetails(
     
     // Process the result based on the execution status
     if (execution.status === "completed" && execution.data) {
-      const dataLength = Array.isArray(execution.data) ? execution.data.length : 0;
-      console.log(`Processing completed execution with ${dataLength} rows of data`);
+      // Safely handle data retrieval and slicing
+      let dataToProcess = [];
+      let totalDataLength = 0;
+      
+      if (Array.isArray(execution.data)) {
+        // Get the total length for reporting
+        totalDataLength = execution.data.length;
+        
+        // Only take the requested number of rows to reduce memory usage and processing time
+        dataToProcess = execution.data.slice(0, limit);
+        
+        console.log(`Processing ${dataToProcess.length} out of ${totalDataLength} rows`);
+      } else {
+        console.warn(`Execution data is not an array: ${typeof execution.data}`);
+        dataToProcess = [];
+      }
       
       // Extract columns from the first row
-      const columns = execution.data && execution.data.length > 0
-        ? extractColumns(execution.data[0])
+      const columns = dataToProcess.length > 0
+        ? extractColumns(dataToProcess[0])
         : [];
       
       // Log sample data row for debugging (first row, safely limit object depth)
-      if (dataLength > 0) {
+      if (dataToProcess.length > 0) {
         try {
-          const sampleRow = execution.data[0];
+          const sampleRow = dataToProcess[0];
           console.log(`Sample data row keys: ${Object.keys(sampleRow).join(', ')}`);
         } catch (err) {
           console.error("Error logging sample row:", err);
         }
       }
       
-      // Limit the number of rows to the requested limit
-      const preview = execution.data.slice(0, limit);
-      console.log(`Returning preview with ${preview.length} rows and ${columns.length} columns`);
+      console.log(`Returning preview with ${dataToProcess.length} rows and ${columns.length} columns`);
       
       return {
         status: execution.status,
@@ -119,8 +132,8 @@ export async function fetchExecutionDetails(
         },
         dataset: execution.dataset,
         columns: columns,
-        preview: preview,
-        totalCount: execution.row_count || execution.data.length,
+        preview: dataToProcess,
+        totalCount: execution.row_count || totalDataLength,
       };
     } else {
       // Return basic info for incomplete or failed executions

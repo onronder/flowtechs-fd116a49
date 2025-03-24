@@ -27,7 +27,8 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
     stopPolling,
     handlePollingError,
     handlePollingSuccess,
-    isMounted
+    isMounted,
+    isPolling
   } = usePreviewPolling({
     maxPollCount: 120, // 4 minutes at 2-second intervals
     pollInterval: 2000,
@@ -149,6 +150,14 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
         stopPolling(); // Ensure polling is stopped on unmount
       };
     }
+    
+    // Additional cleanup when modal is closed
+    return () => {
+      if (!isOpen) {
+        stopPolling();
+        resetPolling();
+      }
+    };
   }, [isOpen, executionId, loadPreview, resetPolling, startPolling, stopPolling]);
 
   return {
@@ -161,6 +170,7 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
     maxPollCount,
     startTime,
     shouldShowStuckUi,
-    checkForStuckExecution
+    checkForStuckExecution,
+    isPolling
   };
 }

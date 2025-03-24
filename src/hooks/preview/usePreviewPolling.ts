@@ -15,7 +15,7 @@ export function usePreviewPolling(options: PollingOptions = {}) {
   } = options;
   
   const [pollCount, setPollCount] = useState(0);
-  const [startTime] = useState<Date>(new Date());
+  const [startTime] = useState<string>(new Date().toISOString());
   
   const mountedRef = useRef(true);
   const pollingRef = useRef<number | null>(null);

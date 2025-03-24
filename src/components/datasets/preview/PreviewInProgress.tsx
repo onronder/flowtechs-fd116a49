@@ -6,7 +6,7 @@ import LoadingSpinner from "@/components/ui/loading-spinner";
 interface PreviewInProgressProps {
   pollCount: number;
   maxPollCount: number;
-  startTime?: string | null;
+  startTime: string;
 }
 
 export default function PreviewInProgress({ 
