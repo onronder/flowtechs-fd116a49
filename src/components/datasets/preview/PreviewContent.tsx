@@ -81,9 +81,11 @@ export default function PreviewContent({
           </div>
           
           {dataSource !== 'preview' && (
-            <Badge variant="outline" className="bg-blue-50">
-              {dataSource === 'direct' ? 'Database View' : 'Basic View'}
-            </Badge>
+            <div>
+              <Badge variant="outline" className="bg-blue-50">
+                {dataSource === 'direct' ? 'Database View' : 'Basic View'}
+              </Badge>
+            </div>
           )}
         </div>
         
