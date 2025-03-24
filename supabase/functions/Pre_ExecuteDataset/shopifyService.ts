@@ -35,13 +35,55 @@ export async function fetchPaginatedData(
     let after = null;
     const pageSize = 50; // Reasonable page size for most resources
     
+    // Ensure the query has proper variable declarations
+    let normalizedQuery = queryTemplate;
+    
+    // Check if query already has variable declarations
+    if (!normalizedQuery.includes('$first:')) {
+      // Add variable declarations if not present
+      normalizedQuery = normalizedQuery.replace(
+        /query\s*{/i, 
+        `query($first: Int!, $after: String) {`
+      );
+    }
+    
+    // Ensure the first pagination parameter is properly set in the query
+    const containsFirstParameter = /(first:\s*\$first|first:\s*\d+)/i.test(normalizedQuery);
+    
     while (hasNextPage) {
       apiCallCount++;
       
-      // Replace pagination variables in the query
-      let paginatedQuery = queryTemplate
-        .replace(/\$first: Int/, `$first: Int = ${pageSize}`)
-        .replace(/\$after: String/, `$after: String = ${after ? `"${after}"` : "null"}`);
+      // Prepare the query with pagination parameters
+      let paginatedQuery = normalizedQuery;
+      
+      // Replace pagination variables in the query if not properly set
+      if (!containsFirstParameter) {
+        // Look for places to inject the first parameter by finding entities that might need it
+        // This is a simplified approach - in a production system, you'd want more robust parsing
+        paginatedQuery = paginatedQuery.replace(
+          /(\w+)\s*\(/g,
+          (match, entity) => {
+            // Only add first parameter to the main entities (not nested fields)
+            if (
+              entity.toLowerCase().includes('product') || 
+              entity.toLowerCase().includes('order') || 
+              entity.toLowerCase().includes('customer') || 
+              entity.toLowerCase().includes('collection') ||
+              entity.toLowerCase() === resourceType.toLowerCase() ||
+              entity.toLowerCase() === `${resourceType.toLowerCase()}s`
+            ) {
+              return `${entity}(first: $first${after ? ', after: $after' : ''}`;
+            }
+            return match;
+          }
+        );
+      } else if (after) {
+        // If first is already in the query, just add after if needed
+        paginatedQuery = paginatedQuery.replace(
+          /(first:\s*\$first|first:\s*\d+)/i,
+          `$1, after: $after`
+        );
+      }
       
       console.log(`Making API call #${apiCallCount} with cursor: ${after || 'initial'}`);
       
