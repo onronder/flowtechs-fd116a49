@@ -17,3 +17,22 @@ export interface ExportResponse {
   data?: string;
   error?: string;
 }
+
+export interface ExecutionData {
+  id: string;
+  dataset_id: string;
+  status: string;
+  start_time: string;
+  end_time?: string;
+  row_count?: number;
+  execution_time_ms?: number;
+  api_call_count?: number;
+  dataset?: {
+    name: string;
+    user_id: string;
+  };
+}
+
+export interface ExecutionResults {
+  results: any[];
+}
