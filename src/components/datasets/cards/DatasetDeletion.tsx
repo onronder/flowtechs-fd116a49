@@ -21,8 +21,6 @@ const DatasetDeletion = forwardRef<HTMLButtonElement, DatasetDeletionProps>(({
   const { toast } = useToast();
 
   async function handleDeleteDataset() {
-    if (isDeleting) return; // Prevent multiple submissions
-    
     try {
       setIsDeleting(true);
       setDeleteError(null);
@@ -34,13 +32,8 @@ const DatasetDeletion = forwardRef<HTMLButtonElement, DatasetDeletionProps>(({
         description: "The dataset has been deleted successfully.",
       });
       
-      // Close the dialog first before refreshing
+      onRefresh();
       setShowDeleteDialog(false);
-      
-      // Small delay to ensure the dialog closes properly before refreshing
-      setTimeout(() => {
-        onRefresh();
-      }, 100);
     } catch (error: any) {
       console.error("Error deleting dataset:", error);
       
@@ -63,13 +56,6 @@ const DatasetDeletion = forwardRef<HTMLButtonElement, DatasetDeletionProps>(({
     }
   }
 
-  const handleCancel = () => {
-    // Make sure we're not in the middle of deleting
-    if (!isDeleting) {
-      setShowDeleteDialog(false);
-    }
-  };
-
   return (
     <>
       <DatasetDeleteDialog
@@ -77,10 +63,11 @@ const DatasetDeletion = forwardRef<HTMLButtonElement, DatasetDeletionProps>(({
         isOpen={showDeleteDialog}
         isDeleting={isDeleting}
         errorMessage={deleteError}
-        onCancel={handleCancel}
+        onCancel={() => setShowDeleteDialog(false)}
         onConfirm={handleDeleteDataset}
       />
       
+      {/* Return the setShowDeleteDialog function for the parent to use */}
       <button 
         type="button" 
         className="hidden" 

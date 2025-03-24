@@ -16,7 +16,7 @@ export async function invokeExecutionFunction(
   
   try {
     // Use edge function invoke to trigger the execution function
-    const response = await fetch(`${supabaseUrl}/functions/v1/${executionFunction}`, {
+    await fetch(`${supabaseUrl}/functions/v1/${executionFunction}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -25,16 +25,11 @@ export async function invokeExecutionFunction(
       body: JSON.stringify(payload)
     });
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Error response from ${executionFunction}: ${response.status} ${errorText}`);
-      throw new Error(`Failed to invoke ${executionFunction}: ${response.status} ${errorText}`);
-    }
-    
     console.log(`Successfully invoked ${executionFunction}`);
   } catch (e) {
     console.error(`Error invoking ${executionFunction}:`, e);
-    throw e;
+    // Continue execution - we want to return the execution ID even if the function invocation fails
+    // The error will be logged and the execution status will be updated later
   }
 }
 
@@ -47,13 +42,6 @@ export function prepareExecutionPayload(execution: any, datasetId: string, userI
     datasetId: datasetId,
     userId: userId,
     // Include the template if we fetched it separately
-    template: template ? {
-      id: template.id,
-      name: template.name,
-      display_name: template.display_name,
-      query_template: template.query_template,
-      resource_type: template.resource_type,
-      field_list: template.field_list
-    } : null
+    template: template
   };
 }

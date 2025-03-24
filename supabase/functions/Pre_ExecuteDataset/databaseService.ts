@@ -1,38 +1,45 @@
 
 /**
- * Database operations for Pre_ExecuteDataset
+ * Database service functions for Pre_ExecuteDataset
  */
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+
+/**
+ * Create a Supabase client
+ */
+export function createSupabaseClient(supabaseUrl: string, supabaseKey: string, authHeader: string) {
+  return createClient(supabaseUrl, supabaseKey, {
+    global: {
+      headers: {
+        Authorization: authHeader
+      }
+    }
+  });
+}
 
 /**
  * Mark an execution as running
  */
 export async function markExecutionAsRunning(supabaseClient: any, executionId: string) {
-  try {
-    console.log(`Marking execution ${executionId} as running`);
-    
-    const { error } = await supabaseClient
-      .from('dataset_executions')
-      .update({
-        status: 'running',
-        start_time: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', executionId);
-      
-    if (error) {
-      console.error(`Error marking execution ${executionId} as running:`, error);
-      throw new Error(`Database error: ${error.message}`);
-    }
-      
-    console.log(`Successfully marked execution ${executionId} as running`);
-  } catch (error) {
-    console.error(`Error marking execution ${executionId} as running:`, error);
-    throw error;
+  console.log(`Marking execution ${executionId} as running`);
+  
+  const { error } = await supabaseClient
+    .from("dataset_executions")
+    .update({
+      status: "running",
+      start_time: new Date().toISOString(),
+      metadata: { started_at: new Date().toISOString() }
+    })
+    .eq("id", executionId);
+
+  if (error) {
+    console.error("Error marking execution as running:", error);
+    throw new Error(`Database error: ${error.message}`);
   }
 }
 
 /**
- * Mark an execution as completed, storing the results
+ * Mark an execution as completed
  */
 export async function markExecutionAsCompleted(
   supabaseClient: any, 
@@ -41,196 +48,179 @@ export async function markExecutionAsCompleted(
   executionTime: number,
   apiCallCount: number
 ) {
-  try {
-    console.log(`Marking execution ${executionId} as completed with ${results.length} rows`);
-    
-    // Store only the first 1000 rows in the data field to avoid huge payloads
-    const previewData = results.slice(0, 1000);
-    
-    const { error } = await supabaseClient
-      .from('dataset_executions')
-      .update({
-        status: 'completed',
-        end_time: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        row_count: results.length,
-        execution_time_ms: executionTime,
-        data: previewData,
-        metadata: {
-          api_call_count: apiCallCount
-        }
-      })
-      .eq('id', executionId);
-      
-    if (error) {
-      console.error(`Error marking execution ${executionId} as completed:`, error);
-      throw new Error(`Database error: ${error.message}`);
-    }
-      
-    console.log(`Successfully marked execution ${executionId} as completed`);
-  } catch (error) {
-    console.error(`Error marking execution ${executionId} as completed:`, error);
-    throw error;
+  console.log(`Marking execution ${executionId} as completed with ${results.length} rows`);
+  
+  const metadata = {
+    completed_at: new Date().toISOString(),
+    execution_time_ms: executionTime,
+    api_call_count: apiCallCount
+  };
+  
+  // Generate column definitions from the first result
+  const columns = results.length > 0 
+    ? Object.keys(results[0]).map(key => ({ 
+        key, 
+        label: key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')
+      })) 
+    : [];
+  
+  const { error } = await supabaseClient
+    .from("dataset_executions")
+    .update({
+      status: "completed",
+      end_time: new Date().toISOString(),
+      row_count: results.length,
+      execution_time_ms: executionTime,
+      metadata: metadata,
+      data: results,
+      columns: columns
+    })
+    .eq("id", executionId);
+  
+  if (error) {
+    console.error("Error marking execution as completed:", error);
+    throw new Error(`Database error: ${error.message}`);
+  }
+  
+  // Also update the parent dataset with the last execution details
+  const { error: datasetError } = await supabaseClient
+    .from("user_datasets")
+    .update({
+      last_execution_id: executionId,
+      last_execution_time: new Date().toISOString(),
+      last_row_count: results.length
+    })
+    .eq("id", (await supabaseClient.from("dataset_executions").select("dataset_id").eq("id", executionId).single()).data.dataset_id);
+  
+  if (datasetError) {
+    console.warn("Error updating dataset with execution details:", datasetError);
+    // Non-fatal error, continue execution
   }
 }
 
 /**
  * Mark an execution as failed
  */
-export async function markExecutionAsFailed(
-  supabaseClient: any, 
-  executionId: string, 
-  errorMessage: string
-) {
-  try {
-    console.log(`Marking execution ${executionId} as failed: ${errorMessage}`);
-    
-    const { error } = await supabaseClient
-      .from('dataset_executions')
-      .update({
-        status: 'failed',
-        end_time: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        error_message: errorMessage
-      })
-      .eq('id', executionId);
-      
-    if (error) {
-      console.error(`Error marking execution ${executionId} as failed:`, error);
-      throw new Error(`Database error: ${error.message}`);
-    }
-      
-    console.log(`Successfully marked execution ${executionId} as failed`);
-  } catch (error) {
-    console.error(`Error marking execution ${executionId} as failed:`, error);
-    throw error;
+export async function markExecutionAsFailed(supabaseClient: any, executionId: string, errorMessage: string) {
+  console.log(`Marking execution ${executionId} as failed: ${errorMessage}`);
+  
+  const { error } = await supabaseClient
+    .from("dataset_executions")
+    .update({
+      status: "failed",
+      end_time: new Date().toISOString(),
+      metadata: { 
+        failed_at: new Date().toISOString(),
+        error: errorMessage
+      },
+      error: errorMessage
+    })
+    .eq("id", executionId);
+
+  if (error) {
+    console.error("Error marking execution as failed:", error);
+    throw new Error(`Database error: ${error.message}`);
   }
 }
 
 /**
- * Create a Supabase client with auth
- */
-export function createSupabaseClient(supabaseUrl: string, supabaseKey: string, authToken?: string) {
-  // Avoid circular dependency - don't import the function from itself
-  const { createClient } = require('@supabase/supabase-js');
-  
-  const headers: Record<string, string> = {};
-  
-  if (authToken) {
-    // Check if the token starts with Bearer prefix
-    if (authToken.startsWith('Bearer ')) {
-      headers['Authorization'] = authToken;
-    } else {
-      headers['Authorization'] = `Bearer ${authToken}`;
-    }
-  }
-  
-  return createClient(supabaseUrl, supabaseKey, {
-    global: { headers }
-  });
-}
-
-/**
- * Fetch dataset details and template
+ * Fetch dataset and template details
  */
 export async function fetchDatasetDetails(supabaseClient: any, datasetId: string, userId: string) {
+  console.log(`Fetching dataset details for datasetId: ${datasetId}, userId: ${userId}`);
+  
+  // First, get the dataset with its source
+  const { data: dataset, error: datasetError } = await supabaseClient
+    .from("user_datasets")
+    .select("*, source:source_id(*)")
+    .eq("id", datasetId)
+    .eq("user_id", userId)
+    .single();
+    
+  if (datasetError) {
+    console.error("Dataset fetch error:", datasetError);
+    throw new Error(`Dataset error: ${datasetError.message}`);
+  }
+  
+  if (!dataset) {
+    console.error("Dataset not found");
+    throw new Error("Dataset not found");
+  }
+  
+  if (!dataset.source || !dataset.source.config) {
+    console.error("Source or source config not found");
+    throw new Error("Missing or invalid source configuration");
+  }
+  
+  // Now try to get the template
+  let template = null;
+  let templateError = null;
+  
+  // Try with direct query to query_templates first
   try {
-    console.log(`Fetching dataset details for dataset ${datasetId}, user ${userId}`);
+    const { data: queryTemplate, error: queryError } = await supabaseClient
+      .from("query_templates")
+      .select("*")
+      .eq("id", dataset.template_id)
+      .maybeSingle();
     
-    // Get dataset with separate queries to avoid join issues
-    const { data: dataset, error: datasetError } = await supabaseClient
-      .from('user_datasets')
-      .select(`
-        id,
-        name,
-        dataset_type,
-        template_id
-      `)
-      .eq('id', datasetId)
-      .eq('user_id', userId)
-      .single();
-    
-    if (datasetError) {
-      console.error(`Failed to fetch dataset: ${datasetError.message}`);
-      throw new Error(`Failed to fetch dataset: ${datasetError.message}`);
+    if (queryTemplate) {
+      console.log("Found template in query_templates:", queryTemplate.id);
+      template = queryTemplate;
+    } else if (queryError) {
+      console.warn("Error fetching from query_templates:", queryError);
+      templateError = queryError;
     }
-    
-    if (!dataset) {
-      console.error('Dataset not found');
-      throw new Error(`Dataset not found for ID: ${datasetId}`);
-    }
-    
-    console.log(`Found dataset: ${dataset.id}, type: ${dataset.dataset_type}`);
-    
-    // Get source information in a separate query
-    const { data: sourceData, error: sourceError } = await supabaseClient
-      .from('user_datasets')
-      .select(`
-        source_id
-      `)
-      .eq('id', datasetId)
-      .single();
-      
-    if (sourceError) {
-      console.error(`Failed to fetch source ID: ${sourceError.message}`);
-      throw new Error(`Failed to fetch source ID: ${sourceError.message}`);
-    }
-    
-    // Get the full source details
-    const { data: source, error: fullSourceError } = await supabaseClient
-      .from('sources')
-      .select('*')
-      .eq('id', sourceData.source_id)
-      .single();
-      
-    if (fullSourceError) {
-      console.error(`Failed to fetch source: ${fullSourceError.message}`);
-      throw new Error(`Failed to fetch source: ${fullSourceError.message}`);
-    }
-    
-    // Combine the dataset with the source
-    const datasetWithSource = {
-      ...dataset,
-      source
-    };
-    
-    // Handle template fetch separately to avoid join issues
-    let template = null;
-    
-    if (dataset.template_id) {
-      // Try fetching from query_templates first
-      const { data: queryTemplate, error: queryError } = await supabaseClient
-        .from('query_templates')
-        .select('*')
-        .eq('id', dataset.template_id)
+  } catch (error) {
+    console.warn("Exception querying query_templates:", error);
+  }
+  
+  // If not found, try dependent_query_templates
+  if (!template) {
+    try {
+      const { data: depTemplate, error: depError } = await supabaseClient
+        .from("dependent_query_templates")
+        .select("*")
+        .eq("id", dataset.template_id)
         .maybeSingle();
       
-      if (queryTemplate) {
-        console.log(`Found template in query_templates: ${queryTemplate.id}, name: ${queryTemplate.name}`);
-        template = queryTemplate;
-      } else {
-        // If not found in query_templates, try dependent_query_templates
-        const { data: dependentTemplate, error: dependentError } = await supabaseClient
-          .from('dependent_query_templates')
-          .select('*')
-          .eq('id', dataset.template_id)
-          .maybeSingle();
-        
-        if (dependentTemplate) {
-          console.log(`Found template in dependent_query_templates: ${dependentTemplate.id}, name: ${dependentTemplate.name}`);
-          template = dependentTemplate;
-        } else {
-          console.error(`Template not found with ID: ${dataset.template_id}`);
-          if (queryError) console.error("Query templates error:", queryError.message);
-          if (dependentError) console.error("Dependent templates error:", dependentError.message);
-          throw new Error(`Template not found with ID: ${dataset.template_id}`);
-        }
+      if (depTemplate) {
+        console.log("Found template in dependent_query_templates:", depTemplate.id);
+        template = depTemplate;
+      } else if (depError) {
+        console.warn("Error fetching from dependent_query_templates:", depError);
+        templateError = templateError || depError;
       }
+    } catch (error) {
+      console.warn("Exception querying dependent_query_templates:", error);
     }
-    
-    return { dataset: datasetWithSource, template };
-  } catch (error) {
-    console.error('Error in fetchDatasetDetails:', error);
-    throw error;
   }
+  
+  // If template still not found, try one more approach with a simple RPC or plain SQL
+  if (!template) {
+    try {
+      // Try with direct SQL as a last resort
+      const { data, error } = await supabaseClient.rpc('get_template_by_id', { 
+        template_id: dataset.template_id 
+      });
+      
+      if (data && !error) {
+        console.log("Found template using RPC:", data.id);
+        template = data;
+      }
+    } catch (error) {
+      console.warn("Exception with RPC template fetch:", error);
+    }
+  }
+  
+  // If we couldn't find the template, throw an error
+  if (!template) {
+    console.error("Template not found for ID:", dataset.template_id);
+    const errorMsg = templateError 
+      ? `Template error: ${templateError.message}` 
+      : "Template not found";
+    throw new Error(errorMsg);
+  }
+  
+  return { dataset, template };
 }
