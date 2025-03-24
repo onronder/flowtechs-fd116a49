@@ -49,7 +49,7 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
   const renderContent = () => {
     // Show error state if there's an error
     if (error) {
-      return <PreviewError error={error} onRetry={() => loadPreview()} />;
+      return <PreviewError error={error} onRetry={() => loadPreview()} onClose={onClose} />;
     }
     
     // Show loading state while initially loading
@@ -105,15 +105,16 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
     <DatasetPreviewModal
       isOpen={isOpen}
       onClose={onClose}
+      executionId={executionId}
       title={previewData?.dataset?.name || "Dataset Preview"}
-      description={previewData?.dataset?.type || ""}
+      datasetType={previewData?.dataset?.type}
+      templateName={previewData?.dataset?.template?.name}
     >
       <div className="flex flex-col h-[calc(90vh-7rem)]">
         <PreviewHeader
-          datasetName={previewData?.dataset?.name || "Loading..."}
-          executionId={executionId}
-          isRefreshing={loading && !!previewData}
-          onRefresh={() => loadPreview()}
+          title={previewData?.dataset?.name || "Loading..."}
+          datasetType={previewData?.dataset?.type}
+          templateName={previewData?.dataset?.template?.name}
         />
         {renderContent()}
       </div>

@@ -16,11 +16,16 @@ export async function parseRequestBody(req: Request): Promise<any | null> {
       return null;
     }
     
-    const body = JSON.parse(text);
-    console.log("Parsed request body:", body);
-    return body;
+    try {
+      const body = JSON.parse(text);
+      console.log("Parsed request body:", body);
+      return body;
+    } catch (parseError) {
+      console.error("JSON parsing error:", parseError);
+      return null;
+    }
   } catch (error) {
-    console.error("Error parsing request body:", error);
+    console.error("Error reading request body:", error);
     return null;
   }
 }
@@ -30,4 +35,31 @@ export async function parseRequestBody(req: Request): Promise<any | null> {
  */
 export function getTimestamp(): string {
   return new Date().toISOString();
+}
+
+/**
+ * Safely parse JSON without throwing
+ */
+export function safeJsonParse(text: string): any {
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.error("Failed to parse JSON:", e);
+    return null;
+  }
+}
+
+/**
+ * Format an error for consistent logging
+ */
+export function formatError(error: any): string {
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}`;
+  }
+  
+  if (typeof error === 'string') {
+    return error;
+  }
+  
+  return JSON.stringify(error);
 }
