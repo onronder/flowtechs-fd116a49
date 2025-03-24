@@ -131,11 +131,15 @@ export async function getUserExports(): Promise<StorageExport[]> {
     
     if (error) throw error;
     
-    // Transform the data to match what the UI expects
+    // Transform the data to match what the UI expects by creating derived properties
+    // from the existing database fields
     const transformedData = (data || []).map(item => ({
       ...item,
-      file_name: item.file_name || getFileNameFromPath(item.file_path),
+      // Generate file_name from file_path if not present
+      file_name: getFileNameFromPath(item.file_path),
+      // Use format field for file_type
       file_type: item.format,
+      // Generate public URL from the file path
       file_url: getFileUrlFromPath(item.file_path)
     }));
     
