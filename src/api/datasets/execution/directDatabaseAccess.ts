@@ -12,11 +12,19 @@ export async function fetchDirectExecutionData(executionId: string) {
       throw new Error("Execution ID is required");
     }
     
+    // Get the current user's ID first
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !user) {
+      throw new Error(`Authentication error: ${userError?.message || "No user found"}`);
+    }
+    
     // First, check if the user has permission to access this execution
     const { data: executionCheck, error: executionError } = await supabase
       .from("dataset_executions")
       .select("id, status, dataset_id")
       .eq("id", executionId)
+      .eq("user_id", user.id)
       .single();
     
     if (executionError) {
@@ -30,7 +38,10 @@ export async function fetchDirectExecutionData(executionId: string) {
     try {
       const { data: rpcData, error: rpcError } = await supabase.rpc(
         'get_execution_raw_data',
-        { p_execution_id: executionId }
+        { 
+          p_execution_id: executionId,
+          p_user_id: user.id
+        }
       );
       
       if (!rpcError && rpcData) {
@@ -58,6 +69,7 @@ export async function fetchDirectExecutionData(executionId: string) {
           dataset:dataset_id (id, name, dataset_type, template_id)
         `)
         .eq("id", executionId)
+        .eq("user_id", user.id)
         .single();
         
       if (error) throw error;
