@@ -40,13 +40,20 @@ export default function PreviewContent({
     
   const columns = previewData?.columns || [];
 
+  // Helper function to get appropriate badge variant based on status
+  const getStatusBadgeVariant = (status: string | undefined) => {
+    if (status === 'completed') return 'default';
+    if (status === 'failed') return 'destructive';
+    return 'secondary'; // for pending, running or unknown statuses
+  };
+
   return (
     <div className="flex-1 overflow-auto flex flex-col">
       <div className="bg-muted/20 px-6 py-3 border-y flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <div>
             <span className="text-sm text-muted-foreground mr-2">Status:</span>
-            <Badge variant={previewData?.status === 'completed' ? 'success' : previewData?.status === 'failed' ? 'destructive' : 'default'}>
+            <Badge variant={getStatusBadgeVariant(previewData?.status)}>
               {previewData?.status || 'unknown'}
             </Badge>
           </div>
