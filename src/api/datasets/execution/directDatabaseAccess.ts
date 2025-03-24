@@ -19,22 +19,49 @@ export async function fetchDirectExecutionData(executionId: string) {
       throw new Error(`Authentication error: ${userError?.message || "No user found"}`);
     }
     
-    // First, check if the user has permission to access this execution
-    const { data: executionCheck, error: executionError } = await supabase
+    // First, get basic execution details
+    const { data: execution, error: executionError } = await supabase
       .from("dataset_executions")
-      .select("id, status, dataset_id")
+      .select(`
+        id, 
+        status, 
+        start_time, 
+        end_time, 
+        row_count, 
+        execution_time_ms,
+        error,
+        metadata
+      `)
       .eq("id", executionId)
       .eq("user_id", user.id)
       .single();
-    
+      
     if (executionError) {
-      throw new Error(`Direct access error: ${executionError.message}`);
+      throw new Error(`Failed to retrieve execution: ${executionError.message}`);
     }
     
-    // Now get the full execution data including results
-    let executionData;
+    // Get dataset details
+    const { data: dataset, error: datasetError } = await supabase
+      .from("user_datasets")
+      .select(`
+        id, 
+        name, 
+        dataset_type, 
+        template_id
+      `)
+      .eq("id", execution.dataset_id)
+      .eq("user_id", user.id)
+      .single();
+      
+    if (datasetError) {
+      throw new Error(`Failed to retrieve dataset: ${datasetError.message}`);
+    }
     
-    // Try to use the RPC function if available
+    // Get execution data from the raw data field
+    let rawData = null;
+    let columns = [];
+    
+    // Try to use the RPC function to get the raw data
     try {
       const { data: rpcData, error: rpcError } = await supabase.rpc(
         'get_execution_raw_data',
@@ -45,65 +72,58 @@ export async function fetchDirectExecutionData(executionId: string) {
       );
       
       if (!rpcError && rpcData) {
-        executionData = rpcData;
+        rawData = rpcData;
+        
+        // Extract columns from the first row if data exists
+        if (Array.isArray(rawData) && rawData.length > 0) {
+          columns = Object.keys(rawData[0]).map(key => ({ 
+            key, 
+            label: key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')
+          }));
+        }
       }
     } catch (e) {
       console.warn("RPC fetch failed, falling back to direct query:", e);
-    }
-    
-    // Fallback to direct query if RPC failed or not available
-    if (!executionData) {
-      const { data, error } = await supabase
+      
+      // Try to get columns directly
+      const { data: columnData } = await supabase
         .from("dataset_executions")
-        .select(`
-          id, 
-          status, 
-          start_time, 
-          end_time, 
-          row_count, 
-          execution_time_ms,
-          error,
-          metadata,
-          data,
-          columns,
-          dataset:dataset_id (id, name, dataset_type, template_id)
-        `)
+        .select("columns")
         .eq("id", executionId)
         .eq("user_id", user.id)
         .single();
         
-      if (error) throw error;
-      executionData = data;
+      if (columnData && columnData.columns) {
+        columns = columnData.columns;
+      }
     }
     
     // Format the data to match the edge function's response format
     const formattedData = {
-      status: executionData.status,
+      status: execution.status,
       execution: {
-        id: executionData.id,
-        startTime: executionData.start_time,
-        endTime: executionData.end_time,
-        rowCount: executionData.row_count,
-        executionTimeMs: executionData.execution_time_ms,
-        apiCallCount: executionData.metadata?.api_call_count
+        id: execution.id,
+        startTime: execution.start_time,
+        endTime: execution.end_time,
+        rowCount: execution.row_count,
+        executionTimeMs: execution.execution_time_ms,
+        apiCallCount: execution.metadata?.api_call_count
       },
       dataset: {
-        id: executionData.dataset?.id,
-        name: executionData.dataset?.name,
-        type: executionData.dataset?.dataset_type
+        id: dataset.id,
+        name: dataset.name,
+        type: dataset.dataset_type
       },
-      columns: executionData.columns || [],
-      preview: Array.isArray(executionData.data) 
-        ? executionData.data.slice(0, 100) 
-        : [],
-      totalCount: executionData.row_count || 0,
-      error: executionData.error
+      columns: columns,
+      preview: Array.isArray(rawData) ? rawData.slice(0, 100) : [],
+      totalCount: execution.row_count || 0,
+      error: execution.error
     };
     
     console.log(`[Preview] Successfully retrieved data directly from database:`, formattedData);
     return formattedData;
   } catch (error) {
-    console.error(`[Preview] Fallback direct data fetch also failed:`, error);
+    console.error(`[Preview] Fallback direct data fetch failed:`, error);
     throw error;
   }
 }
