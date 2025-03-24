@@ -12,11 +12,15 @@ export async function fetchDirectExecutionData(executionId: string) {
       throw new Error("Execution ID is required");
     }
     
-    // Get the current user's ID first
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // Get the current user's session
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     
-    if (userError || !user) {
-      throw new Error(`Authentication error: ${userError?.message || "No user found"}`);
+    if (sessionError) {
+      throw new Error(`Session error: ${sessionError.message}`);
+    }
+    
+    if (!sessionData.session) {
+      throw new Error("No active session found");
     }
     
     // First check if the execution exists and belongs to the user
@@ -24,7 +28,6 @@ export async function fetchDirectExecutionData(executionId: string) {
       .from("dataset_executions")
       .select("id, dataset_id")
       .eq("id", executionId)
-      .eq("user_id", user.id)
       .single();
     
     if (checkError) {
@@ -47,7 +50,6 @@ export async function fetchDirectExecutionData(executionId: string) {
         dataset_id
       `)
       .eq("id", executionId)
-      .eq("user_id", user.id)
       .single();
       
     if (executionError) {
@@ -98,7 +100,7 @@ export async function fetchDirectExecutionData(executionId: string) {
       error: execution.error_message
     };
     
-    // Try to extract columns and preview data from the execution data
+    // Try to extract columns and preview data from the execution data (max 5 rows)
     if (execution.data && Array.isArray(execution.data) && execution.data.length > 0) {
       // Extract columns from the first row
       if (typeof execution.data[0] === 'object' && execution.data[0] !== null) {
@@ -108,8 +110,9 @@ export async function fetchDirectExecutionData(executionId: string) {
         }));
       }
       
-      // Set preview data
-      formattedData.preview = execution.data.slice(0, 100);
+      // Set preview data - limiting to max 5 rows for initial preview
+      const maxPreviewRows = Math.min(5, execution.data.length);
+      formattedData.preview = execution.data.slice(0, maxPreviewRows);
     }
     
     console.log(`[Preview] Successfully retrieved data directly from database:`, {

@@ -1,6 +1,6 @@
 
 import { Button } from "@/components/ui/button";
-import { Download, Loader2, AlertCircle } from "lucide-react";
+import { Download, Loader2, AlertCircle, Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import TableView from "./TableView";
 
@@ -87,12 +87,14 @@ export default function PreviewContent({
       </div>
       
       {dataSource !== 'preview' && (
-        <Alert className="mb-4">
-          <AlertCircle className="h-4 w-4" />
+        <Alert className="mb-4" variant={dataSource === 'minimal' ? 'destructive' : 'default'}>
+          {dataSource === 'minimal' 
+            ? <AlertCircle className="h-4 w-4" />
+            : <Info className="h-4 w-4" />}
           <AlertDescription>
             {dataSource === 'minimal' 
               ? 'Using minimal execution data. Preview content is not available.' 
-              : 'Using direct database access. Some features may be limited.'}
+              : 'Using direct database access for preview.'}
           </AlertDescription>
         </Alert>
       )}
@@ -108,6 +110,9 @@ export default function PreviewContent({
             )}
             {previewData?.totalCount === 0 && previewData?.status === "completed" && (
               <p className="text-sm text-amber-500">Query completed but returned zero rows.</p>
+            )}
+            {previewData?.error && (
+              <p className="text-sm text-red-500 mt-2">Error: {previewData.error}</p>
             )}
           </div>
         )}

@@ -54,7 +54,7 @@ export function usePreviewDataLoader() {
           
           const { data: execution, error } = await supabase
             .from("dataset_executions")
-            .select("id, status, start_time, end_time, row_count")
+            .select("id, status, start_time, end_time, row_count, error_message")
             .eq("id", executionId)
             .single();
           
@@ -71,7 +71,8 @@ export function usePreviewDataLoader() {
               },
               totalCount: execution.row_count || 0,
               preview: [],
-              columns: []
+              columns: [],
+              error: execution.error_message
             };
           }
         } catch (minimalErr) {

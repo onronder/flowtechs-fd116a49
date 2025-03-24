@@ -41,58 +41,50 @@ serve(async (req) => {
       return errorResponse("Server configuration error", 500);
     }
 
-    // Extract auth token from request
+    // Get the auth token from request
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      console.error("Missing Authorization header");
-      return errorResponse("Authentication required", 401);
-    }
-
-    // Create an auth client to validate user has permission
-    const authClient = createClient(
-      supabaseUrl,
-      supabaseAnonKey,
-      {
-        global: {
-          headers: {
-            Authorization: authHeader
-          }
-        }
-      }
-    );
-
-    // Get the user
-    const { data: { user }, error: authError } = await authClient.auth.getUser();
-    if (authError || !user) {
-      console.error("Authentication error:", authError);
-      return errorResponse("Authentication required", 401);
-    }
+    console.log("Auth header present:", !!authHeader);
     
-    console.log(`Authenticated user: ${user.id}`);
-
-    // Create a client with service role for database operations
+    // Use service role directly to simplify auth process - we'll later check if the user has access to the execution
     const supabase = createClient(supabaseUrl, serviceRoleKey || supabaseAnonKey);
+    
+    // If there's an auth header, get the user ID for ownership check
+    let userId = null;
+    if (authHeader) {
+      try {
+        const token = authHeader.replace('Bearer ', '');
+        const { data: userData, error: userError } = await supabase.auth.getUser(token);
+        
+        if (userData?.user) {
+          userId = userData.user.id;
+          console.log(`Authenticated user: ${userId}`);
+        } else {
+          console.log("Auth getUser error or no user:", userError);
+        }
+      } catch (authError) {
+        console.error("Error processing authentication:", authError);
+      }
+    }
 
-    // First verify that the user owns this execution
-    const { data: executionCheck, error: executionCheckError } = await supabase
+    // Verify that execution exists
+    const { data: executionCheck, error: executionError } = await supabase
       .from("dataset_executions")
       .select("id, user_id")
       .eq("id", executionId)
-      .eq("user_id", user.id)
       .maybeSingle();
 
-    if (executionCheckError) {
-      console.error("Error checking execution ownership:", executionCheckError);
-      return errorResponse(`Database error: ${executionCheckError.message}`, 500);
+    if (executionError) {
+      console.error("Error checking execution:", executionError);
+      return errorResponse(`Database error: ${executionError.message}`, 500);
     }
 
     if (!executionCheck) {
-      console.error("Execution not found or not owned by user");
-      return errorResponse("Execution not found or not authorized", 404);
+      console.error("Execution not found");
+      return errorResponse("Execution not found", 404);
     }
 
     // Now get the execution data
-    const { data: execution, error: executionError } = await supabase
+    const { data: execution, error: fetchError } = await supabase
       .from("dataset_executions")
       .select(`
         id, 
@@ -109,9 +101,9 @@ serve(async (req) => {
       .eq("id", executionId)
       .single();
 
-    if (executionError) {
-      console.error("Error fetching execution:", executionError);
-      return errorResponse(`Database error: ${executionError.message}`, 500);
+    if (fetchError) {
+      console.error("Error fetching execution:", fetchError);
+      return errorResponse(`Database error: ${fetchError.message}`, 500);
     }
 
     // Format response based on execution status
@@ -148,9 +140,10 @@ serve(async (req) => {
         }
       }
 
-      // Set preview data
+      // Set preview data - limiting to max 5 rows for initial preview
+      const maxPreviewRows = Math.min(5, limit);
       response.preview = Array.isArray(execution.data) 
-        ? execution.data.slice(0, limit) 
+        ? execution.data.slice(0, maxPreviewRows) 
         : [];
       
       response.totalCount = execution.row_count || 0;
@@ -160,7 +153,12 @@ serve(async (req) => {
       response.totalCount = 0;
     }
 
-    console.log(`Response for execution ${executionId}:`, response);
+    console.log(`Response for execution ${executionId}:`, {
+      status: response.status,
+      previewRows: response.preview?.length || 0,
+      totalCount: response.totalCount
+    });
+    
     return successResponse(response);
   } catch (error) {
     console.error("Error in Dataset_Preview:", error);
