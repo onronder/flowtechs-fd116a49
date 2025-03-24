@@ -101,6 +101,7 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
             variant: "destructive"
           });
         }
+        return; // Early return after stopping polling
       }
     } catch (err) {
       if (!isMounted()) return;
@@ -138,22 +139,37 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
     return loadPreview(true, true);
   }, [loadPreview]);
 
+  // Main effect for loading data and managing polling
   useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    
     if (isOpen && executionId) {
       // Reset state when opening with a new execution ID
       setLoading(true);
       setError(null);
-      setPreviewData(null);
+      
+      // Don't reset preview data here to avoid flickering
+      // Only clear it if it's for a different execution ID
+      if (previewData && previewData.execution?.id !== executionId) {
+        setPreviewData(null);
+      }
+      
       resetPolling();
       
       console.log(`[Preview] Starting preview polling for execution ID: ${executionId}`);
       
-      // Start polling
-      const cleanup = startPolling(() => loadPreview(false));
+      // Load initial data to see status
+      loadPreview(true, false).then(initialData => {
+        // Only start polling if the execution is still in progress
+        if (previewData && (previewData.status === "running" || previewData.status === "pending")) {
+          // Start polling only for in-progress executions
+          cleanup = startPolling(() => loadPreview(false));
+        }
+      });
       
       return () => {
-        cleanup();
-        stopPolling(); // Ensure polling is stopped on unmount
+        if (cleanup) cleanup();
+        stopPolling();
       };
     }
     
@@ -164,7 +180,7 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
         resetPolling();
       }
     };
-  }, [isOpen, executionId, loadPreview, resetPolling, startPolling, stopPolling]);
+  }, [isOpen, executionId, loadPreview, resetPolling, startPolling, stopPolling, previewData]);
 
   return {
     previewData,

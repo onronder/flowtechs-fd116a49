@@ -23,9 +23,8 @@ export async function fetchDatasetPreview(
     try {
       console.log(`Sending preview request for execution ID: ${executionId}, retry: ${retry}`);
       
-      // Unique timer name for each call to avoid conflicts
-      const timerName = `preview_request_${executionId}_${Date.now()}`;
-      console.time(timerName);
+      // Generate a unique request ID for tracing purposes
+      const requestId = `${executionId}_${Date.now()}`;
       
       // Prepare the payload
       const payload = { 
@@ -33,27 +32,25 @@ export async function fetchDatasetPreview(
         limit, // Explicitly limit the data to reduce exposure of sensitive info
         checkStatus,
         // Signal to the edge function to exclude sensitive data
-        secureMode: true
+        secureMode: true,
+        requestId
       };
       
       console.log("Sending preview request with payload:", JSON.stringify(payload));
       
-      // Set up timeout without using AbortController
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Preview request timed out after 30 seconds")), 30000);
-      });
-      
       try {
-        // Call the edge function
+        // Call the edge function with timeout handling
         const functionPromise = supabase.functions.invoke("Dataset_Preview", {
           body: payload
         });
         
+        // Set up timeout promise
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("Preview request timed out after 30 seconds")), 30000);
+        });
+        
         // Race between the function call and the timeout
         const result = await Promise.race([functionPromise, timeoutPromise]) as { data: any, error: any };
-        
-        // End the performance timer
-        console.timeEnd(timerName);
         
         if (result.error) {
           console.error("Error from Dataset_Preview function:", result.error);

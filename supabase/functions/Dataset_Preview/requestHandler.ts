@@ -16,11 +16,16 @@ export async function handleRequest(req: Request): Promise<Response> {
     return errorResponse("Invalid JSON in request body", 400);
   }
 
-  const { executionId, limit = 5, secureMode = true } = requestBody;
+  const { executionId, limit = 5, secureMode = true, requestId } = requestBody;
   
   if (!executionId) {
     console.error("Dataset_Preview: Missing required parameter: executionId");
     return errorResponse("Missing required parameter: executionId", 400);
+  }
+
+  // Log request ID if present
+  if (requestId) {
+    console.log(`Dataset_Preview: Processing request ID ${requestId} for executionId=${executionId}`);
   }
 
   // Check for execution status manually if needed

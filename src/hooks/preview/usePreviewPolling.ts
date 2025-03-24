@@ -21,6 +21,7 @@ export function usePreviewPolling(options: PollingOptions = {}) {
   const pollingRef = useRef<number | null>(null);
   const consecutiveErrorsRef = useRef(0);
   const isPollingRef = useRef(false);
+  const pollingFunctionRef = useRef<(() => Promise<void>) | null>(null);
   
   // Function to check if component is still mounted
   const isMounted = useCallback(() => mountedRef.current, []);
@@ -38,6 +39,7 @@ export function usePreviewPolling(options: PollingOptions = {}) {
     }
     
     isPollingRef.current = false;
+    pollingFunctionRef.current = null;
   }, []);
   
   // Explicitly stop polling
@@ -48,23 +50,31 @@ export function usePreviewPolling(options: PollingOptions = {}) {
       pollingRef.current = null;
     }
     isPollingRef.current = false;
+    pollingFunctionRef.current = null;
   }, []);
   
   // Function to start polling
   const startPolling = useCallback((pollingFn: () => Promise<void>) => {
+    // Don't start polling if it's already active
+    if (isPollingRef.current) {
+      console.log("[Preview] Polling already in progress, not starting again");
+      return () => {};
+    }
+    
     resetPolling();
     isPollingRef.current = true;
+    pollingFunctionRef.current = pollingFn;
     console.log("[Preview] Starting polling cycle");
     
     const poll = async () => {
-      if (!mountedRef.current || !isPollingRef.current) {
+      if (!mountedRef.current || !isPollingRef.current || !pollingFunctionRef.current) {
         console.log("[Preview] Polling stopped: component unmounted or polling disabled");
         return;
       }
       
       try {
         console.log(`[Preview] Executing poll #${pollCount + 1}`);
-        await pollingFn();
+        await pollingFunctionRef.current();
         
         // If still mounted and polling hasn't been manually stopped
         if (mountedRef.current && isPollingRef.current) {
@@ -80,8 +90,11 @@ export function usePreviewPolling(options: PollingOptions = {}) {
             }
             
             // Schedule next poll
-            if (isPollingRef.current) {
+            if (isPollingRef.current && pollingFunctionRef.current) {
               console.log(`[Preview] Scheduling next poll in ${pollInterval}ms`);
+              if (pollingRef.current !== null) {
+                clearTimeout(pollingRef.current);
+              }
               pollingRef.current = window.setTimeout(poll, pollInterval);
             }
             
@@ -94,8 +107,11 @@ export function usePreviewPolling(options: PollingOptions = {}) {
         console.error("[Preview] Error during polling:", err);
         
         // If component is still mounted, schedule next poll
-        if (mountedRef.current && isPollingRef.current) {
+        if (mountedRef.current && isPollingRef.current && pollingFunctionRef.current) {
           console.log(`[Preview] Scheduling next poll after error in ${pollInterval}ms`);
+          if (pollingRef.current !== null) {
+            clearTimeout(pollingRef.current);
+          }
           pollingRef.current = window.setTimeout(poll, pollInterval);
         }
       }
@@ -112,6 +128,7 @@ export function usePreviewPolling(options: PollingOptions = {}) {
         pollingRef.current = null;
       }
       isPollingRef.current = false;
+      pollingFunctionRef.current = null;
     };
   }, [maxPollCount, pollCount, pollInterval, resetPolling]);
   
@@ -148,6 +165,7 @@ export function usePreviewPolling(options: PollingOptions = {}) {
       }
       
       isPollingRef.current = false;
+      pollingFunctionRef.current = null;
     };
   }, []);
   

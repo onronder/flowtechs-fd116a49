@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import DatasetPreviewModal from "../DatasetPreviewModal";
 import { useDatasetPreview } from "@/hooks/preview/useDatasetPreview";
 import PreviewLoading from "../preview/PreviewLoading";
@@ -18,6 +18,14 @@ interface DatasetPreviewProps {
 
 export default function DatasetPreview({ executionId, isOpen, onClose }: DatasetPreviewProps) {
   const [isExporting, setIsExporting] = useState(false);
+  const [currentExecutionId, setCurrentExecutionId] = useState<string | null>(null);
+  
+  // Update current execution ID when props change
+  useEffect(() => {
+    if (isOpen && executionId && executionId !== currentExecutionId) {
+      setCurrentExecutionId(executionId);
+    }
+  }, [executionId, isOpen, currentExecutionId]);
   
   const {
     previewData,
@@ -31,20 +39,18 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
     shouldShowStuckUi,
     checkForStuckExecution,
     isPolling
-  } = useDatasetPreview(executionId, isOpen);
-  
-  // Ensure we reload preview data when the execution ID changes or modal opens
-  useEffect(() => {
-    if (isOpen && executionId) {
-      console.log(`[DatasetPreview] Modal opened with executionId: ${executionId}, loading preview data`);
-      loadPreview(true, false);
-    }
-  }, [executionId, isOpen, loadPreview]);
+  } = useDatasetPreview(currentExecutionId, isOpen);
   
   // Clean up when component unmounts or modal closes
   useEffect(() => {
+    if (!isOpen) {
+      // Don't reset currentExecutionId to allow caching between opens
+    }
+    
     return () => {
-      console.log("[DatasetPreview] Component cleanup on unmount or modal close");
+      if (!isOpen) {
+        console.log("[DatasetPreview] Cleanup on modal close");
+      }
     };
   }, [isOpen]);
   
@@ -53,6 +59,10 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
     // TODO: Implement export functionality
     setTimeout(() => setIsExporting(false), 1000);
   };
+  
+  const handleCloseModal = useCallback(() => {
+    onClose();
+  }, [onClose]);
   
   // Render the appropriate content based on the current state
   const renderContent = () => {
@@ -63,7 +73,7 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
     
     // Show error state if there's an error
     if (error) {
-      return <PreviewError error={error} onRetry={() => loadPreview()} onClose={onClose} />;
+      return <PreviewError error={error} onRetry={() => loadPreview()} onClose={handleCloseModal} />;
     }
     
     // Show loading state while initially loading
@@ -75,7 +85,7 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
     if (shouldShowStuckUi && previewData?.execution?.startTime) {
       return (
         <PreviewStuckExecution
-          executionId={executionId!}
+          executionId={currentExecutionId!}
           startTime={previewData.execution.startTime}
           onRetry={checkForStuckExecution}
         />
@@ -98,7 +108,7 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
       return (
         <PreviewFailed 
           errorMessage={previewData.error} 
-          onClose={onClose} 
+          onClose={handleCloseModal} 
           onRetry={() => loadPreview()}
         />
       );
@@ -118,8 +128,8 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
   return (
     <DatasetPreviewModal
       isOpen={isOpen}
-      onClose={onClose}
-      executionId={executionId}
+      onClose={handleCloseModal}
+      executionId={currentExecutionId}
       title={previewData?.dataset?.name || "Dataset Preview"}
       datasetType={previewData?.dataset?.type}
       templateName={previewData?.dataset?.template?.name}
