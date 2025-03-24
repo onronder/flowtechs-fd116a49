@@ -3,7 +3,7 @@ import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Download, FileJson, FileSpreadsheet, FileText } from "lucide-react";
 import TableView from "./TableView";
-import { DataSourceType } from "@/hooks/usePreviewDataLoader";
+import { DataSourceType } from "@/hooks/preview/previewTypes";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface PreviewContentProps {

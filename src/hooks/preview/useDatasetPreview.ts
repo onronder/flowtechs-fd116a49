@@ -1,39 +1,16 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { usePreviewPolling } from "./usePreviewPolling";
-import { usePreviewDataLoader, DataSourceType } from "./usePreviewDataLoader";
 import { supabase } from "@/integrations/supabase/client";
-
-export interface PreviewData {
-  status: string;
-  execution?: {
-    id: string;
-    startTime: string;
-    endTime?: string;
-    rowCount?: number;
-    executionTimeMs?: number;
-    apiCallCount?: number;
-  };
-  dataset?: {
-    id: string;
-    name: string;
-    type: string;
-    template?: {
-      name: string;
-    };
-  };
-  columns?: Array<{ key: string; label: string }>;
-  preview?: any[];
-  totalCount?: number;
-  error?: string;
-}
+import { usePreviewPolling } from "./usePreviewPolling";
+import { usePreviewDataLoader } from "./usePreviewDataLoader";
+import { useStuckExecutionDetector } from "./useStuckExecutionDetector";
+import { PreviewData } from "./previewTypes";
 
 export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [shouldShowStuckUi, setShouldShowStuckUi] = useState(false);
   const { toast } = useToast();
   
   const { 
@@ -56,27 +33,13 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
     maxConsecutiveErrors: 3
   });
 
-  // Check for potentially stuck executions
-  useEffect(() => {
-    if (!isOpen || !executionId || !startTime || !previewData) return;
-
-    // If execution has been in pending/running state for too long
-    if (['pending', 'running'].includes(previewData.status)) {
-      const executionStartTime = previewData.execution?.startTime ? 
-        new Date(previewData.execution.startTime) : 
-        new Date(startTime);
-        
-      const now = new Date();
-      const diffMinutes = (now.getTime() - executionStartTime.getTime()) / (1000 * 60);
-      
-      // Show the stuck UI if execution has been running for more than 3 minutes
-      if (diffMinutes > 3) {
-        setShouldShowStuckUi(true);
-      }
-    } else {
-      setShouldShowStuckUi(false);
-    }
-  }, [isOpen, executionId, previewData, startTime, pollCount]);
+  const { shouldShowStuckUi } = useStuckExecutionDetector({
+    isOpen,
+    executionId,
+    previewData,
+    startTime,
+    pollCount
+  });
 
   // Check authentication status
   useEffect(() => {
@@ -129,9 +92,6 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
             description: data.error || "The dataset execution failed",
             variant: "destructive"
           });
-        } else if (data.status === "stuck") {
-          // Don't show a toast, the UI will handle this
-          setShouldShowStuckUi(true);
         }
       }
     } catch (err) {
@@ -174,7 +134,6 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       setLoading(true);
       setError(null);
       setPreviewData(null);
-      setShouldShowStuckUi(false);
       resetPolling();
       
       console.log(`[Preview] Starting preview polling for execution ID: ${executionId}`);

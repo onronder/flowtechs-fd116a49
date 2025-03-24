@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import DatasetPreviewModal from "../DatasetPreviewModal";
-import { useDatasetPreview } from "@/hooks/useDatasetPreview";
+import { useDatasetPreview } from "@/hooks/preview/useDatasetPreview";
 import PreviewLoading from "../preview/PreviewLoading";
 import PreviewInProgress from "../preview/PreviewInProgress";
 import PreviewStuckExecution from "../preview/PreviewStuckExecution";

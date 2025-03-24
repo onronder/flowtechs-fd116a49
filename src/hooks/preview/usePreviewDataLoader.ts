@@ -3,21 +3,15 @@ import { useState, useCallback } from "react";
 import { fetchDatasetPreview } from "@/api/datasets/execution/previewDatasetApi";
 import { fetchDirectExecutionData } from "@/api/datasets/execution/directDatabaseAccess";
 import { supabase } from "@/integrations/supabase/client";
-
-export type DataSourceType = 'preview' | 'direct' | 'minimal';
+import { DataSourceType, PreviewOptions, PreviewData } from "./previewTypes";
 
 export function usePreviewDataLoader() {
   const [dataSource, setDataSource] = useState<DataSourceType>('preview');
   
   const loadPreviewData = useCallback(async (
     executionId: string, 
-    options: { 
-      limit?: number; 
-      maxRetries?: number; 
-      retryDelay?: number;
-      checkStatus?: boolean;
-    } = {}
-  ) => {
+    options: PreviewOptions = {}
+  ): Promise<PreviewData> => {
     if (!executionId) throw new Error("Execution ID is required");
     
     console.log(`[Preview] Fetching preview data for execution ID: ${executionId}`);
