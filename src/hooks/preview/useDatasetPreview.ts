@@ -65,6 +65,8 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
         setError(null);
       }
       
+      console.log(`[Preview] Loading preview data for execution ID: ${executionId}, checkStatus: ${checkStatus}`);
+      
       const data = await loadPreviewData(executionId, {
         limit: 5, // Limit to 5 records
         maxRetries: 2,
@@ -73,6 +75,8 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       });
       
       if (!isMounted()) return;
+      
+      console.log(`[Preview] Preview data loaded with status: ${data.status}`);
       
       // Handle successful data load
       handlePollingSuccess();
@@ -102,6 +106,8 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       if (!isMounted()) return;
       
       const errorMessage = err instanceof Error ? err.message : "Failed to load dataset preview";
+      console.error(`[Preview] Error loading preview:`, errorMessage);
+      
       setError(errorMessage);
       setLoading(false); // Ensure loading is set to false even on error
       

@@ -1,32 +1,4 @@
 
-/**
- * Shared types for dataset preview functionality
- */
-
-export interface PreviewData {
-  status: string;
-  execution?: {
-    id: string;
-    startTime: string;
-    endTime?: string;
-    rowCount?: number;
-    executionTimeMs?: number;
-    apiCallCount?: number;
-  };
-  dataset?: {
-    id: string;
-    name: string;
-    type: string;
-    template?: {
-      name: string;
-    };
-  };
-  columns?: Array<{ key: string; label: string }>;
-  preview?: any[];
-  totalCount?: number;
-  error?: string;
-}
-
 export type DataSourceType = 'preview' | 'direct' | 'minimal';
 
 export interface PreviewOptions {
@@ -36,8 +8,35 @@ export interface PreviewOptions {
   checkStatus?: boolean;
 }
 
-export interface StuckExecutionState {
-  isStuck: boolean;
-  executionId?: string;
-  startTime?: string;
+export interface PreviewExecution {
+  id: string;
+  startTime: string;
+  endTime?: string;
+  rowCount?: number;
+  executionTimeMs?: number;
+  apiCallCount?: number;
+}
+
+export interface PreviewDataset {
+  id: string;
+  name: string;
+  type: string;
+  template?: {
+    name: string;
+  };
+}
+
+export interface PreviewColumn {
+  key: string;
+  label: string;
+}
+
+export interface PreviewData {
+  status: string;
+  execution: PreviewExecution;
+  dataset?: PreviewDataset;
+  preview: any[];
+  columns?: PreviewColumn[];
+  totalCount: number;
+  error?: string;
 }

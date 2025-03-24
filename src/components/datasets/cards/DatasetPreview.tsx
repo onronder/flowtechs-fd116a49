@@ -33,17 +33,18 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
     isPolling
   } = useDatasetPreview(executionId, isOpen);
   
-  // Ensure we reload preview data when the execution ID changes
+  // Ensure we reload preview data when the execution ID changes or modal opens
   useEffect(() => {
     if (isOpen && executionId) {
-      loadPreview();
+      console.log(`[DatasetPreview] Modal opened with executionId: ${executionId}, loading preview data`);
+      loadPreview(true, false);
     }
   }, [executionId, isOpen, loadPreview]);
   
   // Clean up when component unmounts or modal closes
   useEffect(() => {
     return () => {
-      // Any additional cleanup needed when modal closes
+      console.log("[DatasetPreview] Component cleanup on unmount or modal close");
     };
   }, [isOpen]);
   
@@ -55,6 +56,11 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
   
   // Render the appropriate content based on the current state
   const renderContent = () => {
+    // Log current state for debugging
+    console.log(`[DatasetPreview] Rendering content with state: loading=${loading}, error=${error ? 'yes' : 'no'}, ` +
+                `previewData=${previewData ? `status:${previewData.status}` : 'null'}, ` +
+                `shouldShowStuckUi=${shouldShowStuckUi}, isPolling=${isPolling}`);
+    
     // Show error state if there's an error
     if (error) {
       return <PreviewError error={error} onRetry={() => loadPreview()} onClose={onClose} />;
@@ -62,7 +68,7 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
     
     // Show loading state while initially loading
     if (loading && !previewData) {
-      return <PreviewLoading />;
+      return <PreviewLoading message="Loading dataset results..." />;
     }
     
     // If the user interface for stuck executions should be shown
@@ -98,7 +104,7 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
       );
     }
     
-    // Default to showing the preview content
+    // Default to showing the preview content (for completed executions)
     return (
       <PreviewContent
         previewData={previewData}

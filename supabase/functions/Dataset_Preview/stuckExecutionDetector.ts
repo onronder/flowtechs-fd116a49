@@ -1,30 +1,47 @@
 
 /**
- * Checks if an execution may be stuck
+ * Checks if an execution appears to be stuck
  */
-export function checkForStuckExecution(execution: any, checkStatus: boolean = false) {
-  // Only check if explicitly requested and execution is in pending/running state
-  if (checkStatus && 
-      (execution.status === 'pending' || execution.status === 'running') && 
-      execution.start_time) {
+export function checkForStuckExecution(execution: any, checkStatus = false): {
+  isStuck: boolean;
+  execution: any;
+} {
+  // Only check for stuck executions if explicitly requested
+  if (!checkStatus) {
+    return { isStuck: false, execution };
+  }
+  
+  // If status is already completed or failed, it's not stuck
+  if (execution.status === 'completed' || execution.status === 'failed') {
+    return { isStuck: false, execution };
+  }
+  
+  // If not running or pending, it's not stuck
+  if (execution.status !== 'running' && execution.status !== 'pending') {
+    return { isStuck: false, execution };
+  }
+  
+  // Check if the execution has been running for too long
+  if (execution.start_time) {
     const startTime = new Date(execution.start_time).getTime();
-    const currentTime = new Date().getTime();
-    const fifteenMinutes = 15 * 60 * 1000;
+    const now = new Date().getTime();
+    const runningTimeMs = now - startTime;
     
-    // If the execution has been running for more than 15 minutes, it might be stuck
-    if (currentTime - startTime > fifteenMinutes) {
-      console.log(`Execution appears to be stuck (running for over 15 minutes)`);
+    console.log(`Execution ${execution.id} running for ${runningTimeMs}ms`);
+    
+    // If running for more than 10 minutes, consider it stuck
+    if (runningTimeMs > 10 * 60 * 1000) {
+      console.log(`Execution ${execution.id} appears to be stuck (running > 10 minutes)`);
       return {
         isStuck: true,
-        status: 'stuck',
         execution: {
           id: execution.id,
           startTime: execution.start_time,
-          status: execution.status
+          endTime: null,
         }
       };
     }
   }
   
-  return { isStuck: false };
+  return { isStuck: false, execution };
 }

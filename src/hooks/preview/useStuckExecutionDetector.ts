@@ -18,31 +18,55 @@ export function useStuckExecutionDetector({
   pollCount
 }: StuckExecutionDetectorProps) {
   const [shouldShowStuckUi, setShouldShowStuckUi] = useState(false);
-
-  // Check for potentially stuck executions
+  
   useEffect(() => {
-    if (!isOpen || !executionId || !startTime || !previewData) {
+    if (!isOpen || !executionId || !previewData) {
       setShouldShowStuckUi(false);
       return;
     }
-
-    // If execution has been in pending/running state for too long
-    if (['pending', 'running'].includes(previewData.status)) {
-      const executionStartTime = previewData.execution?.startTime ? 
-        new Date(previewData.execution.startTime) : 
-        new Date(startTime);
-        
-      const now = new Date();
-      const diffMinutes = (now.getTime() - executionStartTime.getTime()) / (1000 * 60);
-      
-      // Show the stuck UI if execution has been running for more than 3 minutes
-      if (diffMinutes > 3) {
-        setShouldShowStuckUi(true);
-      }
-    } else {
+    
+    // If status is already completed or failed, it's not stuck
+    if (previewData.status === 'completed' || previewData.status === 'failed' || previewData.status === 'stuck') {
+      console.log(`[StuckDetector] Execution ${executionId} status is ${previewData.status}, not stuck`);
       setShouldShowStuckUi(false);
+      return;
     }
+    
+    // If we have polled many times and still in pending/running, it might be stuck
+    const minimumPollsBeforeStuck = 45; // 90 seconds at 2-second intervals
+    
+    if ((previewData.status === 'pending' || previewData.status === 'running') && pollCount > minimumPollsBeforeStuck) {
+      console.log(`[StuckDetector] Execution ${executionId} appears stuck: status=${previewData.status}, pollCount=${pollCount}`);
+      
+      // Check if the execution has been running for too long
+      if (previewData.execution?.startTime) {
+        const executionStart = new Date(previewData.execution.startTime).getTime();
+        const now = new Date().getTime();
+        const executionTimeMs = now - executionStart;
+        const maxExecutionTimeMs = 120000; // 2 minutes
+        
+        if (executionTimeMs > maxExecutionTimeMs) {
+          console.log(`[StuckDetector] Execution ${executionId} running for ${executionTimeMs}ms, exceeds max time of ${maxExecutionTimeMs}ms`);
+          setShouldShowStuckUi(true);
+          return;
+        }
+      }
+      
+      // If we don't have a startTime from the execution, use our local polling startTime
+      const pollingStart = new Date(startTime).getTime();
+      const now = new Date().getTime();
+      const pollingTimeMs = now - pollingStart;
+      const maxPollingTimeMs = 180000; // 3 minutes
+      
+      if (pollingTimeMs > maxPollingTimeMs) {
+        console.log(`[StuckDetector] Polling for ${executionId} has been active for ${pollingTimeMs}ms, exceeds max time of ${maxPollingTimeMs}ms`);
+        setShouldShowStuckUi(true);
+        return;
+      }
+    }
+    
+    setShouldShowStuckUi(false);
   }, [isOpen, executionId, previewData, startTime, pollCount]);
-
+  
   return { shouldShowStuckUi };
 }
