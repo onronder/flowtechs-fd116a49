@@ -9,9 +9,10 @@ export async function fetchExecutionDetails(
   req: Request,
   executionId: string,
   limit: number = 5,
-  checkStatus: boolean = false
+  checkStatus: boolean = false,
+  secureMode: boolean = false
 ): Promise<any> {
-  console.log(`Fetching execution details for ID: ${executionId}, limit: ${limit}, checkStatus: ${checkStatus}`);
+  console.log(`Fetching execution details for ID: ${executionId}, limit: ${limit}, checkStatus: ${checkStatus}, secureMode: ${secureMode}`);
   
   // Get Supabase client
   const supabaseClient = createSupabaseClient(req);
@@ -21,7 +22,7 @@ export async function fetchExecutionDetails(
     const execution = await fetchExecutionRecord(supabaseClient, executionId);
     
     // Build and return the response
-    return buildExecutionResponse(execution, limit, checkStatus);
+    return buildExecutionResponse(execution, limit, checkStatus, secureMode);
   } catch (error) {
     console.error(`Error in fetchExecutionDetails:`, error);
     throw error;

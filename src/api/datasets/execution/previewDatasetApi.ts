@@ -13,7 +13,7 @@ export async function fetchDatasetPreview(
     checkStatus?: boolean;
   } = {}
 ) {
-  const limit = options.limit || 5; // Reduced default limit to 5 records
+  const limit = options.limit || 5; // Default limit to 5 records 
   const maxRetries = options.maxRetries || 0;
   const retryDelay = options.retryDelay || 1000;
   const checkStatus = options.checkStatus || false;
@@ -30,8 +30,10 @@ export async function fetchDatasetPreview(
       // Prepare the payload
       const payload = { 
         executionId,
-        limit, // Pass the limit parameter to restrict the number of records
-        checkStatus
+        limit, // Explicitly limit the data to reduce exposure of sensitive info
+        checkStatus,
+        // Signal to the edge function to exclude sensitive data
+        secureMode: true
       };
       
       console.log("Sending preview request with payload:", JSON.stringify(payload));

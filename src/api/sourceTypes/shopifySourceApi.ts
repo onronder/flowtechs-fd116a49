@@ -1,17 +1,16 @@
+
 // src/api/sourceTypes/shopifySourceApi.ts
 import { supabase } from "@/integrations/supabase/client";
 import { Source } from "@/hooks/useSources";
 import { detectLatestShopifyVersion } from "@/utils/shopifyApi";
-import { redactSensitiveInfo } from "../utils/securityUtils";
+import { redactSensitiveInfo, createSecureSourceObject } from "@/api/utils/securityUtils";
 
 /**
  * Validates a Shopify connection using the provided credentials
  */
 export async function validateShopifyConnection(credentials: any) {
   try {
-    console.log("Validating Shopify credentials:", { 
-      credentials: redactSensitiveInfo(credentials)
-    });
+    console.log("Validating Shopify credentials:", redactSensitiveInfo(credentials));
     
     const { storeName, accessToken } = credentials;
     

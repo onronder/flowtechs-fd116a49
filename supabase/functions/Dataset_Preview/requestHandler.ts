@@ -13,7 +13,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     return errorResponse("Invalid JSON in request body", 400);
   }
 
-  const { executionId, limit = 100 } = requestBody;
+  const { executionId, limit = 5, secureMode = true } = requestBody;
   
   if (!executionId) {
     console.error("Missing required parameter: executionId");
@@ -25,7 +25,7 @@ export async function handleRequest(req: Request): Promise<Response> {
 
   // Get execution details and format response
   try {
-    const response = await fetchExecutionDetails(req, executionId, limit, checkStatus);
+    const response = await fetchExecutionDetails(req, executionId, limit, checkStatus, secureMode);
     
     console.log(`Response for execution ${executionId}:`, {
       status: response.status,

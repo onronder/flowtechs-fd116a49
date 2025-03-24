@@ -1,6 +1,6 @@
-
 import React from "react";
 import { Badge } from "@/components/ui/badge";
+import { redactSensitiveInfo } from "@/api/utils/securityUtils";
 
 interface SourceValidationDetailsProps {
   sourceType: string;
@@ -14,6 +14,28 @@ export default function SourceValidationDetails({
   credentials
 }: SourceValidationDetailsProps) {
   if (!validationResult) return null;
+  
+  // Create a safe version of credentials without sensitive info
+  const safeCredentials = React.useMemo(() => {
+    // For display, only keep API version and storeName/domain
+    const safeData: Record<string, any> = {};
+    
+    if (credentials) {
+      if ('api_version' in credentials) {
+        safeData.api_version = credentials.api_version;
+      }
+      
+      if ('storeName' in credentials) {
+        safeData.storeName = credentials.storeName;
+      }
+      
+      if ('domain' in credentials) {
+        safeData.domain = credentials.domain;
+      }
+    }
+    
+    return safeData;
+  }, [credentials]);
 
   return (
     <>
@@ -28,8 +50,8 @@ export default function SourceValidationDetails({
             <div>{validationResult.shopInfo.plan?.displayName || "N/A"}</div>
             <div className="font-medium">API Version:</div>
             <div className="flex items-center">
-              {credentials.api_version}
-              {credentials.api_version && (
+              {safeCredentials.api_version}
+              {safeCredentials.api_version && (
                 <Badge className="ml-2" variant="outline">
                   Current Version
                 </Badge>
@@ -49,7 +71,7 @@ export default function SourceValidationDetails({
             <div className="font-medium">Connection Status:</div>
             <div>{validationResult.shopInfo.connectionStatus}</div>
             <div className="font-medium">API Version:</div>
-            <div>{credentials.api_version || "v3"}</div>
+            <div>{safeCredentials.api_version || "v3"}</div>
           </div>
         </div>
       )}
