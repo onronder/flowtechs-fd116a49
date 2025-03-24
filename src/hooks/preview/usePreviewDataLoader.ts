@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from "react";
 import { fetchDatasetPreview } from "@/api/datasets/execution/previewDatasetApi";
 import { fetchDirectExecutionData } from "@/api/datasets/execution/directDatabaseAccess";
@@ -44,7 +43,38 @@ export function usePreviewDataLoader() {
           if (directData) {
             console.log("[Preview] Successfully retrieved data directly from database");
             setDataSource('direct');
-            return directData;
+            
+            // Ensure directData is properly typed as PreviewData
+            // If directData is a valid PreviewData object already, use it directly
+            if (typeof directData === 'object' && 
+                directData !== null && 
+                'status' in directData) {
+              return directData as PreviewData;
+            }
+            
+            // Otherwise, transform the raw data into a valid PreviewData structure
+            const transformedData: PreviewData = {
+              status: typeof directData === 'object' && directData !== null && 'status' in directData 
+                ? String(directData.status) 
+                : 'completed',
+              execution: typeof directData === 'object' && directData !== null && 'execution' in directData 
+                ? directData.execution as PreviewData['execution'] 
+                : {
+                    id: executionId,
+                    startTime: new Date().toISOString()
+                  },
+              preview: typeof directData === 'object' && directData !== null && 'preview' in directData 
+                ? Array.isArray(directData.preview) ? directData.preview : [] 
+                : Array.isArray(directData) ? directData : [],
+              columns: typeof directData === 'object' && directData !== null && 'columns' in directData 
+                ? Array.isArray(directData.columns) ? directData.columns : [] 
+                : [],
+              totalCount: typeof directData === 'object' && directData !== null && 'totalCount' in directData 
+                ? Number(directData.totalCount) 
+                : Array.isArray(directData) ? directData.length : 0
+            };
+            
+            return transformedData;
           }
         } catch (directError) {
           console.error("[Preview] Fallback direct data fetch also failed:", directError);
