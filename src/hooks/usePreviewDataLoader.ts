@@ -23,64 +23,68 @@ export function usePreviewDataLoader() {
       }
       
       // Try the standard preview endpoint first
-      const data = await fetchDatasetPreview(executionId, options);
-      setDataSource('preview');
-      console.log("[Preview] Preview data received:", data);
-      
-      return data;
-    } catch (err) {
-      console.error("[Preview] Error loading from preview API:", err);
-      
-      // Try direct database access as fallback
       try {
-        console.log("[Preview] Trying direct database access as fallback");
-        const directData = await fetchDirectExecutionData(executionId);
+        const data = await fetchDatasetPreview(executionId, options);
+        setDataSource('preview');
+        console.log("[Preview] Preview data received:", data);
+        return data;
+      } catch (previewError) {
+        console.error("[Preview] Error loading from preview API:", previewError);
         
-        if (directData) {
-          console.log("[Preview] Successfully retrieved data directly from database");
-          setDataSource('direct');
-          return directData;
-        }
-      } catch (fallbackErr) {
-        console.error("[Preview] Fallback direct data fetch also failed:", fallbackErr);
-        
-        // As a last resort, try querying the database directly for just the execution status
+        // Try direct database access as fallback
         try {
-          // Check if user is authenticated first
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) {
-            throw new Error("Authentication required to view preview data");
-          }
+          console.log("[Preview] Trying direct database access as fallback");
+          const directData = await fetchDirectExecutionData(executionId);
           
-          const { data: execution, error } = await supabase
-            .from("dataset_executions")
-            .select("id, status, start_time, end_time, row_count, error_message")
-            .eq("id", executionId)
-            .single();
-          
-          if (!error && execution) {
-            console.log("[Preview] Retrieved minimal execution data");
-            setDataSource('minimal');
-            return {
-              status: execution.status,
-              execution: {
-                id: execution.id,
-                startTime: execution.start_time,
-                endTime: execution.end_time,
-                rowCount: execution.row_count
-              },
-              totalCount: execution.row_count || 0,
-              preview: [],
-              columns: [],
-              error: execution.error_message
-            };
+          if (directData) {
+            console.log("[Preview] Successfully retrieved data directly from database");
+            setDataSource('direct');
+            return directData;
           }
-        } catch (minimalErr) {
-          console.error("[Preview] Even minimal data fetch failed:", minimalErr);
+        } catch (directError) {
+          console.error("[Preview] Fallback direct data fetch also failed:", directError);
+          
+          // As a last resort, try querying the database directly for just the execution status
+          try {
+            // Check if user is authenticated first
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+              throw new Error("Authentication required to view preview data");
+            }
+            
+            const { data: execution, error } = await supabase
+              .from("dataset_executions")
+              .select("id, status, start_time, end_time, row_count, error_message")
+              .eq("id", executionId)
+              .single();
+            
+            if (!error && execution) {
+              console.log("[Preview] Retrieved minimal execution data");
+              setDataSource('minimal');
+              return {
+                status: execution.status,
+                execution: {
+                  id: execution.id,
+                  startTime: execution.start_time,
+                  endTime: execution.end_time,
+                  rowCount: execution.row_count
+                },
+                totalCount: execution.row_count || 0,
+                preview: [],
+                columns: [],
+                error: execution.error_message
+              };
+            }
+          } catch (minimalErr) {
+            console.error("[Preview] Even minimal data fetch failed:", minimalErr);
+          }
         }
+        
+        // If all fallbacks fail, rethrow the original error
+        throw previewError;
       }
-      
-      // All methods failed, rethrow the original error
+    } catch (err) {
+      console.error("[Preview] Error in loadPreviewData:", err);
       throw err;
     }
   }, []);

@@ -71,6 +71,15 @@ export async function fetchDirectExecutionData(executionId: string) {
       console.warn(`Could not fetch dataset details: ${datasetError.message}`);
     }
     
+    // Get API call count from metadata if it exists
+    let apiCallCount: number | undefined = undefined;
+    if (execution.metadata && typeof execution.metadata === 'object') {
+      // Handle both possible structures of the metadata field
+      if ('api_call_count' in execution.metadata) {
+        apiCallCount = Number(execution.metadata.api_call_count);
+      }
+    }
+    
     // Format the data to match the edge function's response format
     const formattedData = {
       status: execution.status,
@@ -80,10 +89,7 @@ export async function fetchDirectExecutionData(executionId: string) {
         endTime: execution.end_time,
         rowCount: execution.row_count,
         executionTimeMs: execution.execution_time_ms,
-        apiCallCount: execution.metadata && 
-                      typeof execution.metadata === 'object' && 
-                      'api_call_count' in execution.metadata ? 
-                      Number(execution.metadata.api_call_count) : undefined
+        apiCallCount: apiCallCount
       },
       dataset: dataset ? {
         id: dataset.id,
