@@ -3,24 +3,8 @@ import { useState, useCallback } from "react";
 import { fetchDatasetPreview } from "@/api/datasets/execution/previewDatasetApi";
 import { fetchDirectExecutionData } from "@/api/datasets/execution/directDatabaseAccess";
 import { supabase } from "@/integrations/supabase/client";
-import { DataSourceType, PreviewOptions, PreviewData } from "./previewTypes";
+import { DataSourceType, PreviewOptions, PreviewData, ExecutionData } from "./previewTypes";
 import { Json } from "@/integrations/supabase/types";
-
-interface ExecutionData {
-  status: string;
-  start_time?: string;
-  end_time?: string;
-  row_count?: number;
-  execution_time_ms?: number;
-  error_message?: string;
-  api_call_count?: number;
-  dataset?: {
-    id: string;
-    name: string;
-    type: string;
-  };
-  data?: any[];
-}
 
 export function usePreviewDataLoader() {
   const [dataSource, setDataSource] = useState<DataSourceType>('preview');
@@ -63,29 +47,39 @@ export function usePreviewDataLoader() {
             console.log("[Preview] Successfully retrieved data directly from database");
             setDataSource('direct');
             
+            // Type checking before casting
+            if (typeof directData !== 'object' || directData === null || Array.isArray(directData)) {
+              throw new Error("Invalid data format from direct database access");
+            }
+            
             // Safely cast the data to our expected structure
-            const execution = directData as ExecutionData;
+            const executionData = directData as unknown as ExecutionData;
+            
+            // Validate the required properties
+            if (!('status' in executionData)) {
+              throw new Error("Missing status in execution data");
+            }
             
             // Create a properly structured PreviewData object
             const transformedData: PreviewData = {
-              status: execution.status || 'completed',
+              status: executionData.status || 'completed',
               execution: {
                 id: executionId,
-                startTime: execution.start_time || new Date().toISOString(),
-                endTime: execution.end_time,
-                rowCount: execution.row_count,
-                executionTimeMs: execution.execution_time_ms,
-                apiCallCount: execution.api_call_count
+                startTime: executionData.start_time || new Date().toISOString(),
+                endTime: executionData.end_time,
+                rowCount: executionData.row_count,
+                executionTimeMs: executionData.execution_time_ms,
+                apiCallCount: executionData.api_call_count
               },
-              dataset: execution.dataset || {
+              dataset: executionData.dataset || {
                 id: '',
                 name: 'Unknown Dataset',
                 type: ''
               },
-              preview: Array.isArray(execution.data) ? execution.data.slice(0, 5) : [],
+              preview: Array.isArray(executionData.data) ? executionData.data.slice(0, 5) : [],
               columns: [],
-              totalCount: execution.row_count || 0,
-              error: execution.error_message
+              totalCount: executionData.row_count || 0,
+              error: executionData.error_message
             };
             
             console.log("[Preview] Transformed direct data:", transformedData);
@@ -116,27 +110,18 @@ export function usePreviewDataLoader() {
               setDataSource('minimal');
               
               // Safely cast the database result
-              const executionData = execution as {
-                id: string;
-                status: string;
-                start_time?: string;
-                end_time?: string;
-                row_count?: number;
-                error_message?: string;
-              };
-              
               return {
-                status: executionData.status,
+                status: execution.status,
                 execution: {
-                  id: executionData.id,
-                  startTime: executionData.start_time || new Date().toISOString(),
-                  endTime: executionData.end_time,
-                  rowCount: executionData.row_count
+                  id: execution.id,
+                  startTime: execution.start_time || new Date().toISOString(),
+                  endTime: execution.end_time,
+                  rowCount: execution.row_count
                 },
-                totalCount: executionData.row_count || 0,
+                totalCount: execution.row_count || 0,
                 preview: [],
                 columns: [],
-                error: executionData.error_message
+                error: execution.error_message
               };
             } else {
               throw new Error(`Failed to retrieve minimal execution data: ${error?.message}`);

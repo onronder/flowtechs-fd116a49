@@ -56,3 +56,20 @@ export interface StuckExecutionInfo {
   since: string;
   details?: string;
 }
+
+// Type for direct database execution data
+export interface ExecutionData {
+  status: string;
+  start_time?: string;
+  end_time?: string;
+  row_count?: number;
+  execution_time_ms?: number;
+  error_message?: string;
+  api_call_count?: number;
+  dataset?: {
+    id: string;
+    name: string;
+    type: string;
+  };
+  data?: any[];
+}
