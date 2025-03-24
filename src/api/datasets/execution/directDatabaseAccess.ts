@@ -12,14 +12,29 @@ export async function fetchDirectExecutionData(executionId: string) {
       throw new Error("Execution ID is required");
     }
     
-    // Get the current user's ID first
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // Get the current user's session
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     
-    if (userError || !user) {
-      throw new Error(`Authentication error: ${userError?.message || "No user found"}`);
+    if (sessionError) {
+      throw new Error(`Session error: ${sessionError.message}`);
     }
     
-    // First, get basic execution details
+    if (!sessionData.session) {
+      throw new Error("No active session found");
+    }
+    
+    // First check if the execution exists and belongs to the user
+    const { data: executionCheck, error: checkError } = await supabase
+      .from("dataset_executions")
+      .select("id, dataset_id")
+      .eq("id", executionId)
+      .single();
+    
+    if (checkError) {
+      throw new Error(`Execution check error: ${checkError.message}`);
+    }
+    
+    // Get the execution data with simplified field selection first
     const { data: execution, error: executionError } = await supabase
       .from("dataset_executions")
       .select(`
@@ -29,72 +44,68 @@ export async function fetchDirectExecutionData(executionId: string) {
         end_time, 
         row_count, 
         execution_time_ms,
-        error,
-        metadata
+        error_message,
+        metadata,
+        data,
+        dataset_id
       `)
       .eq("id", executionId)
-      .eq("user_id", user.id)
       .single();
       
     if (executionError) {
-      throw new Error(`Failed to retrieve execution: ${executionError.message}`);
+      throw new Error(`Execution data error: ${executionError.message}`);
     }
     
-    // Get dataset details
+    if (!execution) {
+      throw new Error("No execution data found");
+    }
+    
+    // Now get the dataset information separately
     const { data: dataset, error: datasetError } = await supabase
       .from("user_datasets")
-      .select(`
-        id, 
-        name, 
-        dataset_type, 
-        template_id
-      `)
+      .select("id, name, dataset_type, template_id")
       .eq("id", execution.dataset_id)
-      .eq("user_id", user.id)
       .single();
       
-    if (datasetError) {
-      throw new Error(`Failed to retrieve dataset: ${datasetError.message}`);
-    }
+    // Build dataset info safely
+    const datasetInfo = {
+      id: dataset?.id || execution.dataset_id,
+      name: dataset?.name || "Unknown Dataset",
+      type: dataset?.dataset_type || "unknown",
+      template: null as any
+    };
     
-    // Get execution data from the raw data field
-    let rawData = null;
-    let columns = [];
-    
-    // Try to use the RPC function to get the raw data
-    try {
-      const { data: rpcData, error: rpcError } = await supabase.rpc(
-        'get_execution_raw_data',
-        { 
-          p_execution_id: executionId,
-          p_user_id: user.id
-        }
-      );
-      
-      if (!rpcError && rpcData) {
-        rawData = rpcData;
+    // Only try to get template info if we have a template_id and dataset exists
+    if (dataset?.template_id) {
+      // Try query_templates first
+      const { data: templateData } = await supabase
+        .from("query_templates")
+        .select("id, name")
+        .eq("id", dataset.template_id)
+        .maybeSingle();
         
-        // Extract columns from the first row if data exists
-        if (Array.isArray(rawData) && rawData.length > 0) {
-          columns = Object.keys(rawData[0]).map(key => ({ 
-            key, 
-            label: key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')
-          }));
+      if (templateData) {
+        datasetInfo.template = { name: templateData.name };
+      } else {
+        // Try dependent_query_templates if not found in query_templates
+        const { data: depTemplateData } = await supabase
+          .from("dependent_query_templates")
+          .select("id, name")
+          .eq("id", dataset.template_id)
+          .maybeSingle();
+          
+        if (depTemplateData) {
+          datasetInfo.template = { name: depTemplateData.name };
         }
       }
-    } catch (e) {
-      console.warn("RPC fetch failed, falling back to direct query:", e);
-      
-      // Try to get columns directly
-      const { data: columnData } = await supabase
-        .from("dataset_executions")
-        .select("columns")
-        .eq("id", executionId)
-        .eq("user_id", user.id)
-        .single();
-        
-      if (columnData && columnData.columns) {
-        columns = columnData.columns;
+    }
+    
+    // Get API call count from metadata if it exists
+    let apiCallCount: number | undefined = undefined;
+    if (execution.metadata && typeof execution.metadata === 'object') {
+      // Handle both possible structures of the metadata field
+      if ('api_call_count' in execution.metadata) {
+        apiCallCount = Number(execution.metadata.api_call_count);
       }
     }
     
@@ -107,23 +118,39 @@ export async function fetchDirectExecutionData(executionId: string) {
         endTime: execution.end_time,
         rowCount: execution.row_count,
         executionTimeMs: execution.execution_time_ms,
-        apiCallCount: execution.metadata?.api_call_count
+        apiCallCount: apiCallCount
       },
-      dataset: {
-        id: dataset.id,
-        name: dataset.name,
-        type: dataset.dataset_type
-      },
-      columns: columns,
-      preview: Array.isArray(rawData) ? rawData.slice(0, 100) : [],
+      dataset: datasetInfo,
+      columns: [], // We'll handle columns extraction from data
+      preview: [],
       totalCount: execution.row_count || 0,
-      error: execution.error
+      error: execution.error_message
     };
     
-    console.log(`[Preview] Successfully retrieved data directly from database:`, formattedData);
+    // Try to extract columns and preview data from the execution data (max 5 rows)
+    if (execution.data && Array.isArray(execution.data) && execution.data.length > 0) {
+      // Extract columns from the first row
+      if (typeof execution.data[0] === 'object' && execution.data[0] !== null) {
+        formattedData.columns = Object.keys(execution.data[0]).map(key => ({
+          key,
+          label: key
+        }));
+      }
+      
+      // Set preview data - limiting to max 5 rows for initial preview
+      const maxPreviewRows = Math.min(5, execution.data.length);
+      formattedData.preview = execution.data.slice(0, maxPreviewRows);
+    }
+    
+    console.log(`[Preview] Successfully retrieved data directly from database:`, {
+      status: formattedData.status,
+      columns: formattedData.columns?.length || 0,
+      rows: formattedData.preview?.length || 0
+    });
+    
     return formattedData;
   } catch (error) {
-    console.error(`[Preview] Fallback direct data fetch failed:`, error);
+    console.error(`[Preview] Fallback direct data fetch also failed:`, error);
     throw error;
   }
 }

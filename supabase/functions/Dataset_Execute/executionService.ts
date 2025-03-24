@@ -12,7 +12,7 @@ export async function invokeExecutionFunction(
   payload: any,
   authHeader: string
 ): Promise<void> {
-  console.log(`Invoking ${executionFunction} with payload:`, JSON.stringify(payload));
+  console.log("Invoking function with payload:", JSON.stringify(payload));
   
   try {
     // Use edge function invoke to trigger the execution function
@@ -25,18 +25,16 @@ export async function invokeExecutionFunction(
       body: JSON.stringify(payload)
     });
     
-    // Check for successful response
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Error ${response.status} from ${executionFunction}:`, errorText);
-      throw new Error(`Error ${response.status} invoking function: ${errorText}`);
+      console.error(`Error response from ${executionFunction}: ${response.status} ${errorText}`);
+      throw new Error(`Failed to invoke ${executionFunction}: ${response.status} ${errorText}`);
     }
     
     console.log(`Successfully invoked ${executionFunction}`);
   } catch (e) {
     console.error(`Error invoking ${executionFunction}:`, e);
-    // We'll continue execution but log the error - this will help with debugging
-    // while still allowing the UI to show the execution status
+    throw e;
   }
 }
 
@@ -44,25 +42,18 @@ export async function invokeExecutionFunction(
  * Prepare the payload for the execution function
  */
 export function prepareExecutionPayload(execution: any, datasetId: string, userId: string, template: any): any {
-  // Create a more robust payload with just the necessary data
-  const payload = {
+  return {
     executionId: execution.id,
     datasetId: datasetId,
-    userId: userId
-  };
-  
-  // Only include template data if it exists and has the required fields
-  if (template && Object.keys(template).length > 0) {
-    // Make sure we only include serializable template data
-    payload.template = {
+    userId: userId,
+    // Include the template if we fetched it separately
+    template: template ? {
       id: template.id,
       name: template.name,
-      display_name: template.display_name || template.name,
+      display_name: template.display_name,
       query_template: template.query_template,
       resource_type: template.resource_type,
-      field_list: template.field_list || []
-    };
-  }
-  
-  return payload;
+      field_list: template.field_list
+    } : null
+  };
 }

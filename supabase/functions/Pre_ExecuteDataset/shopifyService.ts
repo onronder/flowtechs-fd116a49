@@ -1,143 +1,112 @@
 
 /**
- * Functions to fetch data from Shopify API with pagination support
+ * Service functions for Shopify API interactions
  */
 
 /**
- * Fetch data with pagination support
+ * Fetches data with pagination from Shopify API
  */
 export async function fetchPaginatedData(
-  sourceConfig: any,
+  config: any,
   queryTemplate: string,
-  resourceType: string = "products"
+  resourceType: string = "Product"
 ) {
-  // Start timing the execution
+  console.log(`Fetching data for resource type: ${resourceType}`);
+  console.log(`Using config:`, JSON.stringify({
+    storeName: config.storeName,
+    apiVersion: config.apiVersion || '2022-04'
+  }));
+  
+  // Track API call metrics
   const startTime = Date.now();
-  const allResults = [];
   let apiCallCount = 0;
-  let hasNextPage = true;
-  let cursor = null;
-  
-  // Verify required fields in the source config
-  if (!sourceConfig.accessToken || !sourceConfig.storeName) {
-    throw new Error("Missing required Shopify credentials: accessToken or storeName");
-  }
-  
-  console.log(`Fetching paginated data for resource: ${resourceType}`);
-  
-  // Configure the Shopify API URL
-  const shopifyDomain = `${sourceConfig.storeName}.myshopify.com`;
-  const apiVersion = "2024-01"; // Use a fixed recent version
-  const baseUrl = `https://${shopifyDomain}/admin/api/${apiVersion}/graphql.json`;
-  
-  // Process the query template to handle pagination
-  if (!queryTemplate.includes("$cursor")) {
-    console.warn("Query template does not include $cursor variable, pagination may not work correctly");
-  }
+  let results: any[] = [];
   
   try {
-    // Loop until all pages are fetched
+    // Set up the Shopify GraphQL endpoint
+    const shopifyApiVersion = config.apiVersion || '2022-04';
+    const endpoint = `https://${config.storeName}.myshopify.com/admin/api/${shopifyApiVersion}/graphql.json`;
+    
+    console.log(`Using Shopify endpoint: ${endpoint}`);
+    
+    // Initialize pagination variables
+    let hasNextPage = true;
+    let after = null;
+    const pageSize = 50; // Reasonable page size for most resources
+    
     while (hasNextPage) {
-      // Insert cursor into the query
-      let query = queryTemplate;
-      if (cursor) {
-        // Replace the cursor placeholder properly
-        query = query.replace('$cursor: String', `$cursor: String = "${cursor}"`);
-      } else {
-        // For first page with null cursor
-        query = query.replace('$cursor: String', '$cursor: String = null');
-      }
-      
-      console.log(`Executing Shopify API call ${apiCallCount + 1}${cursor ? ' with cursor: ' + cursor : ''}`);
-      
-      // Make the API call
-      const response = await fetch(baseUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": sourceConfig.accessToken
-        },
-        body: JSON.stringify({ query })
-      });
-      
       apiCallCount++;
       
-      // Check for API errors
+      // Replace pagination variables in the query
+      let paginatedQuery = queryTemplate
+        .replace(/\$first: Int/, `$first: Int = ${pageSize}`)
+        .replace(/\$after: String/, `$after: String = ${after ? `"${after}"` : "null"}`);
+      
+      console.log(`Making API call #${apiCallCount} with cursor: ${after || 'initial'}`);
+      
+      // Make the API request to Shopify
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Shopify-Access-Token': config.accessToken
+        },
+        body: JSON.stringify({
+          query: paginatedQuery,
+          variables: {
+            first: pageSize,
+            after: after
+          }
+        })
+      });
+      
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`Shopify API error (${response.status}):`, errorText);
-        throw new Error(`Shopify API error: ${response.status} - ${errorText}`);
+        throw new Error(`Shopify API error: ${response.status} ${errorText}`);
       }
       
-      // Parse the response
-      const data = await response.json();
+      const responseData = await response.json();
       
-      // Check for GraphQL errors
-      if (data.errors) {
-        console.error("GraphQL errors:", JSON.stringify(data.errors));
-        throw new Error(`GraphQL errors: ${data.errors[0].message}`);
+      if (responseData.errors && responseData.errors.length > 0) {
+        console.error("GraphQL errors:", responseData.errors);
+        throw new Error(`GraphQL error: ${responseData.errors[0].message}`);
       }
       
-      // Handle response based on resource type
-      const responseData = data.data;
+      // Extract the nodes and pagination info based on resource type
+      const dataPath = getDataPath(resourceType, responseData.data);
       
-      if (!responseData) {
-        console.error("Unexpected response format:", JSON.stringify(data));
-        throw new Error("Unexpected response format from Shopify API");
+      if (!dataPath) {
+        console.error("Could not find data for resource type:", resourceType);
+        console.log("Response data:", JSON.stringify(responseData.data));
+        throw new Error(`No data found for resource type: ${resourceType}`);
       }
       
-      // Extract the relevant data and pagination info based on resource type
-      let pageInfo = null;
-      let results = [];
+      const edges = dataPath.edges || [];
+      const nodes = edges.map((edge: any) => edge.node);
       
-      // Find the first resource in the response that contains pageInfo
-      const resourceKey = findResourceKey(responseData, resourceType);
+      console.log(`Retrieved ${nodes.length} nodes in this batch`);
       
-      if (!resourceKey) {
-        console.error("Could not find resource in response:", JSON.stringify(responseData));
-        throw new Error(`Could not find ${resourceType} data in API response`);
-      }
+      // Add the nodes to our results
+      results = [...results, ...nodes];
       
-      const resource = responseData[resourceKey];
+      // Check if there's another page
+      hasNextPage = dataPath.pageInfo?.hasNextPage || false;
+      after = dataPath.pageInfo?.endCursor || null;
       
-      if (resource && resource.edges) {
-        // Standard GraphQL connection pattern
-        results = resource.edges.map((edge: any) => edge.node);
-        pageInfo = resource.pageInfo;
-      } else if (Array.isArray(resource)) {
-        // Direct array of results
-        results = resource;
-        pageInfo = { hasNextPage: false };
-      } else {
-        console.error("Unexpected resource format:", JSON.stringify(resource));
-        throw new Error(`Unexpected ${resourceType} data format in API response`);
-      }
-      
-      // Add results to the accumulated list
-      if (results.length > 0) {
-        allResults.push(...results);
-        console.log(`Fetched ${results.length} ${resourceType}, total so far: ${allResults.length}`);
-      } else {
-        console.log(`No ${resourceType} returned in this page`);
-      }
-      
-      // Check for next page
-      if (pageInfo && pageInfo.hasNextPage && pageInfo.endCursor) {
-        cursor = pageInfo.endCursor;
-        console.log(`More pages available, next cursor: ${cursor}`);
-      } else {
-        hasNextPage = false;
-        console.log("No more pages available");
+      if (hasNextPage) {
+        console.log(`Has next page, cursor: ${after}`);
+        // Add a small delay to avoid rate limits
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
     
     const executionTime = Date.now() - startTime;
-    console.log(`Completed data fetch in ${executionTime}ms, total results: ${allResults.length}, API calls: ${apiCallCount}`);
+    console.log(`Finished fetching data: ${results.length} total records, ${apiCallCount} API calls, ${executionTime}ms`);
     
-    return {
-      results: allResults,
-      apiCallCount,
-      executionTime
+    return { 
+      results, 
+      apiCallCount, 
+      executionTime 
     };
   } catch (error) {
     console.error("Error fetching data from Shopify:", error);
@@ -145,29 +114,36 @@ export async function fetchPaginatedData(
   }
 }
 
-// Helper function to find the resource key in the response
-function findResourceKey(responseData: any, resourceType: string): string | null {
-  // Try direct match with the resourceType
-  if (responseData[resourceType]) {
-    return resourceType;
-  }
+/**
+ * Helper function to find the correct data path in the response
+ */
+function getDataPath(resourceType: string, data: any): any {
+  if (!data) return null;
   
-  // Try common suffixes
-  const suffixes = ['Connection', 's', 'List', 'Collection'];
-  for (const suffix of suffixes) {
-    const key = resourceType + suffix;
-    if (responseData[key]) {
-      return key;
+  // Common Shopify resource paths
+  const resourcePaths: Record<string, string[]> = {
+    'Product': ['products'],
+    'Customer': ['customers'],
+    'Order': ['orders'],
+    'Collection': ['collections'],
+    'Inventory': ['inventoryItems'],
+    'InventoryLevel': ['inventoryLevels']
+  };
+  
+  // Get the path for this resource type
+  const paths = resourcePaths[resourceType] || [resourceType.toLowerCase() + 's'];
+  
+  // Try each possible path
+  for (const path of paths) {
+    if (data[path]) {
+      return data[path];
     }
   }
   
-  // Try looking for the first key that might contain edges/pageInfo structure
-  for (const key of Object.keys(responseData)) {
-    if (responseData[key] && 
-        (responseData[key].edges || 
-         responseData[key].pageInfo || 
-         Array.isArray(responseData[key]))) {
-      return key;
+  // If not found, try to find any path with edges and pageInfo
+  for (const key in data) {
+    if (data[key] && data[key].edges && data[key].pageInfo) {
+      return data[key];
     }
   }
   

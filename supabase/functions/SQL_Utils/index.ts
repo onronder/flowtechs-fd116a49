@@ -51,28 +51,89 @@ serve(async (req) => {
 /**
  * Get raw execution data using direct database access
  */
-async function getExecutionData(supabaseClient, executionId, userId) {
+async function getExecutionData(supabaseClient: any, executionId: string, userId: string) {
   // Validate params
   if (!executionId) {
     return errorResponse("Missing execution ID", 400);
   }
   
   try {
-    // Use RPC to call a database function for direct access
-    const { data, error } = await supabaseClient.rpc(
-      'get_execution_raw_data',
-      { p_execution_id: executionId, p_user_id: userId }
-    );
+    // First check if the execution exists and belongs to the user
+    const { data: execution, error: execError } = await supabaseClient
+      .from("dataset_executions")
+      .select(`
+        id, 
+        status, 
+        start_time, 
+        end_time, 
+        row_count, 
+        execution_time_ms,
+        error_message,
+        metadata,
+        data,
+        dataset_id
+      `)
+      .eq("id", executionId)
+      .eq("user_id", userId)
+      .single();
     
-    if (error) {
-      console.error("Error retrieving execution data:", error);
-      return errorResponse(`Failed to retrieve execution data: ${error.message}`, 500);
+    if (execError) {
+      console.error("Error retrieving execution data:", execError);
+      return errorResponse(`Failed to retrieve execution data: ${execError.message}`, 500);
     }
     
-    return successResponse({
-      success: true,
-      data: data
-    });
+    if (!execution) {
+      return errorResponse("Execution not found or not authorized", 404);
+    }
+    
+    // Get the dataset info
+    const { data: dataset, error: datasetError } = await supabaseClient
+      .from("user_datasets")
+      .select("id, name, dataset_type, template_id")
+      .eq("id", execution.dataset_id)
+      .single();
+    
+    if (datasetError) {
+      console.error("Error retrieving dataset info:", datasetError);
+    }
+    
+    // Try to extract columns from data if available
+    let columns = [];
+    if (execution.data && Array.isArray(execution.data) && execution.data.length > 0) {
+      if (typeof execution.data[0] === 'object' && execution.data[0] !== null) {
+        columns = Object.keys(execution.data[0]).map(key => ({
+          key,
+          label: key
+        }));
+      }
+    }
+    
+    // Format response
+    const response = {
+      status: execution.status,
+      execution: {
+        id: execution.id,
+        startTime: execution.start_time,
+        endTime: execution.end_time,
+        rowCount: execution.row_count,
+        executionTimeMs: execution.execution_time_ms,
+        apiCallCount: execution.metadata?.api_call_count
+      },
+      dataset: dataset ? {
+        id: dataset.id,
+        name: dataset.name,
+        type: dataset.dataset_type,
+        template_id: dataset.template_id
+      } : {
+        id: execution.dataset_id
+      },
+      columns: columns,
+      preview: Array.isArray(execution.data) ? execution.data.slice(0, 100) : [],
+      totalCount: execution.row_count || 0,
+      error: execution.error_message
+    };
+    
+    return successResponse(response);
   } catch (error) {
     console.error("Error in getExecutionData:", error);
     return errorResponse(`Error retrieving execution data: ${error.message}`, 500);

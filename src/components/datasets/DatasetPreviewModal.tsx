@@ -11,6 +11,7 @@ import PreviewError from "./preview/PreviewError";
 import PreviewInProgress from "./preview/PreviewInProgress";
 import PreviewFailed from "./preview/PreviewFailed";
 import PreviewContent from "./preview/PreviewContent";
+import { DataSourceType } from "@/hooks/usePreviewDataLoader";
 
 interface DatasetPreviewModalProps {
   executionId: string;
@@ -121,7 +122,7 @@ export default function DatasetPreviewModal({
         previewData={previewData} 
         onExport={handleExport} 
         isExporting={isExporting}
-        dataSource={dataSource}
+        dataSource={dataSource as DataSourceType}
       />
     );
   };

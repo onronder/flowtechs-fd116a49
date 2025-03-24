@@ -52,6 +52,9 @@ serve(async (req) => {
     try {
       // Get dataset details
       const dataset = await fetchDataset(supabaseClient, datasetId, user.id);
+      if (!dataset) {
+        return errorResponse("Dataset not found or access denied", 404);
+      }
       
       // Get template if needed
       const template = await fetchTemplate(supabaseClient, dataset);
@@ -66,8 +69,15 @@ serve(async (req) => {
       // Prepare execution payload
       const payload = prepareExecutionPayload(execution, datasetId, user.id, template);
       
-      // Invoke the execution function
-      await invokeExecutionFunction(env.url!, executionFunction, payload, req.headers.get("Authorization") || "");
+      // Invoke the execution function - don't wait for it to complete
+      try {
+        await invokeExecutionFunction(env.url!, executionFunction, payload, req.headers.get("Authorization") || "");
+        console.log("Execution function invoked successfully");
+      } catch (invocationError) {
+        console.error("Error invoking execution function:", invocationError);
+        // We'll continue and return the execution ID even if there's an invocation error
+        // This allows the client to still poll for updates
+      }
       
       // Return the execution ID immediately so the client can poll for updates
       console.log("Execution initiated, returning executionId:", execution.id);

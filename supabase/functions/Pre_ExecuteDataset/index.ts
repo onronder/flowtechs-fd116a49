@@ -42,75 +42,99 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
     if (!supabaseUrl || !supabaseAnonKey) {
       console.error("Missing Supabase environment variables");
       return errorResponse("Server configuration error", 500);
     }
     
-    // Create Supabase client
+    // Create Supabase client with service role key for admin access
     const supabaseClient = createSupabaseClient(
       supabaseUrl,
-      supabaseAnonKey,
-      req.headers.get("Authorization") || ""
+      supabaseServiceKey || supabaseAnonKey
     );
 
-    // Update execution status to running
-    await markExecutionAsRunning(supabaseClient, executionId);
-
     try {
+      // Update execution status to running
+      await markExecutionAsRunning(supabaseClient, executionId);
+      console.log(`Marked execution ${executionId} as running`);
+
       // Get dataset and template details
       let dataset, template;
       
-      if (passedTemplate) {
-        // Use the template passed from the parent function
-        console.log("Using passed template:", passedTemplate.id);
-        template = passedTemplate;
-        
-        // We still need the dataset with source
-        const { dataset: datasetData } = await fetchDatasetDetails(supabaseClient, datasetId, userId);
-        dataset = datasetData;
-      } else {
-        // Fetch both dataset and template
-        const result = await fetchDatasetDetails(supabaseClient, datasetId, userId);
-        dataset = result.dataset;
-        template = result.template;
-      }
+      try {
+        if (passedTemplate) {
+          // Use the template passed from the parent function
+          console.log("Using passed template:", passedTemplate.id);
+          template = passedTemplate;
+          
+          // We still need the dataset with source
+          const { dataset: datasetData } = await fetchDatasetDetails(supabaseClient, datasetId, userId);
+          dataset = datasetData;
+        } else {
+          // Fetch both dataset and template
+          const result = await fetchDatasetDetails(supabaseClient, datasetId, userId);
+          dataset = result.dataset;
+          template = result.template;
+        }
 
-      console.log("Using template:", template.id, "Query:", template.query_template?.substring(0, 100) + "...");
+        console.log("Using dataset:", dataset?.id, "Dataset type:", dataset?.dataset_type);
+        console.log("Using template:", template?.id, "Query:", template?.query_template?.substring(0, 100) + "...");
+      } catch (fetchError) {
+        console.error("Failed to fetch dataset or template:", fetchError);
+        await markExecutionAsFailed(supabaseClient, executionId, `Failed to fetch dataset or template: ${fetchError.message}`);
+        return errorResponse(`Fetch error: ${fetchError.message}`, 500);
+      }
       
-      if (!dataset.source || !dataset.source.config) {
-        throw new Error("Missing or invalid source configuration");
+      if (!dataset || !dataset.source || !dataset.source.config) {
+        const errorMsg = "Missing or invalid source configuration";
+        console.error(errorMsg);
+        await markExecutionAsFailed(supabaseClient, executionId, errorMsg);
+        return errorResponse(errorMsg, 400);
       }
       
       if (!template || !template.query_template) {
-        throw new Error("Missing or invalid template query");
+        const errorMsg = "Missing or invalid template query";
+        console.error(errorMsg);
+        await markExecutionAsFailed(supabaseClient, executionId, errorMsg);
+        return errorResponse(errorMsg, 400);
       }
 
+      console.log("Starting data fetch from external API");
       // Execute the query with pagination
-      const { results, apiCallCount, executionTime } = await fetchPaginatedData(
-        dataset.source.config,
-        template.query_template,
-        template.resource_type
-      );
+      try {
+        const { results, apiCallCount, executionTime } = await fetchPaginatedData(
+          dataset.source.config,
+          template.query_template,
+          template.resource_type || "Product" // Default to Product if not specified
+        );
 
-      console.log(`Dataset execution completed: ${executionId} - ${results.length} rows in ${executionTime}ms`);
+        console.log(`Dataset execution completed: ${executionId} - ${results.length} rows in ${executionTime}ms`);
 
-      // Update execution record with results
-      await markExecutionAsCompleted(supabaseClient, executionId, results, executionTime, apiCallCount);
-      
-      return successResponse({
-        message: "Dataset execution completed successfully",
-        executionId,
-        rowCount: results.length,
-        executionTime
-      });
-      
+        // Update execution record with results
+        await markExecutionAsCompleted(supabaseClient, executionId, results, executionTime, apiCallCount);
+        
+        return successResponse({
+          message: "Dataset execution completed successfully",
+          executionId,
+          rowCount: results.length,
+          executionTime
+        });
+      } catch (fetchError) {
+        console.error("API data fetch error:", fetchError);
+        await markExecutionAsFailed(supabaseClient, executionId, `API fetch error: ${fetchError.message}`);
+        return errorResponse(`API fetch error: ${fetchError.message}`, 500);
+      }
     } catch (executionError) {
       console.error("Execution error:", executionError);
       
       // Update execution record with error
-      await markExecutionAsFailed(supabaseClient, executionId, executionError.message);
+      try {
+        await markExecutionAsFailed(supabaseClient, executionId, executionError.message);
+      } catch (updateError) {
+        console.error("Failed to update execution status after error:", updateError);
+      }
 
       return errorResponse(`Execution error: ${executionError.message}`, 500);
     }
