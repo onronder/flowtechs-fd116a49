@@ -30,7 +30,8 @@ export {
   exportDataset,
   getDatasetExecutionHistory,
   getExecutionDetails,
-  getDatasetExports
+  getDatasetExports,
+  resetStuckExecutions
 } from "./datasets/execution";
 
 // Import and re-export from scheduling module

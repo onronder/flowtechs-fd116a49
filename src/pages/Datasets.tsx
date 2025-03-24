@@ -8,6 +8,7 @@ import EmptyDatasetsState from "@/components/datasets/EmptyDatasetsState";
 import { fetchUserDatasets, fetchRecentOrdersDashboard } from "@/api/datasetsApi";
 import NewDatasetModal from "@/components/datasets/NewDatasetModal";
 import LoadingSpinner from "@/components/ui/loading-spinner";
+import { resetStuckExecutions } from "@/api/datasets/execution/executionResetApi";
 
 export default function Datasets() {
   const [datasets, setDatasets] = useState([]);
@@ -22,6 +23,21 @@ export default function Datasets() {
       
       const data = await fetchUserDatasets();
       console.log(`Loaded ${data.length} datasets`);
+      
+      // Reset any stuck executions
+      if (data.length > 0) {
+        try {
+          for (const dataset of data) {
+            const { resetCount } = await resetStuckExecutions(dataset.id);
+            if (resetCount > 0) {
+              console.log(`Reset ${resetCount} stuck executions for dataset ${dataset.id}`);
+            }
+          }
+        } catch (resetError) {
+          console.error("Error resetting stuck executions:", resetError);
+          // Continue loading datasets even if reset fails
+        }
+      }
       
       // Check for datasets that use the direct API access
       const enhancedData = data.map(dataset => {

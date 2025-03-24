@@ -15,10 +15,10 @@ export async function executeDataset(datasetId: string) {
     }
     
     // Create the payload with the dataset ID
-    const payload = JSON.stringify({ datasetId });
+    const payload = { datasetId };
     
     // Log the payload we're sending
-    console.log("Request payload:", payload);
+    console.log("Request payload:", JSON.stringify(payload));
     
     // Check authentication status first
     console.log("Checking authentication...");
@@ -34,48 +34,17 @@ export async function executeDataset(datasetId: string) {
       throw new Error("Authentication required to execute dataset. Please sign in.");
     }
     
-    const token = session.access_token;
     console.log("Authentication token obtained successfully");
     
-    // Invoke dataset execution with REST API instead of WebSocket
-    console.log("Invoking Dataset_Execute function...");
-    
-    // Construct the full endpoint URL
-    const endpoint = "https://sxzgeevxciuxjyxfartx.supabase.co/functions/v1/Dataset_Execute";
-    console.log("Edge function endpoint:", endpoint);
-    
-    // Use direct fetch for more control over the request
-    console.log("Sending request to edge function...");
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: payload
+    // Use supabase.functions.invoke instead of direct fetch
+    console.log("Invoking Dataset_Execute function via supabase client...");
+    const { data, error } = await supabase.functions.invoke("Dataset_Execute", {
+      body: payload,
     });
     
-    // Check for HTTP errors
-    if (!response.ok) {
-      let errorMessage = `HTTP error: ${response.status}`;
-      try {
-        const errorBody = await response.text();
-        console.error("Error response from Dataset_Execute function:", response.status, errorBody);
-        errorMessage = `Execution error (${response.status}): ${errorBody}`;
-      } catch (textError) {
-        console.error("Failed to read error response body:", textError);
-      }
-      throw new Error(errorMessage);
-    }
-    
-    // Parse the response
-    console.log("Parsing response...");
-    let data;
-    try {
-      data = await response.json();
-    } catch (jsonError) {
-      console.error("Failed to parse JSON response:", jsonError);
-      throw new Error("Invalid response format from execution function");
+    if (error) {
+      console.error("Error from Dataset_Execute function:", error);
+      throw new Error(`Execution error: ${error.message || JSON.stringify(error)}`);
     }
     
     // Validate the response format
@@ -115,15 +84,12 @@ export async function executeCustomDataset(sourceId: string, query: string) {
       throw new Error("A valid query is required");
     }
     
-    const payload = JSON.stringify({ sourceId, query });
-    console.log("Request payload for custom dataset:", payload);
+    const payload = { sourceId, query };
+    console.log("Request payload for custom dataset:", JSON.stringify(payload));
     
     const { data, error } = await supabase.functions.invoke(
-      "Cust_ExecuteDataset",
-      { 
-        body: payload,
-        headers: { 'Content-Type': 'application/json' }
-      }
+      "Cust_ExecuteDataset", 
+      { body: payload }
     );
     
     if (error) {
