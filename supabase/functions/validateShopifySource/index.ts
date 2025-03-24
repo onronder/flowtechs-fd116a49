@@ -23,7 +23,7 @@ serve(async (req) => {
     }
     
     // Step 1: Detect latest Shopify API version
-    let apiVersion = "2025-01"; // Default fallback version
+    let apiVersion = "2024-04"; // Default fallback version - updated to more recent version
     
     try {
       console.log(`[validateShopifySource] Detecting latest API version for: ${storeName}`);
@@ -39,12 +39,15 @@ serve(async (req) => {
       
       if (versionResponse.ok) {
         const versionData = await versionResponse.json();
+        console.log(`[validateShopifySource] Available versions:`, JSON.stringify(versionData));
+        
         if (versionData.supported_versions && versionData.supported_versions.length > 0) {
           apiVersion = versionData.supported_versions[0].handle;
           console.log(`[validateShopifySource] Detected latest API version: ${apiVersion}`);
         }
       } else {
         console.warn(`[validateShopifySource] Failed to detect version: ${versionResponse.status} ${versionResponse.statusText}`);
+        // Continue with fallback version
       }
     } catch (error) {
       console.error("[validateShopifySource] Error detecting API version:", error);

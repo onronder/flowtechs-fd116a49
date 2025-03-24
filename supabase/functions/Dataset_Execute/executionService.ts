@@ -42,6 +42,7 @@ export async function invokeExecutionFunction(
  * Prepare the payload for the execution function
  */
 export function prepareExecutionPayload(execution: any, datasetId: string, userId: string, template: any): any {
+  // Create a comprehensive payload with all needed information
   return {
     executionId: execution.id,
     datasetId: datasetId,
@@ -54,6 +55,8 @@ export function prepareExecutionPayload(execution: any, datasetId: string, userI
       query_template: template.query_template,
       resource_type: template.resource_type,
       field_list: template.field_list
-    } : null
+    } : null,
+    // Add execution timestamp for diagnostics
+    timestamp: new Date().toISOString()
   };
 }

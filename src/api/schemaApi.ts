@@ -12,7 +12,7 @@ export async function fetchSourceSchema(sourceId: string, forceUpdate = false) {
     // Get the source details to determine the source type
     const { data: source, error: sourceError } = await supabase
       .from("sources")
-      .select("source_type")
+      .select("source_type, config")
       .eq("id", sourceId)
       .single();
       
@@ -20,6 +20,8 @@ export async function fetchSourceSchema(sourceId: string, forceUpdate = false) {
       console.error("Error fetching source:", sourceError);
       throw new Error(sourceError.message || "Failed to fetch source");
     }
+    
+    console.log(`Source type: ${source.source_type}, API version: ${source.config?.api_version || 'unknown'}`);
     
     // Use type-specific schema fetching
     if (source.source_type === "shopify") {

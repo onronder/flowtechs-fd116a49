@@ -2,155 +2,52 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Directly fetch execution data from database when the edge function fails
+ * Fetches execution data directly from the database using RPC
+ * @param executionId The execution ID
+ * @returns The execution data
  */
 export async function fetchDirectExecutionData(executionId: string) {
   try {
-    console.log(`[Preview] Attempting direct data fetch for execution ID: ${executionId}`);
+    console.log(`[fetchDirectExecutionData] Fetching raw data for execution ${executionId}`);
     
-    if (!executionId) {
-      throw new Error("Execution ID is required");
+    // Get the current user ID
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError) {
+      console.error("Auth error:", userError);
+      throw new Error("Authentication required");
     }
     
-    // Get the current user's session
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError) {
-      throw new Error(`Session error: ${sessionError.message}`);
+    if (!user) {
+      console.error("No user found");
+      throw new Error("Authentication required");
     }
     
-    if (!sessionData.session) {
-      throw new Error("No active session found");
-    }
+    console.log(`[fetchDirectExecutionData] User ID: ${user.id}`);
     
-    // First check if the execution exists and belongs to the user
-    const { data: executionCheck, error: checkError } = await supabase
-      .from("dataset_executions")
-      .select("id, dataset_id")
-      .eq("id", executionId)
-      .single();
-    
-    if (checkError) {
-      throw new Error(`Execution check error: ${checkError.message}`);
-    }
-    
-    // Get the execution data with simplified field selection first
-    const { data: execution, error: executionError } = await supabase
-      .from("dataset_executions")
-      .select(`
-        id, 
-        status, 
-        start_time, 
-        end_time, 
-        row_count, 
-        execution_time_ms,
-        error_message,
-        metadata,
-        data,
-        dataset_id
-      `)
-      .eq("id", executionId)
-      .single();
-      
-    if (executionError) {
-      throw new Error(`Execution data error: ${executionError.message}`);
-    }
-    
-    if (!execution) {
-      throw new Error("No execution data found");
-    }
-    
-    // Now get the dataset information separately
-    const { data: dataset, error: datasetError } = await supabase
-      .from("user_datasets")
-      .select("id, name, dataset_type, template_id")
-      .eq("id", execution.dataset_id)
-      .single();
-      
-    // Build dataset info safely
-    const datasetInfo = {
-      id: dataset?.id || execution.dataset_id,
-      name: dataset?.name || "Unknown Dataset",
-      type: dataset?.dataset_type || "unknown",
-      template: null as any
-    };
-    
-    // Only try to get template info if we have a template_id and dataset exists
-    if (dataset?.template_id) {
-      // Try query_templates first
-      const { data: templateData } = await supabase
-        .from("query_templates")
-        .select("id, name")
-        .eq("id", dataset.template_id)
-        .maybeSingle();
-        
-      if (templateData) {
-        datasetInfo.template = { name: templateData.name };
-      } else {
-        // Try dependent_query_templates if not found in query_templates
-        const { data: depTemplateData } = await supabase
-          .from("dependent_query_templates")
-          .select("id, name")
-          .eq("id", dataset.template_id)
-          .maybeSingle();
-          
-        if (depTemplateData) {
-          datasetInfo.template = { name: depTemplateData.name };
-        }
+    // Call the RPC function with user ID for security
+    const { data, error } = await supabase.rpc(
+      'get_execution_raw_data', 
+      { 
+        p_execution_id: executionId,
+        p_user_id: user.id
       }
+    );
+    
+    if (error) {
+      console.error("RPC error:", error);
+      throw new Error(`Failed to fetch execution data: ${error.message}`);
     }
     
-    // Get API call count from metadata if it exists
-    let apiCallCount: number | undefined = undefined;
-    if (execution.metadata && typeof execution.metadata === 'object') {
-      // Handle both possible structures of the metadata field
-      if ('api_call_count' in execution.metadata) {
-        apiCallCount = Number(execution.metadata.api_call_count);
-      }
+    if (!data) {
+      console.warn(`[fetchDirectExecutionData] No data found for execution ${executionId}`);
+      return null;
     }
     
-    // Format the data to match the edge function's response format
-    const formattedData = {
-      status: execution.status,
-      execution: {
-        id: execution.id,
-        startTime: execution.start_time,
-        endTime: execution.end_time,
-        rowCount: execution.row_count,
-        executionTimeMs: execution.execution_time_ms,
-        apiCallCount: apiCallCount
-      },
-      dataset: datasetInfo,
-      columns: [], // We'll handle columns extraction from data
-      preview: [],
-      totalCount: execution.row_count || 0,
-      error: execution.error_message
-    };
-    
-    // Try to extract columns and preview data from the execution data (max 5 rows)
-    if (execution.data && Array.isArray(execution.data) && execution.data.length > 0) {
-      // Extract columns from the first row
-      if (typeof execution.data[0] === 'object' && execution.data[0] !== null) {
-        formattedData.columns = Object.keys(execution.data[0]).map(key => ({
-          key,
-          label: key
-        }));
-      }
-      
-      // Set preview data - limiting to max 5 rows for initial preview
-      const maxPreviewRows = Math.min(5, execution.data.length);
-      formattedData.preview = execution.data.slice(0, maxPreviewRows);
-    }
-    
-    console.log(`[Preview] Successfully retrieved data directly from database:`, {
-      status: formattedData.status,
-      columns: formattedData.columns?.length || 0,
-      rows: formattedData.preview?.length || 0
-    });
-    
-    return formattedData;
+    console.log(`[fetchDirectExecutionData] Successfully fetched data for execution ${executionId}`);
+    return data;
   } catch (error) {
-    console.error(`[Preview] Fallback direct data fetch also failed:`, error);
+    console.error("Error in fetchDirectExecutionData:", error);
     throw error;
   }
 }
