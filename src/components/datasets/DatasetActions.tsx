@@ -1,10 +1,11 @@
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Play, Download, Edit, Trash, Eye, Clock } from "lucide-react";
+import { MoreHorizontal, Play, Download, Edit, Trash, Eye, Clock, AlertCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { executeDataset } from "@/api/datasets/execution/executeDatasetApi";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface DatasetActionsProps {
   datasetId: string;
@@ -22,6 +23,7 @@ interface DatasetActionsProps {
   onDeleteDataset: () => void;
   onExecutionStarted?: (executionId: string) => void;
   onRefresh?: () => void;
+  errorState?: boolean;
 }
 
 export default function DatasetActions({
@@ -34,9 +36,12 @@ export default function DatasetActions({
   onScheduleDataset,
   onDeleteDataset,
   onExecutionStarted,
-  onRefresh
+  onRefresh,
+  errorState = false
 }: DatasetActionsProps) {
   const { toast } = useToast();
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [executeAttempts, setExecuteAttempts] = useState(0);
   
   // For debugging
   useEffect(() => {
@@ -48,6 +53,9 @@ export default function DatasetActions({
     
     // Call the parent component's function to update UI state
     onRunDataset();
+    
+    setIsExecuting(true);
+    setExecuteAttempts(prev => prev + 1);
     
     try {
       // Actually execute the dataset
@@ -79,6 +87,8 @@ export default function DatasetActions({
         description: error instanceof Error ? error.message : "Failed to execute the dataset",
         variant: "destructive"
       });
+    } finally {
+      setIsExecuting(false);
     }
   };
   
@@ -95,16 +105,31 @@ export default function DatasetActions({
       </Button>
       
       <div className="flex space-x-2">
-        <Button 
-          variant="default" 
-          size="sm"
-          onClick={handleRunClick}
-          disabled={isRunning}
-          data-testid="run-dataset-button"
-        >
-          <Play className="h-4 w-4 mr-1" />
-          {isRunning ? "Running..." : "Run"}
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant={errorState ? "destructive" : "default"}
+                size="sm"
+                onClick={handleRunClick}
+                disabled={isRunning || isExecuting}
+                data-testid="run-dataset-button"
+              >
+                {errorState ? (
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                ) : (
+                  <Play className="h-4 w-4 mr-1" />
+                )}
+                {isRunning ? "Running..." : isExecuting ? "Starting..." : errorState ? "Retry" : "Run"}
+              </Button>
+            </TooltipTrigger>
+            {errorState && (
+              <TooltipContent>
+                <p>Previous execution failed. Click to retry.</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

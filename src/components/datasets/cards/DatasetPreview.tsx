@@ -7,8 +7,8 @@ import PreviewInProgress from "../preview/PreviewInProgress";
 import PreviewStuckExecution from "../preview/PreviewStuckExecution";
 import PreviewContent from "../preview/PreviewContent";
 import PreviewError from "../preview/PreviewError";
-import PreviewFailed from "../preview/PreviewFailed";
 import PreviewHeader from "../preview/PreviewHeader";
+import PreviewFailed from "../preview/PreviewFailed";
 
 interface DatasetPreviewProps {
   executionId: string | null;

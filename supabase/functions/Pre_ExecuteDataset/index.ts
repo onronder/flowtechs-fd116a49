@@ -2,7 +2,7 @@
 // Pre_ExecuteDataset function - handles execution of predefined datasets
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, handleCors, errorResponse, successResponse } from "../_shared/cors.ts";
-import { markExecutionAsRunning, markExecutionAsCompleted, markExecutionAsFailed, fetchDatasetDetails, createSupabaseClient } from "./databaseService.ts";
+import { markExecutionAsRunning, markExecutionAsCompleted, markExecutionAsFailed, fetchDatasetDetails, createSupabaseClient, logErrorToAuditLogs } from "./databaseService.ts";
 import { fetchPaginatedData } from "./shopifyService.ts";
 
 serve(async (req) => {
@@ -80,7 +80,11 @@ serve(async (req) => {
         }
 
         if (!dataset) {
-          throw new Error(`Dataset not found for ID: ${datasetId}`);
+          const errorMsg = `Dataset not found for ID: ${datasetId}`;
+          console.error(errorMsg);
+          await markExecutionAsFailed(supabaseClient, executionId, errorMsg);
+          await logErrorToAuditLogs(supabaseClient, userId, datasetId, executionId, "Dataset not found", { datasetId });
+          return errorResponse(errorMsg, 404);
         }
 
         console.log("Using dataset:", dataset?.id, "Dataset type:", dataset?.dataset_type);
@@ -88,6 +92,9 @@ serve(async (req) => {
       } catch (fetchError) {
         console.error("Failed to fetch dataset or template:", fetchError);
         await markExecutionAsFailed(supabaseClient, executionId, `Failed to fetch dataset or template: ${fetchError.message}`);
+        await logErrorToAuditLogs(supabaseClient, userId, datasetId, executionId, "Failed to fetch dataset or template", { 
+          error: fetchError.message 
+        });
         return errorResponse(`Fetch error: ${fetchError.message}`, 500);
       }
       
@@ -99,6 +106,11 @@ serve(async (req) => {
           hasConfig: !!dataset?.source?.config
         }));
         await markExecutionAsFailed(supabaseClient, executionId, errorMsg);
+        await logErrorToAuditLogs(supabaseClient, userId, datasetId, executionId, "Missing source configuration", { 
+          datasetId,
+          hasSource: !!dataset?.source,
+          hasConfig: !!dataset?.source?.config
+        });
         return errorResponse(errorMsg, 400);
       }
       
@@ -109,19 +121,32 @@ serve(async (req) => {
           hasQuery: !!template?.query_template
         }));
         await markExecutionAsFailed(supabaseClient, executionId, errorMsg);
+        await logErrorToAuditLogs(supabaseClient, userId, datasetId, executionId, "Missing template query", { 
+          templateId: template?.id,
+          hasQuery: !!template?.query_template
+        });
         return errorResponse(errorMsg, 400);
       }
 
       console.log("Starting data fetch from external API");
       // Execute the query with pagination
       try {
-        const { results, apiCallCount, executionTime } = await fetchPaginatedData(
+        const { results, apiCallCount, executionTime, apiErrors } = await fetchPaginatedData(
           dataset.source.config,
           template.query_template,
           template.resource_type || "Product" // Default to Product if not specified
         );
 
         console.log(`Dataset execution completed: ${executionId} - ${results.length} rows in ${executionTime}ms`);
+
+        // Log any API errors to audit_logs
+        if (apiErrors && apiErrors.length > 0) {
+          await logErrorToAuditLogs(supabaseClient, userId, datasetId, executionId, "API errors occurred during execution", { 
+            apiErrors,
+            resourceType: template.resource_type || "Product"
+          });
+          console.warn("API errors occurred but execution completed:", apiErrors);
+        }
 
         // Update execution record with results
         await markExecutionAsCompleted(supabaseClient, executionId, results, executionTime, apiCallCount);
@@ -134,20 +159,41 @@ serve(async (req) => {
         });
       } catch (fetchError) {
         console.error("API data fetch error:", fetchError);
-        await markExecutionAsFailed(supabaseClient, executionId, `API fetch error: ${fetchError.message}`);
-        return errorResponse(`API fetch error: ${fetchError.message}`, 500);
+        const errorMessage = typeof fetchError === 'object' && fetchError !== null 
+          ? fetchError.message || JSON.stringify(fetchError)
+          : String(fetchError);
+          
+        await markExecutionAsFailed(supabaseClient, executionId, `API fetch error: ${errorMessage}`);
+        await logErrorToAuditLogs(supabaseClient, userId, datasetId, executionId, "API fetch error", { 
+          error: errorMessage,
+          stack: fetchError.stack,
+          config: JSON.stringify({
+            storeName: dataset.source.config.storeName,
+            apiVersion: dataset.source.config.api_version || '2023-01'
+          }),
+          resourceType: template.resource_type || "Product"
+        });
+        return errorResponse(`API fetch error: ${errorMessage}`, 500);
       }
     } catch (executionError) {
       console.error("Execution error:", executionError);
       
       // Update execution record with error
       try {
-        await markExecutionAsFailed(supabaseClient, executionId, executionError.message);
+        const errorMessage = typeof executionError === 'object' && executionError !== null 
+          ? executionError.message || JSON.stringify(executionError)
+          : String(executionError);
+          
+        await markExecutionAsFailed(supabaseClient, executionId, errorMessage);
+        await logErrorToAuditLogs(supabaseClient, userId, datasetId, executionId, "Execution error", { 
+          error: errorMessage,
+          stack: executionError.stack
+        });
       } catch (updateError) {
         console.error("Failed to update execution status after error:", updateError);
       }
 
-      return errorResponse(`Execution error: ${executionError.message}`, 500);
+      return errorResponse(`Execution error: ${executionError.message || "Unknown error"}`, 500);
     }
   } catch (error) {
     console.error("Error in Pre_ExecuteDataset:", error);

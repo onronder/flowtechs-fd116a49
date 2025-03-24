@@ -21,10 +21,11 @@ export async function fetchPaginatedData(
   const startTime = Date.now();
   let apiCallCount = 0;
   let results: any[] = [];
+  let apiErrors: any[] = [];
   
   try {
     // Set up the Shopify GraphQL endpoint
-    const shopifyApiVersion = config.apiVersion || '2022-04';
+    const shopifyApiVersion = config.apiVersion || config.api_version || '2022-04';
     const endpoint = `https://${config.storeName}.myshopify.com/admin/api/${shopifyApiVersion}/graphql.json`;
     
     console.log(`Using Shopify endpoint: ${endpoint}`);
@@ -45,39 +46,119 @@ export async function fetchPaginatedData(
       console.log(`Making API call #${apiCallCount} with cursor: ${after || 'initial'}`);
       
       // Make the API request to Shopify
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Shopify-Access-Token': config.accessToken
-        },
-        body: JSON.stringify({
-          query: paginatedQuery,
-          variables: {
-            first: pageSize,
-            after: after
-          }
-        })
-      });
+      let response;
+      try {
+        response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Shopify-Access-Token': config.accessToken
+          },
+          body: JSON.stringify({
+            query: paginatedQuery,
+            variables: {
+              first: pageSize,
+              after: after
+            }
+          })
+        });
+      } catch (fetchError) {
+        const errorDetails = {
+          message: fetchError.message || "Network error during fetch",
+          call: apiCallCount,
+          cursor: after || "initial"
+        };
+        apiErrors.push(errorDetails);
+        console.error("Fetch error:", errorDetails);
+        
+        // Try to continue with next page if possible
+        if (apiCallCount > 3) {
+          // If we've already made multiple calls, we might be in a loop
+          throw new Error(`Multiple fetch errors: ${JSON.stringify(apiErrors)}`);
+        }
+        
+        // Add delay before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        continue;
+      }
       
       if (!response.ok) {
         const errorText = await response.text();
+        const errorDetails = {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+          call: apiCallCount,
+          cursor: after || "initial"
+        };
+        apiErrors.push(errorDetails);
+        console.error("API error response:", errorDetails);
+        
+        if (response.status === 429) {
+          // Rate limited - wait and retry
+          console.log("Rate limited, waiting before retry...");
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        }
+        
         throw new Error(`Shopify API error: ${response.status} ${errorText}`);
       }
       
-      const responseData = await response.json();
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (jsonError) {
+        const errorDetails = {
+          message: "Failed to parse JSON response",
+          error: jsonError.message,
+          call: apiCallCount,
+          cursor: after || "initial"
+        };
+        apiErrors.push(errorDetails);
+        console.error("JSON parsing error:", errorDetails);
+        throw new Error(`Failed to parse JSON response: ${jsonError.message}`);
+      }
       
       if (responseData.errors && responseData.errors.length > 0) {
-        console.error("GraphQL errors:", responseData.errors);
-        throw new Error(`GraphQL error: ${responseData.errors[0].message}`);
+        const errorDetails = {
+          graphqlErrors: responseData.errors,
+          call: apiCallCount,
+          cursor: after || "initial"
+        };
+        apiErrors.push(errorDetails);
+        console.error("GraphQL errors:", errorDetails);
+        
+        // Check if this is a rate limit or throttling issue
+        const isRateLimitError = responseData.errors.some(err => 
+          (err.message && (
+            err.message.includes("rate limit") || 
+            err.message.includes("throttled") || 
+            err.message.includes("exceeded")
+          )) || 
+          (err.extensions && err.extensions.code === "THROTTLED")
+        );
+        
+        if (isRateLimitError) {
+          console.log("Rate limit or throttling detected, waiting before retry...");
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        }
+        
+        throw new Error(`GraphQL error: ${JSON.stringify(responseData.errors)}`);
       }
       
       // Extract the nodes and pagination info based on resource type
       const dataPath = getDataPath(resourceType, responseData.data);
       
       if (!dataPath) {
-        console.error("Could not find data for resource type:", resourceType);
-        console.log("Response data:", JSON.stringify(responseData.data));
+        const errorDetails = {
+          message: `Could not find data for resource type: ${resourceType}`,
+          data: JSON.stringify(responseData.data).substring(0, 200) + "...",
+          call: apiCallCount,
+          cursor: after || "initial"
+        };
+        apiErrors.push(errorDetails);
+        console.error(errorDetails);
         throw new Error(`No data found for resource type: ${resourceType}`);
       }
       
@@ -106,7 +187,8 @@ export async function fetchPaginatedData(
     return { 
       results, 
       apiCallCount, 
-      executionTime 
+      executionTime,
+      apiErrors: apiErrors.length > 0 ? apiErrors : null
     };
   } catch (error) {
     console.error("Error fetching data from Shopify:", error);
