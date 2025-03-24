@@ -31,6 +31,11 @@ export default function PreviewFailed({ errorMessage, onClose, onRetry }: Previe
     console.log("Could not parse error JSON:", e);
   }
   
+  // Handle common error cases with more helpful messages
+  if (parsedError.includes("Could not find a relationship between 'user_datasets' and 'template_id'")) {
+    parsedError = "There was an issue connecting to the template for this dataset. This might be because the template no longer exists or the dataset was configured with an incorrect template.";
+  }
+  
   return (
     <div className="flex-1 flex items-center justify-center p-8">
       <div className="text-center max-w-md">

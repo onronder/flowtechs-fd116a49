@@ -35,6 +35,39 @@ export async function fetchDirectExecutionData(executionId: string) {
       throw new Error(datasetError?.message || "Dataset not found");
     }
     
+    // Get template details if available, handling possible errors gracefully
+    let template = null;
+    if (dataset.template_id) {
+      try {
+        // Try query_templates first
+        const { data: queryTemplate, error: queryTemplateError } = await supabase
+          .from("query_templates")
+          .select("id, name, display_name")
+          .eq("id", dataset.template_id)
+          .single();
+          
+        if (queryTemplateError) {
+          console.log("[Preview] Template not found in query_templates, trying dependent_query_templates");
+          
+          // Try dependent_query_templates as fallback
+          const { data: depTemplate, error: depTemplateError } = await supabase
+            .from("dependent_query_templates")
+            .select("id, name, display_name")
+            .eq("id", dataset.template_id)
+            .single();
+            
+          if (!depTemplateError && depTemplate) {
+            template = depTemplate;
+          }
+        } else {
+          template = queryTemplate;
+        }
+      } catch (templateError) {
+        console.log("[Preview] Error fetching template:", templateError);
+        // Continue without template
+      }
+    }
+    
     // Try using the SQL_Utils function to get data directly
     try {
       const { data: directData, error: directError } = await supabase.functions.invoke(
@@ -100,11 +133,16 @@ export async function fetchDirectExecutionData(executionId: string) {
           dataset: {
             id: dataset.id,
             name: dataset.name,
-            type: dataset.dataset_type
+            type: dataset.dataset_type,
+            template: template ? {
+              id: template.id,
+              name: template.name || template.display_name
+            } : null
           },
           columns,
           preview,
-          totalCount
+          totalCount,
+          error: execution.status === "failed" ? execution.error_message : undefined
         };
       }
     } catch (sqlUtilsError) {
@@ -156,11 +194,16 @@ export async function fetchDirectExecutionData(executionId: string) {
       dataset: {
         id: dataset.id,
         name: dataset.name,
-        type: dataset.dataset_type
+        type: dataset.dataset_type,
+        template: template ? {
+          id: template.id, 
+          name: template.name || template.display_name
+        } : null
       },
       columns,
       preview,
-      totalCount
+      totalCount,
+      error: execution.status === "failed" ? execution.error_message : undefined
     };
   } catch (err) {
     console.error("[Preview] Error in direct data fetch:", err);

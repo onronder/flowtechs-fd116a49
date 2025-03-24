@@ -50,24 +50,50 @@ export async function fetchTemplate(supabaseClient: any, dataset: any) {
   
   // Determine which template table to query based on dataset type
   let templateTable = "query_templates";
+  let template = null;
+  let error = null;
+  
   if (dataset.dataset_type === "dependent") {
     templateTable = "dependent_query_templates";
   }
   
-  const { data: template, error: templateError } = await supabaseClient
+  // Try the primary template table first
+  const { data: primaryTemplate, error: primaryError } = await supabaseClient
     .from(templateTable)
     .select("*")
     .eq("id", dataset.template_id)
     .single();
     
-  if (templateError) {
-    console.error("Template fetch error:", templateError);
-    console.log("Continuing execution without template");
-    return null;
+  if (primaryError) {
+    console.log(`Template not found in ${templateTable}: ${primaryError.message}`);
+    error = primaryError;
+    
+    // Try the alternate template table as fallback
+    const fallbackTable = templateTable === "query_templates" ? "dependent_query_templates" : "query_templates";
+    console.log(`Trying fallback template table: ${fallbackTable}`);
+    
+    const { data: fallbackTemplate, error: fallbackError } = await supabaseClient
+      .from(fallbackTable)
+      .select("*")
+      .eq("id", dataset.template_id)
+      .single();
+      
+    if (fallbackError) {
+      console.error(`Template also not found in fallback table: ${fallbackError.message}`);
+    } else {
+      template = fallbackTemplate;
+      console.log(`Found template in fallback table: ${fallbackTable}, ID: ${template.id}, Name: ${template.name}`);
+      return template;
+    }
+  } else {
+    template = primaryTemplate;
+    console.log(`Found template in primary table: ${templateTable}, ID: ${template.id}, Name: ${template.name}`);
+    return template;
   }
   
-  console.log("Found template:", template.id, template.name);
-  return template;
+  // If we get here, no template was found in either table
+  console.log("No template found, continuing without template");
+  return null;
 }
 
 /**
@@ -117,4 +143,27 @@ export function determineExecutionFunction(dataset: any): string {
     default:
       throw new Error(`Unknown dataset type: ${dataset.dataset_type}`);
   }
+}
+
+/**
+ * Prepare execution payload with more robust error handling
+ */
+export function prepareExecutionPayload(execution: any, datasetId: string, userId: string, template: any | null) {
+  // Create a base payload with the essential fields
+  const payload = {
+    executionId: execution.id,
+    datasetId: datasetId,
+    userId: userId,
+    template: template ? {
+      id: template.id,
+      name: template.name,
+      display_name: template.display_name,
+      query_template: template.query_template,
+      field_list: template.field_list
+    } : null
+  };
+  
+  console.log("Prepared execution payload:", JSON.stringify(payload));
+  
+  return payload;
 }
