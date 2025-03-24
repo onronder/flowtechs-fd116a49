@@ -8,7 +8,7 @@ interface PreviewContentProps {
   previewData: any;
   onExport: (format: 'json' | 'csv' | 'xlsx') => void;
   isExporting?: boolean;
-  dataSource?: 'preview' | 'direct';
+  dataSource?: 'preview' | 'direct' | 'minimal';
 }
 
 export default function PreviewContent({ 
@@ -86,11 +86,13 @@ export default function PreviewContent({
         )}
       </div>
       
-      {dataSource === 'direct' && (
+      {dataSource !== 'preview' && (
         <Alert className="mb-4">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Using direct database access. Some features may be limited.
+            {dataSource === 'minimal' 
+              ? 'Using minimal execution data. Preview content is not available.' 
+              : 'Using direct database access. Some features may be limited.'}
           </AlertDescription>
         </Alert>
       )}

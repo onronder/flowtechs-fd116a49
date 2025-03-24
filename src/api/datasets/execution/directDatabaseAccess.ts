@@ -78,7 +78,10 @@ export async function fetchDirectExecutionData(executionId: string) {
         endTime: execution.end_time,
         rowCount: execution.row_count,
         executionTimeMs: execution.execution_time_ms,
-        apiCallCount: execution.metadata?.api_call_count
+        apiCallCount: execution.metadata && 
+                      typeof execution.metadata === 'object' && 
+                      'api_call_count' in execution.metadata ? 
+                      Number(execution.metadata.api_call_count) : undefined
       },
       dataset: dataset ? {
         id: dataset.id,
