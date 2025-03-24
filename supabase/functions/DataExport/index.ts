@@ -20,6 +20,7 @@ serve(async (req) => {
     const saveToStorage = req.headers.get('Save-To-Storage') === 'true';
 
     console.log(`Processing export request for execution ID: ${executionId}, format: ${format}, saveToStorage: ${saveToStorage}`);
+    console.log(`Request headers:`, Object.fromEntries(req.headers.entries()));
 
     // Initialize Supabase client
     const supabaseAdmin = getSupabaseAdmin();
