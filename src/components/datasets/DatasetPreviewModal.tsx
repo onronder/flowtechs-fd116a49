@@ -1,7 +1,6 @@
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ReactNode } from "react";
-import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 interface DatasetPreviewModalProps {
   executionId: string | null;

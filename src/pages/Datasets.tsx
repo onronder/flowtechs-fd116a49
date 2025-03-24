@@ -13,6 +13,7 @@ import { resetStuckExecutions } from "@/api/datasets/execution/executionResetApi
 export default function Datasets() {
   const [datasets, setDatasets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
   const { toast } = useToast();
 
@@ -20,6 +21,7 @@ export default function Datasets() {
     try {
       console.log("Loading datasets...");
       setLoading(true);
+      setLoadError(null);
       
       const data = await fetchUserDatasets();
       console.log(`Loaded ${data.length} datasets`);
@@ -63,6 +65,7 @@ export default function Datasets() {
       setDatasets(enhancedData);
     } catch (error) {
       console.error("Error loading datasets:", error);
+      setLoadError("Failed to load datasets. Please try again.");
       toast({
         title: "Error",
         description: "Failed to load datasets. Please try again.",
@@ -80,6 +83,12 @@ export default function Datasets() {
   // Function to force refresh datasets
   const handleRefresh = useCallback(() => {
     console.log("Manually refreshing datasets...");
+    loadDatasets();
+  }, [loadDatasets]);
+
+  // Retry loading if there was an error
+  const handleRetry = useCallback(() => {
+    console.log("Retrying dataset load after error");
     loadDatasets();
   }, [loadDatasets]);
 
@@ -105,6 +114,11 @@ export default function Datasets() {
       {loading ? (
         <div className="flex justify-center py-12">
           <LoadingSpinner size="lg" />
+        </div>
+      ) : loadError ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="text-red-500 mb-4">{loadError}</div>
+          <Button onClick={handleRetry}>Retry</Button>
         </div>
       ) : datasets.length === 0 ? (
         <EmptyDatasetsState onCreateNew={() => setShowNewModal(true)} />

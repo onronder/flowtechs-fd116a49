@@ -117,6 +117,8 @@ export default function DatasetActions({
         size="sm"
         onClick={onViewPreview}
         disabled={!lastExecutionId}
+        id="preview-dataset-button"
+        name="preview-dataset-button"
       >
         <Eye className="h-4 w-4 mr-1" />
         Preview
@@ -132,6 +134,8 @@ export default function DatasetActions({
                 onClick={handleRunClick}
                 disabled={isRunning || isExecuting}
                 data-testid="run-dataset-button"
+                id="run-dataset-button"
+                name="run-dataset-button"
               >
                 {errorState ? (
                   <AlertCircle className="h-4 w-4 mr-1" />
@@ -153,28 +157,39 @@ export default function DatasetActions({
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              id="dataset-actions-menu"
+              name="dataset-actions-menu"
+            >
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onViewPreview}>
+            <DropdownMenuItem onClick={onViewPreview} id="view-results-action">
               <Eye className="h-4 w-4 mr-2" />
               View Results
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onScheduleDataset}>
+            <DropdownMenuItem onClick={onScheduleDataset} id="schedule-action">
               <Clock className="h-4 w-4 mr-2" />
               {schedule ? "Update Schedule" : "Schedule"}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => toast({ title: "Coming Soon", description: "Export functionality will be available soon." })}>
+            <DropdownMenuItem 
+              onClick={() => toast({ title: "Coming Soon", description: "Export functionality will be available soon." })}
+              id="export-action"
+            >
               <Download className="h-4 w-4 mr-2" />
               Export
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => toast({ title: "Coming Soon", description: "Edit functionality will be available soon." })}>
+            <DropdownMenuItem 
+              onClick={() => toast({ title: "Coming Soon", description: "Edit functionality will be available soon." })}
+              id="edit-action"
+            >
               <Edit className="h-4 w-4 mr-2" />
               Edit
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onDeleteDataset} className="text-red-600">
+            <DropdownMenuItem onClick={onDeleteDataset} className="text-red-600" id="delete-action">
               <Trash className="h-4 w-4 mr-2" />
               Delete
             </DropdownMenuItem>

@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import DatasetMetadata from "./DatasetMetadata";
@@ -22,7 +23,9 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
   const deletionRef = useRef<HTMLButtonElement>(null);
   const { toast } = useToast();
   const { handleScheduleHourly } = DatasetScheduler({ datasetId: dataset.id, onRefresh });
+  const cardMountedRef = useRef(true);
 
+  // Create a secure version of the dataset for logging
   const securedDataset = useCallback(() => {
     const securedData = { ...dataset };
     
@@ -33,15 +36,11 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
     return securedData;
   }, [dataset]);
 
+  // Monitor and check for stuck executions
   useEffect(() => {
+    cardMountedRef.current = true;
     const safeDataset = securedDataset();
     console.log("Dataset card rendered:", safeDataset.id, safeDataset.name);
-    
-    if (safeDataset.source) {
-      console.log("Dataset source:", safeDataset.source);
-    }
-    
-    console.log("Last execution ID:", safeDataset.last_execution_id);
     
     if (safeDataset.last_execution_id && safeDataset.last_execution_time) {
       const executionTime = new Date(safeDataset.last_execution_time).getTime();
@@ -54,7 +53,7 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
         console.log(`Execution ${safeDataset.last_execution_id} may be stuck, checking...`);
         resetStuckExecutions(dataset.id, safeDataset.last_execution_id)
           .then(({ resetCount }) => {
-            if (resetCount > 0) {
+            if (resetCount > 0 && cardMountedRef.current) {
               console.log(`Reset stuck execution ${safeDataset.last_execution_id}`);
               onRefresh();
             }
@@ -64,12 +63,18 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
           });
       }
     }
+    
+    return () => {
+      cardMountedRef.current = false;
+    };
   }, [dataset, onRefresh, securedDataset]);
 
+  // Update running state when dataset changes
   useEffect(() => {
-    setIsRunning(false);
+    setIsRunning(dataset.last_execution_status === 'running' || dataset.last_execution_status === 'pending');
   }, [dataset]);
 
+  // Handler for viewing the preview
   const handleViewPreview = useCallback(() => {
     if (dataset.last_execution_id) {
       console.log("Viewing preview for execution ID:", dataset.last_execution_id);
@@ -84,6 +89,7 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
     }
   }, [dataset.last_execution_id, toast]);
 
+  // Handler for when an execution starts
   const handleExecutionStarted = useCallback((newExecutionId: string) => {
     console.log("Execution started with ID:", newExecutionId);
     setExecutionId(newExecutionId);
@@ -91,19 +97,23 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
     setShowPreview(true);
   }, []);
 
+  // Handler for clicking the run dataset button
   const handleRunDatasetClick = useCallback(() => {
     console.log("Set running state to true for dataset:", dataset.id);
     setIsRunning(true);
   }, [dataset.id]);
 
+  // Handler for clicking delete dataset
   const handleDeleteDatasetClick = useCallback(() => {
     if (deletionRef.current) {
       deletionRef.current.click();
     }
   }, []);
 
+  // Handler for closing the preview modal
   const handleClosePreview = useCallback(() => {
     setShowPreview(false);
+    // Always refresh the dataset list when the preview modal is closed
     onRefresh();
   }, [onRefresh]);
 

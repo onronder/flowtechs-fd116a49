@@ -1,5 +1,5 @@
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { PreviewData } from "./previewTypes";
 import { usePreviewPolling } from "./usePreviewPolling";
 
@@ -22,6 +22,8 @@ export function usePreviewStatusManager({
   previewData,
   loadPreview
 }: PreviewStatusManagerProps) {
+  const effectInstanceRef = useRef<number>(0);
+  
   const {
     pollCount,
     maxPollCount,
@@ -53,47 +55,77 @@ export function usePreviewStatusManager({
   
   // Main effect for loading data and managing polling
   useEffect(() => {
+    // Create a unique instance ID for this effect run to prevent race conditions
+    const currentEffectInstance = ++effectInstanceRef.current;
+    
     // Create a local flag for this effect instance
     let effectActive = true;
     let cleanup: (() => void) | undefined;
     
+    // Only proceed if modal is open and we have an execution ID
     if (isOpen && executionId) {
       resetPolling();
       
-      console.log(`[Preview] Starting preview polling for execution ID: ${executionId}`);
+      console.log(`[Preview] Starting preview polling for execution ID: ${executionId}, effect instance: ${currentEffectInstance}`);
       
-      // Load initial data to see status
-      loadPreview(
-        executionId, 
-        true, 
-        false,
-        handlePollingSuccess,
-        handlePollingError
-      ).then((data) => {
-        // Only start polling if the execution is still in progress and this effect is still active
-        if (effectActive && data && (data.status === "running" || data.status === "pending")) {
-          // Start polling only for in-progress executions
-          const pollingFunction = () => {
-            return loadPreview(
-              executionId, 
-              false, 
-              false,
-              handlePollingSuccess,
-              handlePollingError
-            ).then(() => {
-              // Return void to satisfy the Promise<void> requirement
-              return;
-            });
-          };
+      // Only load initial data if this is still the active effect
+      const loadInitialData = async () => {
+        try {
+          // Check if we already have data or if the data status is completed/failed
+          if (previewData && ['completed', 'failed'].includes(previewData.status)) {
+            console.log(`[Preview] Already have ${previewData.status} data, not starting polling`);
+            return;
+          }
           
-          cleanup = startPolling(pollingFunction);
-        } else if (data && (data.status === "completed" || data.status === "failed" || data.status === "stuck")) {
-          // Explicitly stop polling for completed or failed executions
-          stopPolling();
+          // Load initial data to see status
+          const data = await loadPreview(
+            executionId, 
+            true, 
+            false,
+            handlePollingSuccess,
+            handlePollingError
+          );
+          
+          // Only start polling if this effect is still active
+          if (!effectActive || currentEffectInstance !== effectInstanceRef.current) {
+            console.log(`[Preview] Effect no longer active, not starting polling`);
+            return;
+          }
+          
+          // Only start polling for in-progress executions
+          if (data && (data.status === "running" || data.status === "pending")) {
+            // Start polling only for in-progress executions
+            const pollingFunction = () => {
+              // Do not poll if this effect is no longer active
+              if (!effectActive || currentEffectInstance !== effectInstanceRef.current) {
+                console.log(`[Preview] Effect no longer active during polling`);
+                return Promise.resolve();
+              }
+              
+              return loadPreview(
+                executionId, 
+                false, 
+                false,
+                handlePollingSuccess,
+                handlePollingError
+              ).then(() => {
+                // Return void to satisfy the Promise<void> requirement
+                return;
+              });
+            };
+            
+            cleanup = startPolling(pollingFunction);
+          } else if (data && (data.status === "completed" || data.status === "failed" || data.status === "stuck")) {
+            // Explicitly stop polling for completed or failed executions
+            console.log(`[Preview] Execution ${executionId} status is ${data.status}, not polling`);
+            stopPolling();
+          }
+        } catch (error) {
+          console.error("[Preview] Error in initial load:", error);
         }
-      }).catch(error => {
-        console.error("[Preview] Error in initial load:", error);
-      });
+      };
+      
+      loadInitialData();
     }
     
     return () => {
@@ -109,6 +141,8 @@ export function usePreviewStatusManager({
       if (!isOpen) {
         resetPolling();
       }
+      
+      console.log(`[Preview] Cleaning up effect instance ${currentEffectInstance}`);
     };
   }, [
     isOpen, 
@@ -118,7 +152,8 @@ export function usePreviewStatusManager({
     startPolling, 
     stopPolling, 
     handlePollingSuccess,
-    handlePollingError
+    handlePollingError,
+    previewData
   ]);
 
   return {

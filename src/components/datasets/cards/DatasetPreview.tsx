@@ -45,13 +45,10 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
   
   // Clean up when component unmounts or modal closes
   useEffect(() => {
-    if (!isOpen) {
-      // Don't reset currentExecutionId to allow caching between opens
-    }
-    
     return () => {
       if (!isOpen) {
         console.log("[DatasetPreview] Cleanup on modal close");
+        // Don't reset currentExecutionId to allow caching between opens
       }
     };
   }, [isOpen]);
@@ -63,7 +60,11 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
   };
   
   const handleCloseModal = useCallback(() => {
-    onClose();
+    // Important: Call onClose with a small delay to prevent the refresh from happening
+    // during the modal closing transition, which can cause UI issues
+    setTimeout(() => {
+      onClose();
+    }, 50);
   }, [onClose]);
   
   // Render the appropriate content based on the current state
