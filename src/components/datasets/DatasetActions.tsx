@@ -42,6 +42,7 @@ export default function DatasetActions({
   const { toast } = useToast();
   const [isExecuting, setIsExecuting] = useState(false);
   const [executeAttempts, setExecuteAttempts] = useState(0);
+  const [retryCount, setRetryCount] = useState(0);
   
   // For debugging
   useEffect(() => {
@@ -87,6 +88,23 @@ export default function DatasetActions({
         description: error instanceof Error ? error.message : "Failed to execute the dataset",
         variant: "destructive"
       });
+      
+      // Increment retry count for tracking purposes
+      setRetryCount(prev => prev + 1);
+      
+      // Auto-retry if fewer than 3 retries have been attempted
+      if (retryCount < 2) {
+        toast({
+          title: "Retrying Execution",
+          description: `Automatically retrying dataset execution (${retryCount + 1}/3)...`,
+          variant: "default"
+        });
+        
+        // Wait briefly then retry
+        setTimeout(() => {
+          handleRunClick();
+        }, 2000);
+      }
     } finally {
       setIsExecuting(false);
     }
@@ -120,7 +138,9 @@ export default function DatasetActions({
                 ) : (
                   <Play className="h-4 w-4 mr-1" />
                 )}
-                {isRunning ? "Running..." : isExecuting ? "Starting..." : errorState ? "Retry" : "Run"}
+                {isRunning || isExecuting ? 
+                  (isExecuting ? "Starting..." : "Running...") : 
+                  (errorState ? "Retry" : "Run")}
               </Button>
             </TooltipTrigger>
             {errorState && (

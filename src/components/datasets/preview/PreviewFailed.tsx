@@ -1,6 +1,6 @@
 
 import { Button } from "@/components/ui/button";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
 interface PreviewFailedProps {
@@ -17,6 +17,7 @@ export default function PreviewFailed({ errorMessage, onClose, onRetry }: Previe
   let parsedError = displayError;
   let errorDetails = null;
   let debugInfo = null;
+  let shopifyError = null;
   
   try {
     if (displayError.includes('{') && displayError.includes('}')) {
@@ -31,10 +32,26 @@ export default function PreviewFailed({ errorMessage, onClose, onRetry }: Previe
       if (errorObj.debug) {
         debugInfo = errorObj.debug;
       }
+      
+      // Check for Shopify GraphQL errors
+      if (errorObj.errors && Array.isArray(errorObj.errors)) {
+        shopifyError = errorObj.errors[0];
+      }
     }
   } catch (e) {
     // If parsing fails, keep original error
     console.log("Could not parse error JSON:", e);
+  }
+  
+  // Handle Shopify API errors specifically
+  if (displayError.includes('Shopify API error') || displayError.includes('GraphQL error')) {
+    // Try to extract status code
+    const statusMatch = displayError.match(/\((\d+)\)/);
+    const statusCode = statusMatch ? statusMatch[1] : null;
+    
+    if (statusCode === '429') {
+      parsedError = "The Shopify API rate limit has been reached. Please wait a few minutes and try again.";
+    }
   }
   
   // Handle common error cases with more helpful messages
@@ -50,6 +67,11 @@ export default function PreviewFailed({ errorMessage, onClose, onRetry }: Previe
     parsedError = "There was an error connecting to the Shopify API. Please verify your API credentials and permissions.";
   } else if (parsedError.includes("GraphQL error")) {
     parsedError = "There was an error in the GraphQL query sent to Shopify. Please check the query template for any syntax errors.";
+    
+    // Extract specific GraphQL error message if available
+    if (shopifyError && shopifyError.message) {
+      parsedError += `\n\nDetails: ${shopifyError.message}`;
+    }
   } else if (parsedError.includes("Template not found")) {
     parsedError = "The template associated with this dataset could not be found. Please recreate the dataset with a valid template.";
   }
@@ -72,6 +94,20 @@ export default function PreviewFailed({ errorMessage, onClose, onRetry }: Previe
                 {Object.entries(debugInfo).map(([key, value]) => (
                   <li key={key}>{key}: {String(value)}</li>
                 ))}
+              </ul>
+            </div>
+          )}
+          
+          {/* Show Shopify error details if available */}
+          {shopifyError && (
+            <div className="mt-3 text-xs text-left bg-red-50 dark:bg-red-900 p-2 rounded">
+              <div className="font-medium mb-1">Shopify API Error:</div>
+              <ul className="list-disc pl-5 space-y-1">
+                {Object.entries(shopifyError).map(([key, value]) => 
+                  typeof value !== 'object' ? (
+                    <li key={key}>{key}: {String(value)}</li>
+                  ) : null
+                )}
               </ul>
             </div>
           )}

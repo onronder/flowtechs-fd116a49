@@ -1,10 +1,326 @@
 
-// Pre_ExecuteDataset function - handles execution of predefined datasets
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, handleCors, errorResponse, successResponse } from "../_shared/cors.ts";
-import { markExecutionAsRunning, markExecutionAsCompleted, markExecutionAsFailed, fetchDatasetDetails, createSupabaseClient, logErrorToAuditLogs } from "./databaseService.ts";
-import { fetchPaginatedData } from "./shopifyService.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
 
+// Database utility functions
+function createSupabaseClient(url, key, authHeader) {
+  const options = {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    }
+  };
+
+  if (authHeader) {
+    options.global.headers['Authorization'] = authHeader;
+  }
+
+  return createClient(url, key, options);
+}
+
+async function markExecutionAsRunning(supabaseClient, executionId) {
+  const { error } = await supabaseClient
+    .from("dataset_executions")
+    .update({
+      status: "running",
+      start_time: new Date().toISOString(),
+      data: null,
+      error_message: null
+    })
+    .eq("id", executionId);
+
+  if (error) {
+    console.error("Error marking execution as running:", error);
+    throw error;
+  }
+}
+
+async function markExecutionAsCompleted(
+  supabaseClient,
+  executionId,
+  results,
+  executionTime,
+  apiCallCount
+) {
+  const { error } = await supabaseClient
+    .from("dataset_executions")
+    .update({
+      status: "completed",
+      end_time: new Date().toISOString(),
+      data: results,
+      row_count: results.length,
+      execution_time_ms: executionTime,
+      api_call_count: apiCallCount
+    })
+    .eq("id", executionId);
+
+  if (error) {
+    console.error("Error marking execution as completed:", error);
+    throw error;
+  }
+}
+
+async function markExecutionAsFailed(
+  supabaseClient,
+  executionId,
+  errorMessage
+) {
+  const { error } = await supabaseClient
+    .from("dataset_executions")
+    .update({
+      status: "failed",
+      end_time: new Date().toISOString(),
+      error_message: errorMessage
+    })
+    .eq("id", executionId);
+
+  if (error) {
+    console.error("Error marking execution as failed:", error);
+    throw error;
+  }
+}
+
+async function fetchDatasetDetails(supabaseClient, datasetId, userId) {
+  // Fetch dataset with source joined
+  const { data: dataset, error: datasetError } = await supabaseClient
+    .from("user_datasets")
+    .select("*, source:source_id(*)")
+    .eq("id", datasetId)
+    .eq("user_id", userId)
+    .single();
+
+  if (datasetError) {
+    console.error("Error fetching dataset:", datasetError);
+    throw new Error(`Error fetching dataset: ${datasetError.message}`);
+  }
+
+  if (!dataset) {
+    throw new Error(`Dataset not found for ID: ${datasetId}`);
+  }
+
+  // If no template ID, don't try to fetch template
+  if (!dataset.template_id) {
+    return { dataset, template: null };
+  }
+
+  // Try to fetch template from query_templates first
+  const { data: template, error: templateError } = await supabaseClient
+    .from("query_templates")
+    .select("*")
+    .eq("id", dataset.template_id)
+    .maybeSingle();
+
+  if (templateError) {
+    console.error("Error fetching template:", templateError);
+    throw new Error(`Error fetching template: ${templateError.message}`);
+  }
+
+  // If found in query_templates, return it
+  if (template) {
+    return { dataset, template };
+  }
+
+  // If not found in query_templates, try dependent_query_templates
+  const { data: dependentTemplate, error: dependentError } = await supabaseClient
+    .from("dependent_query_templates")
+    .select("*")
+    .eq("id", dataset.template_id)
+    .maybeSingle();
+
+  if (dependentError) {
+    console.error("Error fetching dependent template:", dependentError);
+    throw new Error(`Error fetching dependent template: ${dependentError.message}`);
+  }
+
+  return { dataset, template: dependentTemplate };
+}
+
+async function logErrorToAuditLogs(
+  supabaseClient,
+  userId,
+  datasetId,
+  executionId,
+  action,
+  details
+) {
+  try {
+    const { error } = await supabaseClient
+      .from("audit_logs")
+      .insert({
+        user_id: userId,
+        resource_id: datasetId,
+        resource_type: "dataset_execution",
+        action: action,
+        details: {
+          ...details,
+          executionId,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+    if (error) {
+      console.error("Error logging to audit_logs:", error);
+    }
+  } catch (e) {
+    console.error("Failed to log to audit_logs:", e);
+    // Don't throw here - we don't want to fail the main operation
+  }
+}
+
+// Shopify API interactions
+async function fetchPaginatedData(credentials, queryTemplate, resourceType) {
+  if (!credentials || !credentials.accessToken || !credentials.storeName) {
+    throw new Error("Missing required Shopify configuration values");
+  }
+
+  // Extract credentials
+  const { accessToken, storeName } = credentials;
+  const apiVersion = credentials.apiVersion || "2023-01";
+
+  // Replace any variables in the query
+  let query = queryTemplate;
+
+  // Track API calls for rate limiting
+  let apiCallCount = 0;
+  const apiErrors = [];
+  const allResults = [];
+  let hasNextPage = true;
+  let cursor = null;
+  const startTime = Date.now();
+  let retryCount = 0;
+  const maxRetries = 5;
+
+  try {
+    // Perform paginated GraphQL queries
+    while (hasNextPage && apiCallCount < 50) { // Safety limit
+      // Add cursor to query if we have one
+      const paginatedQuery = cursor 
+        ? query.replace('first: 250', 'first: 250, after: "' + cursor + '"')
+        : query;
+
+      // Make GraphQL request
+      apiCallCount++;
+      console.log(`Making API call #${apiCallCount} to Shopify...`);
+      
+      try {
+        const response = await fetch(`https://${storeName}.myshopify.com/admin/api/${apiVersion}/graphql.json`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Shopify-Access-Token': accessToken
+          },
+          body: JSON.stringify({ query: paginatedQuery })
+        });
+        
+        // Check for rate limiting
+        const retryAfter = response.headers.get('Retry-After');
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Shopify API error (${response.status}): ${errorText}`);
+          apiErrors.push({
+            code: response.status,
+            message: errorText,
+            attempt: apiCallCount
+          });
+          
+          if (response.status === 429) {
+            // Rate limited - wait and retry
+            const waitTime = parseInt(retryAfter || '5', 10) * 1000;
+            console.log(`Rate limited. Waiting ${waitTime}ms before retry`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue; // Retry this request
+          }
+          
+          throw new Error(`Shopify API error (${response.status}): ${errorText}`);
+        }
+
+        // Parse the response
+        const responseData = await response.json();
+        
+        if (responseData.errors) {
+          console.error("GraphQL errors:", responseData.errors);
+          apiErrors.push({
+            code: 'graphql_error',
+            message: responseData.errors.map(e => e.message).join(', '),
+            details: responseData.errors,
+            attempt: apiCallCount
+          });
+          
+          throw new Error(`GraphQL error: ${responseData.errors.map(e => e.message).join(', ')}`);
+        }
+        
+        // Find the pagination info based on resource type
+        const rootKey = Object.keys(responseData.data || {})[0];
+        if (!rootKey) {
+          throw new Error("Invalid GraphQL response format - missing data structure");
+        }
+        
+        // Extract data and pagination info
+        const dataContainer = responseData.data[rootKey];
+        const edges = dataContainer?.edges || [];
+        const pageInfo = dataContainer?.pageInfo;
+        
+        if (!edges || !pageInfo) {
+          throw new Error(`Invalid GraphQL response structure for ${rootKey}`);
+        }
+        
+        // Process the data
+        const results = edges.map(edge => {
+          // Include ID from the edge if present
+          return {
+            id: edge.node.id,
+            ...edge.node
+          };
+        });
+        
+        allResults.push(...results);
+        
+        // Check pagination
+        hasNextPage = pageInfo.hasNextPage === true;
+        cursor = hasNextPage ? pageInfo.endCursor : null;
+        
+        console.log(`Retrieved ${results.length} items. HasNextPage: ${hasNextPage}`);
+        
+        // If we're getting close to API limits, add a small delay
+        if (apiCallCount > 10 && hasNextPage) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      } catch (error) {
+        if (retryCount < maxRetries && 
+            (error.message.includes('429') || error.message.includes('rate limit'))) {
+          retryCount++;
+          console.log(`Retrying after error (attempt ${retryCount}/${maxRetries}): ${error.message}`);
+          await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+          continue;
+        }
+        throw error;
+      }
+    }
+    
+    const executionTime = Date.now() - startTime;
+    console.log(`Completed data fetch for ${resourceType}. Total items: ${allResults.length}`);
+    
+    return {
+      results: allResults,
+      apiCallCount,
+      executionTime,
+      apiErrors: apiErrors.length > 0 ? apiErrors : null
+    };
+  } catch (error) {
+    console.error(`Error in fetchPaginatedData: ${error.message}`);
+    throw error;
+  }
+}
+
+// Main function handler
 serve(async (req) => {
   // Handle CORS preflight requests
   const corsResponse = handleCors(req);
@@ -19,7 +335,7 @@ serve(async (req) => {
     let body;
     try {
       const text = await req.text();
-      console.log("Raw request body:", text);
+      console.log("Raw request body:", text.substring(0, 500));
       
       if (!text || text.trim() === '') {
         console.error("Empty request body");
@@ -27,7 +343,12 @@ serve(async (req) => {
       }
       
       body = JSON.parse(text);
-      console.log("Parsed request body:", JSON.stringify(body));
+      console.log("Parsed request body:", JSON.stringify({
+        executionId: body.executionId,
+        datasetId: body.datasetId,
+        userId: body.userId,
+        hasTemplate: !!body.template
+      }));
     } catch (error) {
       console.error("Error parsing request body:", error);
       return errorResponse("Invalid JSON in request body", 400);

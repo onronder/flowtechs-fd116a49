@@ -13,7 +13,7 @@ export default function PreviewError({ error, onRetry, onClose }: PreviewErrorPr
     <div className="flex-1 flex flex-col items-center justify-center p-8">
       <AlertCircle className="h-12 w-12 text-destructive mb-4" />
       <h3 className="text-lg font-medium mb-2">Error Loading Preview</h3>
-      <p className="text-muted-foreground text-center max-w-md mb-4">
+      <p className="text-muted-foreground text-center max-w-md mb-4 whitespace-pre-wrap">
         {error}
       </p>
       <div className="flex space-x-3">
