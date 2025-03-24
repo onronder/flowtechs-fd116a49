@@ -1,19 +1,47 @@
 
--- Execute SQL Query function (for use in dataset preview function)
-CREATE OR REPLACE FUNCTION public.execute_sql_query(query text)
-RETURNS SETOF json
+-- Function to get a template by its ID (works across query_templates and dependent_query_templates)
+CREATE OR REPLACE FUNCTION public.get_template_by_id(template_id uuid)
+RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
+DECLARE
+  template_data jsonb;
 BEGIN
-    -- Execute the query and return results as JSON
-    RETURN QUERY EXECUTE query;
+  -- First try query_templates
+  SELECT row_to_json(qt)::jsonb INTO template_data
+  FROM query_templates qt
+  WHERE qt.id = template_id;
+  
+  -- If not found, try dependent_query_templates
+  IF template_data IS NULL THEN
+    SELECT row_to_json(dqt)::jsonb INTO template_data
+    FROM dependent_query_templates dqt
+    WHERE dqt.id = template_id;
+  END IF;
+  
+  RETURN template_data;
 END;
 $$;
 
--- Grant execution privileges to authenticated users
-GRANT EXECUTE ON FUNCTION public.execute_sql_query(text) TO authenticated;
-
--- Add comment with important note
-COMMENT ON FUNCTION public.execute_sql_query(text) IS 
-'SECURITY WARNING: This function should only be used with properly validated and sanitized inputs, as it executes arbitrary SQL.';
+-- Function to get execution data (including large data field) safely
+CREATE OR REPLACE FUNCTION public.get_execution_raw_data(p_execution_id uuid, p_user_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_data jsonb;
+BEGIN
+  -- Check if execution exists and belongs to the user
+  SELECT data INTO v_data
+  FROM dataset_executions
+  WHERE id = p_execution_id AND user_id = p_user_id;
+  
+  -- Return the data (will be null if not found)
+  RETURN v_data;
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE EXCEPTION 'Error retrieving execution data: %', SQLERRM;
+END;
+$$;

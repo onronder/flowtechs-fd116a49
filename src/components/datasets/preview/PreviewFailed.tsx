@@ -16,6 +16,7 @@ export default function PreviewFailed({ errorMessage, onClose, onRetry }: Previe
   // Extract any JSON error message if present
   let parsedError = displayError;
   let errorDetails = null;
+  let debugInfo = null;
   
   try {
     if (displayError.includes('{') && displayError.includes('}')) {
@@ -25,6 +26,11 @@ export default function PreviewFailed({ errorMessage, onClose, onRetry }: Previe
       const errorObj = JSON.parse(jsonString);
       parsedError = errorObj.message || errorObj.error || displayError;
       errorDetails = jsonString;
+      
+      // Extract debug info if available
+      if (errorObj.debug) {
+        debugInfo = errorObj.debug;
+      }
     }
   } catch (e) {
     // If parsing fails, keep original error
@@ -33,7 +39,7 @@ export default function PreviewFailed({ errorMessage, onClose, onRetry }: Previe
   
   // Handle common error cases with more helpful messages
   if (parsedError.includes("Could not find a relationship between 'user_datasets' and 'template_id'")) {
-    parsedError = "There was an issue connecting to the template for this dataset. The system is trying to fix this automatically - please try again.";
+    parsedError = "There was an issue connecting to the template for this dataset. The system will try to fix this automatically on the next run - please try again.";
   } else if (parsedError.includes("Missing or invalid template query")) {
     parsedError = "The query template for this dataset appears to be missing or invalid. Please check your dataset configuration.";
   } else if (parsedError.includes("Missing or invalid source configuration")) {
@@ -44,6 +50,8 @@ export default function PreviewFailed({ errorMessage, onClose, onRetry }: Previe
     parsedError = "There was an error connecting to the Shopify API. Please verify your API credentials and permissions.";
   } else if (parsedError.includes("GraphQL error")) {
     parsedError = "There was an error in the GraphQL query sent to Shopify. Please check the query template for any syntax errors.";
+  } else if (parsedError.includes("Template not found")) {
+    parsedError = "The template associated with this dataset could not be found. Please recreate the dataset with a valid template.";
   }
   
   return (
@@ -55,6 +63,18 @@ export default function PreviewFailed({ errorMessage, onClose, onRetry }: Previe
         <div className="bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 p-4 rounded-md mb-4">
           <h3 className="text-lg font-medium mb-2">Execution Failed</h3>
           <p className="text-sm whitespace-pre-wrap">{parsedError}</p>
+          
+          {/* Debug information if available */}
+          {debugInfo && (
+            <div className="mt-3 text-xs text-left bg-red-50 dark:bg-red-900 p-2 rounded">
+              <div className="font-medium mb-1">Execution details:</div>
+              <ul className="list-disc pl-5 space-y-1">
+                {Object.entries(debugInfo).map(([key, value]) => (
+                  <li key={key}>{key}: {String(value)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           
           {errorDetails && (
             <div className="mt-2">

@@ -75,7 +75,7 @@ export async function fetchPaginatedData(
   resourceType: string
 ): Promise<{ results: any[], apiCallCount: number, executionTime: number }> {
   console.log(`Starting paginated data fetch for resource: ${resourceType}`);
-  console.log(`Shop: ${shopifyConfig.storeName}, API version: ${shopifyConfig.api_version}`);
+  console.log(`Shop: ${shopifyConfig.storeName}, API version: ${shopifyConfig.api_version || '2023-10'}`);
   
   const startTime = Date.now();
   let allResults: any[] = [];
@@ -95,25 +95,64 @@ export async function fetchPaginatedData(
 
       const result = await executeShopifyQuery(shopifyConfig, queryTemplate, variables);
       
-      // Extract the results
-      if (!resourceType || !result.data || !result.data[resourceType]) {
-        console.error("Invalid response structure:", JSON.stringify(result).substring(0, 200));
-        throw new Error(`Invalid response structure. Resource type '${resourceType}' not found in response`);
+      // Extra validation to prevent errors
+      if (!result || !result.data) {
+        console.error("Invalid response structure - no data property:", JSON.stringify(result).substring(0, 200));
+        throw new Error(`Invalid response structure from Shopify API - no data property`);
       }
       
-      const resource = result.data[resourceType];
-      const edges = resource.edges || [];
-      const pageInfo = resource.pageInfo;
+      // Find the resource in the response
+      // This handles both direct resource fields (products) and nested fields (products.edges)
+      let resource;
+      let pageInfo;
       
-      // Process nodes
-      const nodes = edges.map((edge: any) => edge.node);
-      allResults = [...allResults, ...nodes];
+      if (result.data[resourceType]) {
+        // Direct access (products)
+        resource = result.data[resourceType];
+      } else {
+        // Try to find resource in nested data
+        const resourceKeys = Object.keys(result.data);
+        for (const key of resourceKeys) {
+          if (result.data[key] && result.data[key][resourceType]) {
+            resource = result.data[key][resourceType];
+            break;
+          }
+        }
+      }
+      
+      if (!resource) {
+        console.error("Resource not found in response:", resourceType);
+        console.error("Available fields:", Object.keys(result.data).join(', '));
+        throw new Error(`Resource type '${resourceType}' not found in response`);
+      }
+      
+      // Handle different response structures
+      let edges;
+      if (Array.isArray(resource)) {
+        // Direct array of nodes
+        allResults = [...allResults, ...resource];
+        hasNextPage = false; // No pagination for direct arrays
+        console.log(`Retrieved ${resource.length} direct nodes, total: ${allResults.length}`);
+      } else if (resource.edges) {
+        // GraphQL edges/node structure
+        edges = resource.edges || [];
+        pageInfo = resource.pageInfo;
+        
+        // Process nodes
+        const nodes = edges.map((edge: any) => edge.node);
+        allResults = [...allResults, ...nodes];
+        
+        console.log(`Retrieved ${nodes.length} nodes, total so far: ${allResults.length}`);
 
-      console.log(`Retrieved ${nodes.length} nodes, total so far: ${allResults.length}`);
-
-      // Update pagination
-      hasNextPage = pageInfo.hasNextPage;
-      cursor = pageInfo.endCursor;
+        // Update pagination
+        hasNextPage = pageInfo.hasNextPage;
+        cursor = pageInfo.endCursor;
+      } else {
+        // Single object result
+        allResults.push(resource);
+        hasNextPage = false;
+        console.log("Retrieved single resource object");
+      }
 
       // If we have more pages, add a delay to respect rate limits
       if (hasNextPage) {
