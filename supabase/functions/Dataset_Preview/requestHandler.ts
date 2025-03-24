@@ -44,10 +44,14 @@ export async function handleRequest(req: Request): Promise<Response> {
     });
     
     return successResponse(response);
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Dataset_Preview: Error fetching execution details for ${executionId}:`, error);
+    
+    // Ensure we have a message property
+    const errorMessage = error.message || "Unknown error";
+    
     return errorResponse(
-      `Failed to fetch execution details: ${error.message || "Unknown error"}`, 
+      `Failed to fetch execution details: ${errorMessage}`, 
       500
     );
   }

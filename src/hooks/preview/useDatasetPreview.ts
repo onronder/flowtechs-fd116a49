@@ -45,15 +45,19 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
 
   // Check authentication status
   useEffect(() => {
+    let isMountedLocal = true;
+    
     if (isOpen) {
       // Pre-check authentication status
       supabase.auth.getSession().then(({ data: { session }}) => {
-        if (!session) {
+        if (!session && isMountedLocal) {
           setError("Authentication required to view preview data");
           setLoading(false);
         }
       });
     }
+    
+    return () => { isMountedLocal = false; };
   }, [isOpen]);
 
   const loadPreview = useCallback(async (showLoading = true, checkStatus = false) => {
@@ -101,7 +105,6 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
             variant: "destructive"
           });
         }
-        return; // Early return after stopping polling
       }
     } catch (err) {
       if (!isMounted()) return;
@@ -141,16 +144,20 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
 
   // Main effect for loading data and managing polling
   useEffect(() => {
+    // Create a local flag for this effect instance
+    let effectActive = true;
     let cleanup: (() => void) | undefined;
     
     if (isOpen && executionId) {
       // Reset state when opening with a new execution ID
-      setLoading(true);
-      setError(null);
+      if (effectActive) {
+        setLoading(true);
+        setError(null);
+      }
       
       // Don't reset preview data here to avoid flickering
       // Only clear it if it's for a different execution ID
-      if (previewData && previewData.execution?.id !== executionId) {
+      if (previewData && previewData.execution?.id !== executionId && effectActive) {
         setPreviewData(null);
       }
       
@@ -159,24 +166,28 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       console.log(`[Preview] Starting preview polling for execution ID: ${executionId}`);
       
       // Load initial data to see status
-      loadPreview(true, false).then(initialData => {
-        // Only start polling if the execution is still in progress
-        if (previewData && (previewData.status === "running" || previewData.status === "pending")) {
+      loadPreview(true, false).then(() => {
+        // Only start polling if the execution is still in progress and this effect is still active
+        if (effectActive && previewData && (previewData.status === "running" || previewData.status === "pending")) {
           // Start polling only for in-progress executions
           cleanup = startPolling(() => loadPreview(false));
         }
+      }).catch(error => {
+        console.error("[Preview] Error in initial load:", error);
       });
-      
-      return () => {
-        if (cleanup) cleanup();
-        stopPolling();
-      };
     }
     
-    // Additional cleanup when modal is closed
     return () => {
+      effectActive = false;
+      
+      if (cleanup) {
+        cleanup();
+      }
+      
+      stopPolling();
+      
+      // Only reset polling if the modal is closed
       if (!isOpen) {
-        stopPolling();
         resetPolling();
       }
     };

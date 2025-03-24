@@ -24,6 +24,7 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
   useEffect(() => {
     if (isOpen && executionId && executionId !== currentExecutionId) {
       setCurrentExecutionId(executionId);
+      console.log(`[DatasetPreview] Modal opened with executionId: ${executionId}, loading preview data`);
     }
   }, [executionId, isOpen, currentExecutionId]);
   

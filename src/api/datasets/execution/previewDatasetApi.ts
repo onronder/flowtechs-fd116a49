@@ -21,6 +21,7 @@ export async function fetchDatasetPreview(
   // Function to perform the actual API call
   const fetchPreview = async (retry = 0): Promise<any> => {
     try {
+      console.log(`[Preview] Attempting to fetch data from Dataset_Preview edge function`);
       console.log(`Sending preview request for execution ID: ${executionId}, retry: ${retry}`);
       
       // Generate a unique request ID for tracing purposes
@@ -62,6 +63,7 @@ export async function fetchDatasetPreview(
         
         // Log the status and other important details
         console.log(`Dataset preview response: status=${data.status}, rows=${data.preview?.length || 0}, totalCount=${data.totalCount || 0}`);
+        console.log(`[Preview] Preview data received successfully from edge function`);
         
         return data;
       } catch (fetchError) {

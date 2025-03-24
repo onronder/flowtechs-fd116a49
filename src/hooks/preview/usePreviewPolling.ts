@@ -26,6 +26,14 @@ export function usePreviewPolling(options: PollingOptions = {}) {
   // Function to check if component is still mounted
   const isMounted = useCallback(() => mountedRef.current, []);
   
+  // Clear any existing polling timeout
+  const clearPollingTimeout = useCallback(() => {
+    if (pollingRef.current !== null) {
+      window.clearTimeout(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, []);
+  
   // Function to reset polling state
   const resetPolling = useCallback(() => {
     console.log("[Preview] Resetting polling");
@@ -33,25 +41,19 @@ export function usePreviewPolling(options: PollingOptions = {}) {
     consecutiveErrorsRef.current = 0;
     
     // Clear any existing polling interval
-    if (pollingRef.current !== null) {
-      clearTimeout(pollingRef.current);
-      pollingRef.current = null;
-    }
+    clearPollingTimeout();
     
     isPollingRef.current = false;
     pollingFunctionRef.current = null;
-  }, []);
+  }, [clearPollingTimeout]);
   
   // Explicitly stop polling
   const stopPolling = useCallback(() => {
     console.log("[Preview] Explicitly stopping polling");
-    if (pollingRef.current !== null) {
-      clearTimeout(pollingRef.current);
-      pollingRef.current = null;
-    }
+    clearPollingTimeout();
     isPollingRef.current = false;
     pollingFunctionRef.current = null;
-  }, []);
+  }, [clearPollingTimeout]);
   
   // Function to start polling
   const startPolling = useCallback((pollingFn: () => Promise<void>) => {
@@ -89,12 +91,10 @@ export function usePreviewPolling(options: PollingOptions = {}) {
               return newCount;
             }
             
-            // Schedule next poll
+            // Schedule next poll only if we're still polling
             if (isPollingRef.current && pollingFunctionRef.current) {
               console.log(`[Preview] Scheduling next poll in ${pollInterval}ms`);
-              if (pollingRef.current !== null) {
-                clearTimeout(pollingRef.current);
-              }
+              clearPollingTimeout();
               pollingRef.current = window.setTimeout(poll, pollInterval);
             }
             
@@ -109,9 +109,7 @@ export function usePreviewPolling(options: PollingOptions = {}) {
         // If component is still mounted, schedule next poll
         if (mountedRef.current && isPollingRef.current && pollingFunctionRef.current) {
           console.log(`[Preview] Scheduling next poll after error in ${pollInterval}ms`);
-          if (pollingRef.current !== null) {
-            clearTimeout(pollingRef.current);
-          }
+          clearPollingTimeout();
           pollingRef.current = window.setTimeout(poll, pollInterval);
         }
       }
@@ -123,14 +121,11 @@ export function usePreviewPolling(options: PollingOptions = {}) {
     // Return a cleanup function
     return () => {
       console.log("[Preview] Cleaning up polling");
-      if (pollingRef.current !== null) {
-        clearTimeout(pollingRef.current);
-        pollingRef.current = null;
-      }
+      clearPollingTimeout();
       isPollingRef.current = false;
       pollingFunctionRef.current = null;
     };
-  }, [maxPollCount, pollCount, pollInterval, resetPolling]);
+  }, [maxPollCount, pollCount, pollInterval, resetPolling, clearPollingTimeout]);
   
   // Function to handle polling errors
   const handlePollingError = useCallback(() => {
@@ -158,16 +153,11 @@ export function usePreviewPolling(options: PollingOptions = {}) {
     return () => {
       console.log("[Preview] Component unmounting, cleaning up polling");
       mountedRef.current = false;
-      
-      if (pollingRef.current !== null) {
-        clearTimeout(pollingRef.current);
-        pollingRef.current = null;
-      }
-      
+      clearPollingTimeout();
       isPollingRef.current = false;
       pollingFunctionRef.current = null;
     };
-  }, []);
+  }, [clearPollingTimeout]);
   
   return {
     pollCount,

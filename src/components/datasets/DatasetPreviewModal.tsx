@@ -1,7 +1,7 @@
 
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import PreviewHeader from "./preview/PreviewHeader";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ReactNode } from "react";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 interface DatasetPreviewModalProps {
   executionId: string | null;
@@ -28,6 +28,11 @@ export default function DatasetPreviewModal({
         className="max-w-5xl max-h-[90vh] flex flex-col overflow-hidden"
         aria-describedby="dataset-preview-description"
       >
+        {/* Hidden title for accessibility */}
+        <DialogTitle className="sr-only">
+          {title} Dataset Preview
+        </DialogTitle>
+        
         <div id="dataset-preview-description" className="sr-only">
           Dataset preview showing execution results and data visualization
         </div>
