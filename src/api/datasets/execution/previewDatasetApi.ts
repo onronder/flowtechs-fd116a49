@@ -40,14 +40,16 @@ export async function fetchDatasetPreview(
     const payload = { executionId, limit }; 
     console.log("Sending preview request with payload:", JSON.stringify(payload));
     
-    // Use supabase.functions.invoke instead of direct fetch
-    console.time('preview_request');
+    // Use a unique timer name per request to avoid conflicts
+    const timerName = `preview_request_${executionId}_${Date.now()}`;
+    console.time(timerName);
     
+    // Use supabase.functions.invoke instead of direct fetch
     const { data, error } = await supabase.functions.invoke("Dataset_Preview", {
       body: payload
     });
     
-    console.timeEnd('preview_request');
+    console.timeEnd(timerName);
     
     if (error) {
       // Handle rate limiting

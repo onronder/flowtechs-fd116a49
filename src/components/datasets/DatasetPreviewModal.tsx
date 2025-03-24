@@ -11,6 +11,7 @@ import PreviewError from "./preview/PreviewError";
 import PreviewInProgress from "./preview/PreviewInProgress";
 import PreviewFailed from "./preview/PreviewFailed";
 import PreviewContent from "./preview/PreviewContent";
+import PreviewStuckExecution from "./preview/PreviewStuckExecution";
 import { DataSourceType } from "@/hooks/usePreviewDataLoader";
 
 interface DatasetPreviewModalProps {
@@ -81,6 +82,21 @@ export default function DatasetPreviewModal({
     }
   }
 
+  // Check if execution is potentially stuck
+  const isPotentiallyStuck = () => {
+    if (!previewData || !previewData.execution?.startTime) return false;
+    
+    // If it's been in pending/running state for more than 5 minutes, consider it potentially stuck
+    const startTimeMs = new Date(previewData.execution.startTime).getTime();
+    const currentTime = new Date().getTime();
+    const fiveMinutesMs = 5 * 60 * 1000;
+    
+    return (
+      (previewData.status === "pending" || previewData.status === "running") && 
+      (currentTime - startTimeMs > fiveMinutesMs)
+    );
+  };
+
   const renderContent = () => {
     if (loading) {
       return <PreviewLoading />;
@@ -93,6 +109,16 @@ export default function DatasetPreviewModal({
           error={error} 
           onRetry={() => loadPreview(true)} 
           onClose={onClose} 
+        />
+      );
+    }
+    
+    if (isPotentiallyStuck() && previewData?.execution?.startTime) {
+      return (
+        <PreviewStuckExecution
+          executionId={executionId}
+          startTime={previewData.execution.startTime}
+          onRetry={() => loadPreview(true)}
         />
       );
     }

@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import DatasetDeletion from "./cards/DatasetDeletion";
 import DatasetPreview from "./cards/DatasetPreview";
 import DatasetScheduler from "./cards/DatasetScheduler";
+import { resetStuckExecutions } from "@/api/datasets/execution/executionResetApi";
 
 interface DatasetCardProps {
   dataset: any;
@@ -27,7 +28,32 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
     console.log("Dataset card rendered:", dataset.id, dataset.name);
     console.log("Dataset source:", dataset.source);
     console.log("Last execution ID:", dataset.last_execution_id);
-  }, [dataset]);
+    
+    // If there's a last execution ID, check if it's stuck
+    if (dataset.last_execution_id && dataset.last_execution_time) {
+      const executionTime = new Date(dataset.last_execution_time).getTime();
+      const currentTime = new Date().getTime();
+      const thirtyMinutes = 30 * 60 * 1000;
+      
+      // If the last execution was over 30 minutes ago and status is not completed/failed
+      if (currentTime - executionTime > thirtyMinutes && 
+          dataset.last_execution_status && 
+          !['completed', 'failed'].includes(dataset.last_execution_status)) {
+        console.log(`Execution ${dataset.last_execution_id} may be stuck, checking...`);
+        resetStuckExecutions(dataset.id, dataset.last_execution_id)
+          .then(({ resetCount }) => {
+            if (resetCount > 0) {
+              console.log(`Reset stuck execution ${dataset.last_execution_id}`);
+              // Force a refresh to get the updated dataset information
+              onRefresh();
+            }
+          })
+          .catch(error => {
+            console.error("Error checking stuck execution:", error);
+          });
+      }
+    }
+  }, [dataset, onRefresh]);
 
   // Reset running state when dataset changes (after refresh)
   useEffect(() => {
