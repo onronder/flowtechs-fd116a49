@@ -21,7 +21,11 @@ export async function fetchSourceSchema(sourceId: string, forceUpdate = false) {
       throw new Error(sourceError.message || "Failed to fetch source");
     }
     
-    console.log(`Source type: ${source.source_type}, API version: ${source.config?.api_version || 'unknown'}`);
+    // Type checking and safe access to config.api_version
+    const apiVersion = source.config && typeof source.config === 'object' ? 
+      (source.config as Record<string, unknown>).api_version : undefined;
+    
+    console.log(`Source type: ${source.source_type}, API version: ${apiVersion || 'unknown'}`);
     
     // Use type-specific schema fetching
     if (source.source_type === "shopify") {
