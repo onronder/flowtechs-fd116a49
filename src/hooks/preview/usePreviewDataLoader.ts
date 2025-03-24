@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from "react";
 import { fetchDatasetPreview } from "@/api/datasets/execution/previewDatasetApi";
 import { fetchDirectExecutionData } from "@/api/datasets/execution/directDatabaseAccess";
@@ -44,36 +45,96 @@ export function usePreviewDataLoader() {
             console.log("[Preview] Successfully retrieved data directly from database");
             setDataSource('direct');
             
-            // Ensure directData is properly typed as PreviewData
-            // If directData is a valid PreviewData object already, use it directly
-            if (typeof directData === 'object' && 
-                directData !== null && 
-                'status' in directData) {
-              return directData as PreviewData;
-            }
-            
-            // Otherwise, transform the raw data into a valid PreviewData structure
+            // Create a properly structured PreviewData object
+            // We need to check the shape of the data without assuming its structure
             const transformedData: PreviewData = {
-              status: typeof directData === 'object' && directData !== null && 'status' in directData 
-                ? String(directData.status) 
-                : 'completed',
-              execution: typeof directData === 'object' && directData !== null && 'execution' in directData 
-                ? directData.execution as PreviewData['execution'] 
-                : {
-                    id: executionId,
-                    startTime: new Date().toISOString()
-                  },
-              preview: typeof directData === 'object' && directData !== null && 'preview' in directData 
-                ? Array.isArray(directData.preview) ? directData.preview : [] 
-                : Array.isArray(directData) ? directData : [],
-              columns: typeof directData === 'object' && directData !== null && 'columns' in directData 
-                ? Array.isArray(directData.columns) ? directData.columns : [] 
-                : [],
-              totalCount: typeof directData === 'object' && directData !== null && 'totalCount' in directData 
-                ? Number(directData.totalCount) 
-                : Array.isArray(directData) ? directData.length : 0
+              status: 'completed', // Default status
+              execution: {
+                id: executionId,
+                startTime: new Date().toISOString()
+              },
+              preview: [],
+              columns: [],
+              totalCount: 0
             };
             
+            // Only if directData is an object, try to extract properties safely
+            if (directData && typeof directData === 'object' && directData !== null) {
+              // Extract status if available
+              if ('status' in directData && typeof directData.status === 'string') {
+                transformedData.status = directData.status;
+              }
+              
+              // Extract execution info if available
+              if ('execution' in directData && typeof directData.execution === 'object' && directData.execution !== null) {
+                const execution = directData.execution as Record<string, any>;
+                transformedData.execution = {
+                  id: typeof execution.id === 'string' ? execution.id : executionId,
+                  startTime: typeof execution.startTime === 'string' ? execution.startTime : new Date().toISOString(),
+                  endTime: typeof execution.endTime === 'string' ? execution.endTime : undefined,
+                  rowCount: typeof execution.rowCount === 'number' ? execution.rowCount : undefined,
+                  executionTimeMs: typeof execution.executionTimeMs === 'number' ? execution.executionTimeMs : undefined,
+                  apiCallCount: typeof execution.apiCallCount === 'number' ? execution.apiCallCount : undefined
+                };
+              }
+              
+              // Extract dataset info if available
+              if ('dataset' in directData && typeof directData.dataset === 'object' && directData.dataset !== null) {
+                const dataset = directData.dataset as Record<string, any>;
+                transformedData.dataset = {
+                  id: typeof dataset.id === 'string' ? dataset.id : '',
+                  name: typeof dataset.name === 'string' ? dataset.name : '',
+                  type: typeof dataset.type === 'string' ? dataset.type : ''
+                };
+                
+                // Extract template if available
+                if (typeof dataset.template === 'object' && dataset.template !== null) {
+                  transformedData.dataset.template = {
+                    name: typeof (dataset.template as Record<string, any>).name === 'string' 
+                      ? (dataset.template as Record<string, any>).name 
+                      : ''
+                  };
+                }
+              }
+              
+              // Extract preview data 
+              if ('preview' in directData) {
+                if (Array.isArray(directData.preview)) {
+                  transformedData.preview = directData.preview;
+                }
+              } else if (Array.isArray(directData)) {
+                // If directData itself is an array, use it as preview
+                transformedData.preview = directData;
+              }
+              
+              // Extract columns with correct typing
+              if ('columns' in directData && Array.isArray(directData.columns)) {
+                transformedData.columns = directData.columns.map(col => {
+                  if (typeof col === 'object' && col !== null && 
+                      'key' in col && typeof col.key === 'string' &&
+                      'label' in col && typeof col.label === 'string') {
+                    return { key: col.key, label: col.label };
+                  }
+                  // For any non-conforming column, create a standard format
+                  const key = typeof col === 'string' ? col : JSON.stringify(col);
+                  return { key, label: key };
+                });
+              }
+              
+              // Extract totalCount
+              if ('totalCount' in directData && typeof directData.totalCount === 'number') {
+                transformedData.totalCount = directData.totalCount;
+              } else if (Array.isArray(transformedData.preview)) {
+                transformedData.totalCount = transformedData.preview.length;
+              }
+              
+              // Extract error message if available
+              if ('error' in directData && typeof directData.error === 'string') {
+                transformedData.error = directData.error;
+              }
+            }
+            
+            console.log("[Preview] Transformed direct data:", transformedData);
             return transformedData;
           }
         } catch (directError) {
