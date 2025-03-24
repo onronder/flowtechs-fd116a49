@@ -1,5 +1,5 @@
 
-import { updateSourceApiVersionAndSchema } from './shopifyApi';
+import { updateSourceApiVersionAndSchema } from './shopify/sourceUpdater';
 import { supabase } from "@/integrations/supabase/client";
 
 /**
