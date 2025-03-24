@@ -67,8 +67,37 @@ export async function fetchDirectExecutionData(executionId: string) {
       .eq("id", execution.dataset_id)
       .single();
       
-    if (datasetError) {
-      console.warn(`Could not fetch dataset details: ${datasetError.message}`);
+    // Build dataset info safely
+    const datasetInfo = {
+      id: dataset?.id || execution.dataset_id,
+      name: dataset?.name || "Unknown Dataset",
+      type: dataset?.dataset_type || "unknown",
+      template: null as any
+    };
+    
+    // Only try to get template info if we have a template_id and dataset exists
+    if (dataset?.template_id) {
+      // Try query_templates first
+      const { data: templateData } = await supabase
+        .from("query_templates")
+        .select("id, name")
+        .eq("id", dataset.template_id)
+        .maybeSingle();
+        
+      if (templateData) {
+        datasetInfo.template = { name: templateData.name };
+      } else {
+        // Try dependent_query_templates if not found in query_templates
+        const { data: depTemplateData } = await supabase
+          .from("dependent_query_templates")
+          .select("id, name")
+          .eq("id", dataset.template_id)
+          .maybeSingle();
+          
+        if (depTemplateData) {
+          datasetInfo.template = { name: depTemplateData.name };
+        }
+      }
     }
     
     // Get API call count from metadata if it exists
@@ -91,15 +120,7 @@ export async function fetchDirectExecutionData(executionId: string) {
         executionTimeMs: execution.execution_time_ms,
         apiCallCount: apiCallCount
       },
-      dataset: dataset ? {
-        id: dataset.id,
-        name: dataset.name,
-        type: dataset.dataset_type
-      } : {
-        id: execution.dataset_id,
-        name: "Unknown Dataset",
-        type: "unknown"
-      },
+      dataset: datasetInfo,
       columns: [], // We'll handle columns extraction from data
       preview: [],
       totalCount: execution.row_count || 0,

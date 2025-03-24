@@ -81,7 +81,7 @@ serve(async (req) => {
           template = result.template;
         }
 
-        console.log("Using template:", template.id, "Query:", template.query_template?.substring(0, 100) + "...");
+        console.log("Using template:", template?.id, "Query:", template?.query_template?.substring(0, 100) + "...");
       } catch (fetchError) {
         console.error("Failed to fetch dataset or template:", fetchError);
         await markExecutionAsFailed(supabaseClient, executionId, `Failed to fetch dataset or template: ${fetchError.message}`);

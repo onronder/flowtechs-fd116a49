@@ -153,19 +153,38 @@ export async function fetchDatasetDetails(supabaseClient: any, datasetId: string
     
     console.log(`Found dataset: ${dataset.id}, type: ${dataset.dataset_type}`);
     
-    // Get template
-    const { data: template, error: templateError } = await supabaseClient
-      .from('query_templates')
-      .select('*')
-      .eq('id', dataset.template_id)
-      .single();
+    // Handle template fetch separately to avoid join issues
+    let template = null;
     
-    if (templateError) {
-      console.error(`Failed to fetch template: ${templateError.message}`);
-      throw new Error(`Failed to fetch template: ${templateError.message}`);
+    if (dataset.template_id) {
+      // Try fetching from query_templates first
+      const { data: queryTemplate, error: queryError } = await supabaseClient
+        .from('query_templates')
+        .select('*')
+        .eq('id', dataset.template_id)
+        .maybeSingle();
+      
+      if (queryTemplate) {
+        console.log(`Found template in query_templates: ${queryTemplate.id}, name: ${queryTemplate.name}`);
+        template = queryTemplate;
+      } else {
+        // If not found in query_templates, try dependent_query_templates
+        const { data: dependentTemplate, error: dependentError } = await supabaseClient
+          .from('dependent_query_templates')
+          .select('*')
+          .eq('id', dataset.template_id)
+          .maybeSingle();
+        
+        if (dependentTemplate) {
+          console.log(`Found template in dependent_query_templates: ${dependentTemplate.id}, name: ${dependentTemplate.name}`);
+          template = dependentTemplate;
+        } else {
+          console.error(`Template not found with ID: ${dataset.template_id}`);
+          if (queryError) console.error("Query templates error:", queryError.message);
+          if (dependentError) console.error("Dependent templates error:", dependentError.message);
+        }
+      }
     }
-    
-    console.log(`Found template: ${template.id}, name: ${template.name}`);
     
     return { dataset, template };
   } catch (error) {

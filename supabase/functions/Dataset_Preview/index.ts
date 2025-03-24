@@ -84,6 +84,7 @@ serve(async (req) => {
     }
 
     // Now get the execution data
+    // Modified query to avoid the template join that was causing issues
     const { data: execution, error: fetchError } = await supabase
       .from("dataset_executions")
       .select(`
@@ -96,7 +97,7 @@ serve(async (req) => {
         error_message,
         metadata,
         data,
-        dataset:dataset_id (id, name, dataset_type, template:template_id(name))
+        dataset_id
       `)
       .eq("id", executionId)
       .single();
@@ -104,6 +105,46 @@ serve(async (req) => {
     if (fetchError) {
       console.error("Error fetching execution:", fetchError);
       return errorResponse(`Database error: ${fetchError.message}`, 500);
+    }
+
+    // Now fetch the dataset information separately to avoid join issues
+    const { data: dataset, error: datasetError } = await supabase
+      .from("user_datasets")
+      .select("id, name, dataset_type, template_id")
+      .eq("id", execution.dataset_id)
+      .single();
+
+    // Build dataset info object safely
+    const datasetInfo = {
+      id: dataset?.id || execution.dataset_id,
+      name: dataset?.name || "Unknown Dataset",
+      type: dataset?.dataset_type || "unknown",
+      template: null // Initialize with null
+    };
+
+    // Only try to get template info if we have a template_id and avoid direct joins
+    if (dataset?.template_id) {
+      // Try query_templates first
+      const { data: templateData } = await supabase
+        .from("query_templates")
+        .select("id, name")
+        .eq("id", dataset.template_id)
+        .maybeSingle();
+        
+      if (templateData) {
+        datasetInfo.template = { name: templateData.name };
+      } else {
+        // Try dependent_query_templates if not found in query_templates
+        const { data: depTemplateData } = await supabase
+          .from("dependent_query_templates")
+          .select("id, name")
+          .eq("id", dataset.template_id)
+          .maybeSingle();
+          
+        if (depTemplateData) {
+          datasetInfo.template = { name: depTemplateData.name };
+        }
+      }
     }
 
     // Format response based on execution status
@@ -117,12 +158,7 @@ serve(async (req) => {
         executionTimeMs: execution.execution_time_ms,
         apiCallCount: execution.metadata?.api_call_count
       },
-      dataset: {
-        id: execution.dataset?.id,
-        name: execution.dataset?.name,
-        type: execution.dataset?.dataset_type,
-        template: execution.dataset?.template
-      },
+      dataset: datasetInfo,
       columns: [],
       error: execution.error_message
     };
