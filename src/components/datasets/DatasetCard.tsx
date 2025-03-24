@@ -146,6 +146,7 @@ export default function DatasetCard({ dataset, onRefresh }: DatasetCardProps) {
               onDeleteDataset={handleDeleteDatasetClick}
               onExecutionStarted={handleExecutionStarted}
               onRefresh={onRefresh}
+              datasetName={dataset.name}
             />
           </div>
         </div>

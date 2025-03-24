@@ -97,7 +97,7 @@ export async function exportDataset(options: ExportOptions): Promise<ExportRespo
     console.error("Error exporting dataset:", error);
     toast({
       title: "Export Failed",
-      description: error.message || "Failed to export dataset",
+      description: error instanceof Error ? error.message : "Failed to export dataset",
       variant: "destructive"
     });
     throw error;

@@ -6,6 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from "@/hooks/use-toast";
 import { executeDataset } from "@/api/datasets/execution/executeDatasetApi";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import DataExport from "@/components/common/DataExport";
 
 interface DatasetActionsProps {
   datasetId: string;
@@ -24,6 +25,7 @@ interface DatasetActionsProps {
   onExecutionStarted?: (executionId: string) => void;
   onRefresh?: () => void;
   errorState?: boolean;
+  datasetName?: string;
 }
 
 export default function DatasetActions({
@@ -37,7 +39,8 @@ export default function DatasetActions({
   onDeleteDataset,
   onExecutionStarted,
   onRefresh,
-  errorState = false
+  errorState = false,
+  datasetName = "dataset"
 }: DatasetActionsProps) {
   const { toast } = useToast();
   const [isExecuting, setIsExecuting] = useState(false);
@@ -175,13 +178,16 @@ export default function DatasetActions({
               <Clock className="h-4 w-4 mr-2" />
               {schedule ? "Update Schedule" : "Schedule"}
             </DropdownMenuItem>
-            <DropdownMenuItem 
-              onClick={() => toast({ title: "Coming Soon", description: "Export functionality will be available soon." })}
-              id="export-action"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </DropdownMenuItem>
+            {lastExecutionId && (
+              <DropdownMenuItem className="flex items-center" id="export-action">
+                <DataExport 
+                  executionId={lastExecutionId}
+                  datasetName={datasetName}
+                  showSaveOption={true}
+                  className="w-full flex items-center"
+                />
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem 
               onClick={() => toast({ title: "Coming Soon", description: "Edit functionality will be available soon." })}
               id="edit-action"

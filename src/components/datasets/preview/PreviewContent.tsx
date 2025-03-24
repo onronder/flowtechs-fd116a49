@@ -69,7 +69,7 @@ export default function PreviewContent({
         </div>
         
         <div className="flex space-x-2">
-          {/* Replace the export buttons with our new DataExport component */}
+          {/* Use our new DataExport component */}
           <DataExport 
             executionId={executionId} 
             datasetName={datasetName}
