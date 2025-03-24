@@ -55,7 +55,7 @@ export default function PreviewContent({
             {preview.length < totalCount && ` (showing first ${preview.length})`}
           </p>
           {dataSource !== 'preview' && (
-            <Alert className="mt-2" variant="warning">
+            <Alert className="mt-2 border-amber-500 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Using fallback data source</AlertTitle>
               <AlertDescription>
