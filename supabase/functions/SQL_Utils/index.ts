@@ -71,7 +71,6 @@ async function getExecutionData(supabaseClient: any, executionId: string, userId
         error_message,
         metadata,
         data,
-        columns,
         dataset_id
       `)
       .eq("id", executionId)
@@ -98,6 +97,17 @@ async function getExecutionData(supabaseClient: any, executionId: string, userId
       console.error("Error retrieving dataset info:", datasetError);
     }
     
+    // Try to extract columns from data if available
+    let columns = [];
+    if (execution.data && Array.isArray(execution.data) && execution.data.length > 0) {
+      if (typeof execution.data[0] === 'object' && execution.data[0] !== null) {
+        columns = Object.keys(execution.data[0]).map(key => ({
+          key,
+          label: key
+        }));
+      }
+    }
+    
     // Format response
     const response = {
       status: execution.status,
@@ -109,8 +119,15 @@ async function getExecutionData(supabaseClient: any, executionId: string, userId
         executionTimeMs: execution.execution_time_ms,
         apiCallCount: execution.metadata?.api_call_count
       },
-      dataset: dataset || { id: execution.dataset_id },
-      columns: execution.columns || [],
+      dataset: dataset ? {
+        id: dataset.id,
+        name: dataset.name,
+        type: dataset.dataset_type,
+        template_id: dataset.template_id
+      } : {
+        id: execution.dataset_id
+      },
+      columns: columns,
       preview: Array.isArray(execution.data) ? execution.data.slice(0, 100) : [],
       totalCount: execution.row_count || 0,
       error: execution.error_message

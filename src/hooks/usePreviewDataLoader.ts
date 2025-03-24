@@ -5,7 +5,7 @@ import { fetchDirectExecutionData } from "@/api/datasets/execution/directDatabas
 import { supabase } from "@/integrations/supabase/client";
 
 export function usePreviewDataLoader() {
-  const [dataSource, setDataSource] = useState<'preview' | 'direct'>('preview');
+  const [dataSource, setDataSource] = useState<'preview' | 'direct' | 'minimal'>('preview');
   
   const loadPreviewData = useCallback(async (executionId: string, options: { limit?: number; maxRetries?: number; retryDelay?: number } = {}) => {
     if (!executionId) throw new Error("Execution ID is required");
@@ -45,6 +45,7 @@ export function usePreviewDataLoader() {
           
           if (!error && execution) {
             console.log("[Preview] Retrieved minimal execution data");
+            setDataSource('minimal');
             return {
               status: execution.status,
               execution: {

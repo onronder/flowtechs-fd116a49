@@ -31,7 +31,7 @@ export async function fetchDirectExecutionData(executionId: string) {
       throw new Error(`Execution check error: ${checkError.message}`);
     }
     
-    // Get the execution data with correct field selection (excluding the non-existent 'error' field)
+    // Get the execution data with simplified field selection first
     const { data: execution, error: executionError } = await supabase
       .from("dataset_executions")
       .select(`
@@ -44,8 +44,7 @@ export async function fetchDirectExecutionData(executionId: string) {
         error_message,
         metadata,
         data,
-        columns,
-        dataset:dataset_id (id, name, dataset_type, template_id)
+        dataset_id
       `)
       .eq("id", executionId)
       .eq("user_id", user.id)
@@ -59,6 +58,17 @@ export async function fetchDirectExecutionData(executionId: string) {
       throw new Error("No execution data found");
     }
     
+    // Now get the dataset information separately
+    const { data: dataset, error: datasetError } = await supabase
+      .from("user_datasets")
+      .select("id, name, dataset_type, template_id")
+      .eq("id", execution.dataset_id)
+      .single();
+      
+    if (datasetError) {
+      console.warn(`Could not fetch dataset details: ${datasetError.message}`);
+    }
+    
     // Format the data to match the edge function's response format
     const formattedData = {
       status: execution.status,
@@ -70,18 +80,34 @@ export async function fetchDirectExecutionData(executionId: string) {
         executionTimeMs: execution.execution_time_ms,
         apiCallCount: execution.metadata?.api_call_count
       },
-      dataset: {
-        id: execution.dataset?.id,
-        name: execution.dataset?.name,
-        type: execution.dataset?.dataset_type
+      dataset: dataset ? {
+        id: dataset.id,
+        name: dataset.name,
+        type: dataset.dataset_type
+      } : {
+        id: execution.dataset_id,
+        name: "Unknown Dataset",
+        type: "unknown"
       },
-      columns: execution.columns || [],
-      preview: Array.isArray(execution.data) 
-        ? execution.data.slice(0, 100) 
-        : [],
+      columns: [], // We'll handle columns extraction from data
+      preview: [],
       totalCount: execution.row_count || 0,
       error: execution.error_message
     };
+    
+    // Try to extract columns and preview data from the execution data
+    if (execution.data && Array.isArray(execution.data) && execution.data.length > 0) {
+      // Extract columns from the first row
+      if (typeof execution.data[0] === 'object' && execution.data[0] !== null) {
+        formattedData.columns = Object.keys(execution.data[0]).map(key => ({
+          key,
+          label: key
+        }));
+      }
+      
+      // Set preview data
+      formattedData.preview = execution.data.slice(0, 100);
+    }
     
     console.log(`[Preview] Successfully retrieved data directly from database:`, {
       status: formattedData.status,

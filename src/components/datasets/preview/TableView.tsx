@@ -1,6 +1,8 @@
 
 import { useState } from "react";
 import { ChevronRight, ChevronDown } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 interface TableViewProps {
   data: any[];
@@ -10,7 +12,18 @@ interface TableViewProps {
 export default function TableView({ data, columns }: TableViewProps) {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
 
-  if (!Array.isArray(data) || data.length === 0) {
+  if (!Array.isArray(data)) {
+    return (
+      <Alert variant="destructive" className="my-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          Invalid data format. Expected an array but received {typeof data}.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (data.length === 0) {
     return <div className="py-8 text-center text-muted-foreground">No data to display</div>;
   }
 
