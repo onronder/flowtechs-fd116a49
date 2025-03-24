@@ -106,14 +106,16 @@ export async function exportDataset(options: ExportOptions): Promise<ExportRespo
         URL.revokeObjectURL(url);
       }, 100);
       
+      // Return simplified response instead of recursively referencing the blob itself
       return {
         success: true,
         fileName: fileName || `export.${format}`,
         fileType: data.type,
         fileSize: data.size
-      };
+      } as ExportResponse;
     } else {
-      return data;
+      // Return data directly but ensure it conforms to ExportResponse type
+      return data as ExportResponse;
     }
   } catch (error) {
     console.error("Error exporting dataset:", error);
