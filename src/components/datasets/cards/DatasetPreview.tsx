@@ -9,6 +9,7 @@ import PreviewContent from "../preview/PreviewContent";
 import PreviewError from "../preview/PreviewError";
 import PreviewHeader from "../preview/PreviewHeader";
 import PreviewFailed from "../preview/PreviewFailed";
+import { exportDataset } from "@/api/datasets/exportApi";
 
 interface DatasetPreviewProps {
   executionId: string | null;
@@ -54,9 +55,26 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
   }, [isOpen]);
   
   const handleExport = (format: 'json' | 'csv' | 'xlsx') => {
+    if (!currentExecutionId) return;
+    
     setIsExporting(true);
-    // TODO: Implement export functionality
-    setTimeout(() => setIsExporting(false), 1000);
+    
+    const options = {
+      executionId: currentExecutionId,
+      format: format,
+      dataSource: previewData?.preview
+    };
+    
+    exportDataset(options)
+      .then(() => {
+        console.log(`Export to ${format} completed`);
+      })
+      .catch(error => {
+        console.error(`Error exporting to ${format}:`, error);
+      })
+      .finally(() => {
+        setIsExporting(false);
+      });
   };
   
   const handleCloseModal = useCallback(() => {

@@ -1,10 +1,11 @@
 
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Download, FileJson, FileSpreadsheet, FileText } from "lucide-react";
+import { AlertCircle, Download } from "lucide-react";
 import TableView from "./TableView";
 import { DataSourceType } from "@/hooks/preview/previewTypes";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import DataExport from "@/components/common/DataExport";
 
 interface PreviewContentProps {
   previewData: any;
@@ -32,6 +33,8 @@ export default function PreviewContent({
   const preview = previewData.preview || [];
   const columns = previewData.columns || [];
   const totalCount = previewData.totalCount || 0;
+  const executionId = previewData.execution?.id;
+  const datasetName = previewData.dataset?.name || "dataset";
   
   // If no data to show
   if (preview.length === 0) {
@@ -66,33 +69,15 @@ export default function PreviewContent({
         </div>
         
         <div className="flex space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onExport('json')}
-            disabled={isExporting}
-          >
-            <FileJson className="h-4 w-4 mr-2" />
-            JSON
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onExport('csv')}
-            disabled={isExporting}
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            CSV
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onExport('xlsx')}
-            disabled={isExporting}
-          >
-            <FileSpreadsheet className="h-4 w-4 mr-2" />
-            Excel
-          </Button>
+          {/* Replace the export buttons with our new DataExport component */}
+          <DataExport 
+            executionId={executionId} 
+            datasetName={datasetName}
+            data={preview} 
+            showSaveOption={true}
+            onExportStart={() => onExport('json')} 
+          />
+          
           <Button
             variant="outline"
             size="sm"
