@@ -19,8 +19,23 @@ serve(async (req) => {
   }
 
   try {
-    // Parse request
-    const { executionId, format = 'json', fileName = null, dataSource = null }: ExportOptions = await req.json();
+    // Parse request with proper error handling
+    let requestData: ExportOptions;
+    try {
+      const text = await req.text();
+      requestData = JSON.parse(text);
+    } catch (parseError) {
+      console.error("Error parsing request JSON:", parseError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Invalid JSON in request: " + parseError.message 
+        }),
+        { headers: corsHeaders, status: 400 }
+      );
+    }
+
+    const { executionId, format = 'json', fileName = null, dataSource = null } = requestData;
     const saveToStorage = req.headers.get('Save-To-Storage') === 'true';
 
     if (!executionId) {
@@ -32,6 +47,8 @@ serve(async (req) => {
         { headers: corsHeaders, status: 400 }
       );
     }
+
+    console.log(`Processing export request for execution ID: ${executionId}, format: ${format}, saveToStorage: ${saveToStorage}`);
 
     // Initialize Supabase client
     const supabaseAdmin = createClient(
@@ -57,6 +74,7 @@ serve(async (req) => {
       .single();
 
     if (executionError || !execution) {
+      console.error("Execution not found or error:", executionError);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -68,7 +86,7 @@ serve(async (req) => {
 
     // Handle direct data source if provided
     let results;
-    if (dataSource) {
+    if (dataSource && Array.isArray(dataSource)) {
       // Use provided data directly
       results = { results: dataSource };
       console.log(`Using direct data source with ${dataSource.length} records`);
@@ -81,6 +99,7 @@ serve(async (req) => {
         .single();
 
       if (resultsError || !resultsData) {
+        console.error("Results not found or error:", resultsError);
         return new Response(
           JSON.stringify({ 
             success: false, 
@@ -150,6 +169,7 @@ serve(async (req) => {
         });
       
       if (uploadError) {
+        console.error("Storage upload error:", uploadError);
         return new Response(
           JSON.stringify({ 
             success: false, 
@@ -165,18 +185,22 @@ serve(async (req) => {
         .getPublicUrl(filePath);
       
       // Create record in the exports table
-      await supabaseAdmin
-        .from("user_storage_exports")
-        .insert({
-          execution_id: executionId,
-          dataset_id: execution.dataset_id,
-          user_id: userId,
-          file_name: finalFileName,
-          file_path: filePath,
-          file_type: fileExtension,
-          file_size: exportData.length,
-          file_url: publicURL.publicUrl,
-        });
+      try {
+        await supabaseAdmin
+          .from("user_storage_exports")
+          .insert({
+            execution_id: executionId,
+            dataset_id: execution.dataset_id,
+            user_id: userId,
+            file_name: finalFileName,
+            file_path: filePath,
+            file_type: fileExtension,
+            file_size: exportData.length,
+            file_url: publicURL.publicUrl,
+          });
+      } catch (insertError) {
+        console.error("Error inserting export record:", insertError);
+      }
       
       const response: ExportResponse = {
         success: true,
@@ -191,20 +215,28 @@ serve(async (req) => {
         { headers: corsHeaders }
       );
     } else {
-      // Return the file data directly for download
-      const downloadHeaders = {
-        ...corsHeaders,
-        "Content-Type": contentType,
-        "Content-Disposition": `attachment; filename="${finalFileName}"`,
+      // For JSON and other formats that browsers can display natively,
+      // return the data in the response body rather than triggering a direct download
+      const responseBody: ExportResponse = {
+        success: true,
+        fileName: finalFileName,
+        fileType: contentType,
+        fileSize: exportData.length,
+        data: exportData
       };
       
-      // Return the file directly
-      return new Response(exportData, { headers: downloadHeaders });
+      return new Response(
+        JSON.stringify(responseBody),
+        { headers: corsHeaders }
+      );
     }
   } catch (error) {
     console.error("Error in DataExport:", error);
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Unknown error occurred" 
+      }),
       { headers: corsHeaders, status: 500 }
     );
   }

@@ -71,7 +71,7 @@ export async function exportDataset(options: ExportOptions): Promise<ExportRespo
         title: "Export Complete",
         description: `Dataset exported and saved to storage as ${data.fileName}`,
       });
-      return data;
+      return data as ExportResponse;
     } else if (data.data) {
       // For direct download, we create a blob and trigger browser download
       const blob = new Blob([data.data], { type: data.fileType });
@@ -89,7 +89,12 @@ export async function exportDataset(options: ExportOptions): Promise<ExportRespo
         URL.revokeObjectURL(url);
       }, 100);
       
-      return data;
+      return {
+        success: true,
+        fileName: data.fileName,
+        fileType: data.fileType,
+        fileSize: data.data.length
+      };
     } else if (data instanceof Blob) {
       // Handle case where the response is a Blob
       const url = URL.createObjectURL(data);
@@ -106,15 +111,15 @@ export async function exportDataset(options: ExportOptions): Promise<ExportRespo
         URL.revokeObjectURL(url);
       }, 100);
       
-      // Return simplified response instead of recursively referencing the blob itself
+      // Return simplified response without any recursive structure
       return {
         success: true,
         fileName: fileName || `export.${format}`,
         fileType: data.type,
         fileSize: data.size
-      } as ExportResponse;
+      };
     } else {
-      // Return data directly but ensure it conforms to ExportResponse type
+      // Return data directly with explicit type assertion
       return data as ExportResponse;
     }
   } catch (error) {
