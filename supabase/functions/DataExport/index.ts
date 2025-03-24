@@ -99,7 +99,7 @@ serve(async (req) => {
     const timestamp = new Date().toISOString().replace(/[:.-]/g, "_");
     const datasetName = execution.dataset?.name || "dataset";
     const sanitizedName = datasetName.replace(/[^a-z0-9]/gi, "_").toLowerCase();
-    const baseFileName = fileName || `${sanitizedName}_${timestamp}`;
+    const outputFileName = fileName || `${sanitizedName}_${timestamp}`;
 
     // Convert to the requested format
     switch (format.toLowerCase() as ExportFormat) {
@@ -121,7 +121,7 @@ serve(async (req) => {
         break;
     }
 
-    const fileName = `${baseFileName}.${fileExtension}`;
+    const finalFileName = `${outputFileName}.${fileExtension}`;
 
     // If requested, save the file to storage
     if (saveToStorage) {
@@ -136,7 +136,7 @@ serve(async (req) => {
         );
       }
       
-      const filePath = `${userId}/${execution.dataset_id}/${fileName}`;
+      const filePath = `${userId}/${execution.dataset_id}/${finalFileName}`;
       
       // Create a proper Blob with the right content type
       const fileBlob = new Blob([exportData], { type: contentType });
@@ -171,7 +171,7 @@ serve(async (req) => {
           execution_id: executionId,
           dataset_id: execution.dataset_id,
           user_id: userId,
-          file_name: fileName,
+          file_name: finalFileName,
           file_path: filePath,
           file_type: fileExtension,
           file_size: exportData.length,
@@ -180,7 +180,7 @@ serve(async (req) => {
       
       const response: ExportResponse = {
         success: true,
-        fileName,
+        fileName: finalFileName,
         fileType: contentType,
         fileSize: exportData.length,
         downloadUrl: publicURL.publicUrl,
@@ -191,15 +191,15 @@ serve(async (req) => {
         { headers: corsHeaders }
       );
     } else {
-      // Return the file data directly
-      const headers = {
+      // Return the file data directly for download
+      const downloadHeaders = {
         ...corsHeaders,
         "Content-Type": contentType,
-        "Content-Disposition": `attachment; filename="${fileName}"`,
+        "Content-Disposition": `attachment; filename="${finalFileName}"`,
       };
       
       // Return the file directly
-      return new Response(exportData, { headers });
+      return new Response(exportData, { headers: downloadHeaders });
     }
   } catch (error) {
     console.error("Error in DataExport:", error);

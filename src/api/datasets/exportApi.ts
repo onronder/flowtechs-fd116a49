@@ -90,6 +90,28 @@ export async function exportDataset(options: ExportOptions): Promise<ExportRespo
       }, 100);
       
       return data;
+    } else if (data instanceof Blob) {
+      // Handle case where the response is a Blob
+      const url = URL.createObjectURL(data);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName || `export.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+      
+      return {
+        success: true,
+        fileName: fileName || `export.${format}`,
+        fileType: data.type,
+        fileSize: data.size
+      };
     } else {
       return data;
     }
