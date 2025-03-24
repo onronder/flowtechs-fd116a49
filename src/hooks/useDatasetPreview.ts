@@ -33,6 +33,7 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [shouldShowStuckUi, setShouldShowStuckUi] = useState(false);
   const { toast } = useToast();
   
   const { 
@@ -49,7 +50,33 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
     handlePollingError,
     handlePollingSuccess,
     isMounted
-  } = usePreviewPolling();
+  } = usePreviewPolling({
+    maxPollCount: 120, // 4 minutes at 2-second intervals
+    pollInterval: 2000,
+    maxConsecutiveErrors: 3
+  });
+
+  // Check for potentially stuck executions
+  useEffect(() => {
+    if (!isOpen || !executionId || !startTime || !previewData) return;
+
+    // If execution has been in pending/running state for too long
+    if (['pending', 'running'].includes(previewData.status)) {
+      const executionStartTime = previewData.execution?.startTime ? 
+        new Date(previewData.execution.startTime) : 
+        new Date(startTime);
+        
+      const now = new Date();
+      const diffMinutes = (now.getTime() - executionStartTime.getTime()) / (1000 * 60);
+      
+      // Show the stuck UI if execution has been running for more than 3 minutes
+      if (diffMinutes > 3) {
+        setShouldShowStuckUi(true);
+      }
+    } else {
+      setShouldShowStuckUi(false);
+    }
+  }, [isOpen, executionId, previewData, startTime, pollCount]);
 
   // Check authentication status
   useEffect(() => {
@@ -64,7 +91,7 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
     }
   }, [isOpen]);
 
-  const loadPreview = useCallback(async (showLoading = true) => {
+  const loadPreview = useCallback(async (showLoading = true, checkStatus = false) => {
     try {
       if (!isMounted() || !executionId) return;
       
@@ -76,7 +103,8 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       const data = await loadPreviewData(executionId, {
         limit: 100,
         maxRetries: 2,
-        retryDelay: 1000
+        retryDelay: 1000,
+        checkStatus
       });
       
       if (!isMounted()) return;
@@ -85,8 +113,8 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
       handlePollingSuccess();
       setPreviewData(data);
       
-      // If execution is complete or failed, stop polling
-      if (data.status === "completed" || data.status === "failed") {
+      // If execution is complete, failed, or stuck, stop polling
+      if (data.status === "completed" || data.status === "failed" || data.status === "stuck") {
         console.log(`[Preview] Execution ${data.status}, stopping polling`);
         resetPolling();
         
@@ -101,6 +129,9 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
             description: data.error || "The dataset execution failed",
             variant: "destructive"
           });
+        } else if (data.status === "stuck") {
+          // Don't show a toast, the UI will handle this
+          setShouldShowStuckUi(true);
         }
       }
     } catch (err) {
@@ -132,12 +163,18 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
   }, [executionId, toast, resetPolling, loadPreviewData, 
        handlePollingError, handlePollingSuccess, isMounted, previewData]);
 
+  // Explicitly check for stuck executions on demand
+  const checkForStuckExecution = useCallback(() => {
+    return loadPreview(true, true);
+  }, [loadPreview]);
+
   useEffect(() => {
     if (isOpen && executionId) {
       // Reset state when opening with a new execution ID
       setLoading(true);
       setError(null);
       setPreviewData(null);
+      setShouldShowStuckUi(false);
       resetPolling();
       
       console.log(`[Preview] Starting preview polling for execution ID: ${executionId}`);
@@ -157,6 +194,8 @@ export function useDatasetPreview(executionId: string | null, isOpen: boolean) {
     dataSource,
     pollCount,
     maxPollCount,
-    startTime
+    startTime,
+    shouldShowStuckUi,
+    checkForStuckExecution
   };
 }

@@ -2,88 +2,138 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Reset stuck dataset executions
- * @param datasetId The dataset ID to reset executions for
+ * Reset stuck executions for a dataset
+ * @param datasetId The dataset ID to check for stuck executions
  * @param specificExecutionId Optional specific execution ID to reset
  */
 export async function resetStuckExecutions(datasetId: string, specificExecutionId?: string) {
   try {
     console.log(`Resetting stuck executions for dataset: ${datasetId}`);
     
-    // Find all executions in 'running' or 'pending' state that are older than 10 minutes
-    const tenMinutesAgo = new Date();
-    tenMinutesAgo.setMinutes(tenMinutesAgo.getMinutes() - 10);
-    
+    // Query to find stuck executions (pending or running for more than 15 minutes)
     let query = supabase
-      .from("dataset_executions")
-      .select("id")
-      .in("status", ["running", "pending"]);
+      .from('dataset_executions')
+      .select('id, status, start_time')
+      .eq('dataset_id', datasetId)
+      .in('status', ['pending', 'running']);
       
-    // If a specific execution ID is provided, use that instead of the time-based filter
+    // If a specific execution ID is provided, only check that one
     if (specificExecutionId) {
-      query = query.eq("id", specificExecutionId);
-    } else {
-      query = query
-        .eq("dataset_id", datasetId)
-        .lt("start_time", tenMinutesAgo.toISOString());
+      query = query.eq('id', specificExecutionId);
     }
     
-    const { data: stuckExecutions, error: fetchError } = await query;
-      
-    if (fetchError) {
-      console.error("Error fetching stuck executions:", fetchError);
-      throw fetchError;
+    const { data: executions, error } = await query;
+    
+    if (error) {
+      console.error("Error fetching executions:", error);
+      throw error;
     }
     
-    if (!stuckExecutions || stuckExecutions.length === 0) {
+    // Filter executions that started more than 15 minutes ago
+    const fifteenMinutesAgo = new Date();
+    fifteenMinutesAgo.setMinutes(fifteenMinutesAgo.getMinutes() - 15);
+    
+    const stuckExecutions = executions.filter(execution => {
+      const startTime = new Date(execution.start_time);
+      return startTime < fifteenMinutesAgo;
+    });
+    
+    console.log(`Found ${stuckExecutions.length} stuck executions`);
+    
+    if (stuckExecutions.length === 0) {
       console.log("No stuck executions found");
-      return { resetCount: 0 };
+      return { resetCount: 0, message: "No stuck executions found" };
     }
     
-    console.log(`Found ${stuckExecutions.length} stuck executions to reset`);
-    
-    // Update all stuck executions to 'failed' state
-    const stuckIds = stuckExecutions.map(exec => exec.id);
-    
-    const { error: updateError } = await supabase
-      .from("dataset_executions")
-      .update({ 
-        status: "failed", 
-        end_time: new Date().toISOString(),
-        error_message: "Execution timed out and was automatically reset" 
-      })
-      .in("id", stuckIds);
-      
-    if (updateError) {
-      console.error("Error updating stuck executions:", updateError);
-      throw updateError;
+    // Reset each stuck execution
+    for (const execution of stuckExecutions) {
+      await supabase
+        .from('dataset_executions')
+        .update({
+          status: 'failed',
+          error_message: 'Execution timed out and was automatically reset',
+          end_time: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', execution.id);
+        
+      console.log(`Reset execution: ${execution.id}`);
     }
     
-    console.log(`Successfully reset ${stuckExecutions.length} stuck executions`);
-    return { resetCount: stuckExecutions.length, resetIds: stuckIds };
+    return { 
+      resetCount: stuckExecutions.length,
+      message: `Reset ${stuckExecutions.length} stuck execution(s)`
+    };
   } catch (error) {
-    console.error("Error in resetStuckExecutions:", error);
+    console.error("Error resetting stuck executions:", error);
     throw error;
   }
 }
 
 /**
- * Reset a specific execution that is stuck
+ * Reset a specific execution that appears to be stuck
  */
 export async function resetSpecificExecution(executionId: string) {
   try {
-    console.log(`Attempting to reset specific execution: ${executionId}`);
+    console.log(`Attempting to reset execution: ${executionId}`);
     
-    const { resetCount, resetIds } = await resetStuckExecutions("", executionId);
+    // First check if the execution is actually stuck
+    const { data: execution, error } = await supabase
+      .from('dataset_executions')
+      .select('id, status, start_time, dataset_id')
+      .eq('id', executionId)
+      .single();
+      
+    if (error) {
+      console.error("Error fetching execution:", error);
+      throw error;
+    }
+    
+    // Only reset if the execution is in a pending or running state
+    if (!execution || !['pending', 'running'].includes(execution.status)) {
+      return { 
+        success: false, 
+        message: "Execution is not in a pending or running state and doesn't need to be reset"
+      };
+    }
+    
+    // Check if it's been running for at least 5 minutes
+    const startTime = new Date(execution.start_time);
+    const fiveMinutesAgo = new Date();
+    fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
+    
+    if (startTime > fiveMinutesAgo) {
+      return { 
+        success: false, 
+        message: "Execution hasn't been running long enough to be considered stuck"
+      };
+    }
+    
+    // Reset the execution
+    const { error: updateError } = await supabase
+      .from('dataset_executions')
+      .update({
+        status: 'failed',
+        error_message: 'Execution manually reset by user',
+        end_time: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', executionId);
+      
+    if (updateError) {
+      console.error("Error updating execution:", updateError);
+      throw updateError;
+    }
+    
+    console.log(`Successfully reset execution: ${executionId}`);
     
     return { 
-      success: resetCount > 0,
-      message: resetCount > 0 
-        ? `Successfully reset execution ${executionId}` 
-        : `No execution found with ID ${executionId} that needs resetting`
+      success: true, 
+      message: "Execution reset successfully",
+      datasetId: execution.dataset_id
     };
   } catch (error) {
-    console.error("Error resetting specific execution:", error);
+    console.error("Error resetting execution:", error);
     throw error;
   }
 }

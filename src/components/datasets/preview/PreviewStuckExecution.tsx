@@ -74,7 +74,7 @@ export default function PreviewStuckExecution({
         </h3>
         
         <p className="text-amber-700 mb-4">
-          This dataset execution has been in "pending" state for {getTimeAgo()} (started at {new Date(startTime).toLocaleTimeString()}).
+          This dataset execution has been in progress for {getTimeAgo()} (started at {new Date(startTime).toLocaleTimeString()}).
           It may have encountered an issue.
         </p>
         

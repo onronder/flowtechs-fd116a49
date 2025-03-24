@@ -79,6 +79,10 @@ serve(async (req) => {
           template = result.template;
         }
 
+        if (!dataset) {
+          throw new Error(`Dataset not found for ID: ${datasetId}`);
+        }
+
         console.log("Using dataset:", dataset?.id, "Dataset type:", dataset?.dataset_type);
         console.log("Using template:", template?.id, "Query:", template?.query_template?.substring(0, 100) + "...");
       } catch (fetchError) {
@@ -89,14 +93,21 @@ serve(async (req) => {
       
       if (!dataset || !dataset.source || !dataset.source.config) {
         const errorMsg = "Missing or invalid source configuration";
-        console.error(errorMsg);
+        console.error(errorMsg, "Dataset details:", JSON.stringify({
+          id: dataset?.id,
+          hasSource: !!dataset?.source,
+          hasConfig: !!dataset?.source?.config
+        }));
         await markExecutionAsFailed(supabaseClient, executionId, errorMsg);
         return errorResponse(errorMsg, 400);
       }
       
       if (!template || !template.query_template) {
         const errorMsg = "Missing or invalid template query";
-        console.error(errorMsg);
+        console.error(errorMsg, "Template details:", JSON.stringify({
+          id: template?.id,
+          hasQuery: !!template?.query_template
+        }));
         await markExecutionAsFailed(supabaseClient, executionId, errorMsg);
         return errorResponse(errorMsg, 400);
       }

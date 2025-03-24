@@ -1,164 +1,167 @@
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
-import { errorResponse } from "./responseUtils.ts";
-import { getSupabaseClient } from "./supabaseClient.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.5.0";
 
 /**
- * Fetches execution details
- * @param req The request object
- * @param executionId The execution ID to fetch
- * @param limit Maximum number of rows to return in preview
- * @returns Execution details response
+ * Fetches execution details from the database
  */
-export async function fetchExecutionDetails(req: Request, executionId: string, limit: number) {
-  // Create Supabase client
-  const supabase = await getSupabaseClient(req);
+export async function fetchExecutionDetails(
+  req: Request,
+  executionId: string,
+  limit: number = 100,
+  checkStatus: boolean = false
+): Promise<any> {
+  console.log(`Fetching execution details for ID: ${executionId}, limit: ${limit}`);
   
-  // Verify that execution exists
-  const { data: executionCheck, error: executionError } = await supabase
-    .from("dataset_executions")
-    .select("id, user_id")
-    .eq("id", executionId)
-    .maybeSingle();
-
-  if (executionError) {
-    console.error("Error checking execution:", executionError);
-    throw new Error(`Database error: ${executionError.message}`);
-  }
-
-  if (!executionCheck) {
-    console.error("Execution not found");
-    throw new Error("Execution not found");
-  }
-
-  // Now get the execution data
-  // Modified query to avoid the template join that was causing issues
-  const { data: execution, error: fetchError } = await supabase
+  // Get Supabase client
+  const supabaseClient = createSupabaseClient(req);
+  
+  // Get execution details
+  const { data: execution, error: executionError } = await supabaseClient
     .from("dataset_executions")
     .select(`
-      id, 
-      status, 
-      start_time, 
-      end_time, 
-      row_count, 
-      execution_time_ms,
-      error_message,
-      metadata,
+      id,
+      status,
       data,
-      dataset_id
+      error_message,
+      dataset_id,
+      start_time,
+      end_time,
+      row_count,
+      execution_time_ms,
+      metadata,
+      dataset:dataset_id(
+        id,
+        name,
+        dataset_type,
+        template_id
+      )
     `)
     .eq("id", executionId)
     .single();
-
-  if (fetchError) {
-    console.error("Error fetching execution:", fetchError);
-    throw new Error(`Database error: ${fetchError.message}`);
+  
+  if (executionError) {
+    console.error("Error fetching execution:", executionError);
+    throw new Error(`Database error: ${executionError.message}`);
   }
-
-  // Now fetch the dataset information separately to avoid join issues
-  const datasetInfo = await fetchDatasetInfo(supabase, execution.dataset_id);
-
-  // Format response based on execution status
-  return formatResponse(execution, datasetInfo, limit);
-}
-
-/**
- * Fetches dataset information
- * @param supabase Supabase client
- * @param datasetId Dataset ID
- * @returns Dataset information
- */
-async function fetchDatasetInfo(supabase: any, datasetId: string) {
-  const { data: dataset, error: datasetError } = await supabase
-    .from("user_datasets")
-    .select("id, name, dataset_type, template_id")
-    .eq("id", datasetId)
-    .single();
-
-  // Build dataset info object safely
-  const datasetInfo = {
-    id: dataset?.id || datasetId,
-    name: dataset?.name || "Unknown Dataset",
-    type: dataset?.dataset_type || "unknown",
-    template: null // Initialize with null
-  };
-
-  // Only try to get template info if we have a template_id and avoid direct joins
-  if (dataset?.template_id) {
-    // Try query_templates first
-    const { data: templateData } = await supabase
-      .from("query_templates")
-      .select("id, name")
-      .eq("id", dataset.template_id)
-      .maybeSingle();
-      
-    if (templateData) {
-      datasetInfo.template = { name: templateData.name };
-    } else {
-      // Try dependent_query_templates if not found in query_templates
-      const { data: depTemplateData } = await supabase
-        .from("dependent_query_templates")
-        .select("id, name")
-        .eq("id", dataset.template_id)
-        .maybeSingle();
-        
-      if (depTemplateData) {
-        datasetInfo.template = { name: depTemplateData.name };
-      }
-    }
+  
+  if (!execution) {
+    console.error("Execution not found:", executionId);
+    throw new Error("Execution not found");
   }
-
-  return datasetInfo;
-}
-
-/**
- * Formats the response based on execution status
- * @param execution Execution data
- * @param datasetInfo Dataset information
- * @param limit Maximum number of rows to return in preview
- * @returns Formatted response
- */
-function formatResponse(execution: any, datasetInfo: any, limit: number) {
-  const response: Record<string, any> = {
-    status: execution.status,
-    execution: {
-      id: execution.id,
-      startTime: execution.start_time,
-      endTime: execution.end_time,
-      rowCount: execution.row_count,
-      executionTimeMs: execution.execution_time_ms,
-      apiCallCount: execution.metadata?.api_call_count
-    },
-    dataset: datasetInfo,
-    columns: [],
-    error: execution.error_message
-  };
-
-  // Handle different execution states
-  if (execution.status === "completed") {
-    // Extract columns from data if available
-    if (execution.data && Array.isArray(execution.data) && execution.data.length > 0) {
-      const firstRow = execution.data[0];
-      if (typeof firstRow === 'object' && firstRow !== null) {
-        response.columns = Object.keys(firstRow).map(key => ({
-          key,
-          label: key
-        }));
-      }
-    }
-
-    // Set preview data - limiting to max 5 rows for initial preview
-    const maxPreviewRows = Math.min(5, limit);
-    response.preview = Array.isArray(execution.data) 
-      ? execution.data.slice(0, maxPreviewRows) 
-      : [];
+  
+  // Check for execution that may be stuck in pending/running state
+  if (checkStatus && 
+      (execution.status === 'pending' || execution.status === 'running') && 
+      execution.start_time) {
+    const startTime = new Date(execution.start_time).getTime();
+    const currentTime = new Date().getTime();
+    const fifteenMinutes = 15 * 60 * 1000;
     
-    response.totalCount = execution.row_count || 0;
-  } else {
-    // Pending or running
-    response.preview = [];
-    response.totalCount = 0;
+    // If the execution has been running for more than 15 minutes, it might be stuck
+    if (currentTime - startTime > fifteenMinutes) {
+      return {
+        status: 'stuck',
+        execution: {
+          id: execution.id,
+          startTime: execution.start_time,
+          status: execution.status
+        },
+        dataset: execution.dataset,
+        preview: [],
+        totalCount: 0,
+        error: "Execution appears to be stuck"
+      };
+    }
   }
+  
+  // Process the result based on the execution status
+  if (execution.status === "completed" && execution.data) {
+    // Extract columns from the first row
+    const columns = execution.data && execution.data.length > 0
+      ? extractColumns(execution.data[0])
+      : [];
+      
+    return {
+      status: execution.status,
+      execution: {
+        id: execution.id,
+        startTime: execution.start_time,
+        endTime: execution.end_time,
+        rowCount: execution.row_count,
+        executionTimeMs: execution.execution_time_ms,
+        apiCallCount: execution.metadata?.api_call_count
+      },
+      dataset: execution.dataset,
+      columns: columns,
+      preview: execution.data.slice(0, limit),
+      totalCount: execution.row_count || execution.data.length,
+    };
+  } else {
+    // Return basic info for incomplete or failed executions
+    return {
+      status: execution.status,
+      execution: {
+        id: execution.id,
+        startTime: execution.start_time,
+        endTime: execution.end_time
+      },
+      dataset: execution.dataset,
+      columns: [],
+      preview: [],
+      totalCount: 0,
+      error: execution.error_message
+    };
+  }
+}
 
-  return response;
+/**
+ * Extract columns from a data row
+ */
+function extractColumns(row: any): Array<{ key: string; label: string }> {
+  if (!row) return [];
+  
+  return Object.keys(row).map(key => ({
+    key,
+    label: formatColumnLabel(key)
+  }));
+}
+
+/**
+ * Format column labels for display
+ */
+function formatColumnLabel(key: string): string {
+  // Convert camelCase or snake_case to Title Case
+  return key
+    .replace(/_/g, ' ')
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, str => str.toUpperCase())
+    .trim();
+}
+
+/**
+ * Create a Supabase client from request
+ */
+function createSupabaseClient(req: Request) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || 
+                     Deno.env.get("SUPABASE_ANON_KEY");
+  
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Missing Supabase environment variables");
+  }
+  
+  // Get the auth token from the request header
+  const authHeader = req.headers.get("Authorization");
+  
+  // Create client options with auth if available
+  const options: any = {};
+  if (authHeader) {
+    options.global = {
+      headers: {
+        Authorization: authHeader
+      }
+    };
+  }
+  
+  return createClient(supabaseUrl, supabaseKey, options);
 }

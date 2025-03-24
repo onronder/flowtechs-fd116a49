@@ -9,7 +9,15 @@ export type DataSourceType = 'preview' | 'direct' | 'minimal';
 export function usePreviewDataLoader() {
   const [dataSource, setDataSource] = useState<DataSourceType>('preview');
   
-  const loadPreviewData = useCallback(async (executionId: string, options: { limit?: number; maxRetries?: number; retryDelay?: number } = {}) => {
+  const loadPreviewData = useCallback(async (
+    executionId: string, 
+    options: { 
+      limit?: number; 
+      maxRetries?: number; 
+      retryDelay?: number;
+      checkStatus?: boolean;
+    } = {}
+  ) => {
     if (!executionId) throw new Error("Execution ID is required");
     
     console.log(`[Preview] Fetching preview data for execution ID: ${executionId}`);
@@ -24,7 +32,10 @@ export function usePreviewDataLoader() {
       
       // Try the standard preview endpoint first
       try {
-        const data = await fetchDatasetPreview(executionId, options);
+        const data = await fetchDatasetPreview(executionId, {
+          ...options,
+          checkStatus: options.checkStatus || false
+        });
         setDataSource('preview');
         console.log("[Preview] Preview data received:", data);
         return data;

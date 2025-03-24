@@ -44,6 +44,7 @@ export default function PreviewContent({
   const getStatusBadgeVariant = (status: string | undefined) => {
     if (status === 'completed') return 'default';
     if (status === 'failed') return 'destructive';
+    if (status === 'stuck') return 'warning';
     return 'secondary'; // for pending, running or unknown statuses
   };
 
