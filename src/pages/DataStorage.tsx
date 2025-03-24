@@ -1,14 +1,15 @@
+
 import React, { useState, useEffect } from "react";
-import { getUserExports } from "@/api/datasets/exportApi";
+import { getUserExports, StorageExport } from "@/api/datasets/exportApi";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileJson, FileText, FileSpreadsheet, Download, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import LoadingSpinner from "@/components/ui/loading-spinner";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 const DataStorage = () => {
-  const [exports, setExports] = useState<any[]>([]);
+  const [exports, setExports] = useState<StorageExport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -16,7 +17,9 @@ const DataStorage = () => {
     try {
       setLoading(true);
       setError(null);
+      console.log('Loading user exports...');
       const data = await getUserExports();
+      console.log('Loaded exports:', data);
       setExports(data);
     } catch (error) {
       setError("Failed to load your exports");
@@ -38,14 +41,14 @@ const DataStorage = () => {
     a.click();
     document.body.removeChild(a);
     
-    toast({
+    useToast().toast({
       title: "Download Started",
       description: `Downloading ${fileName}`,
     });
   };
   
   const getFileIcon = (fileType: string) => {
-    switch (fileType.toLowerCase()) {
+    switch (fileType?.toLowerCase()) {
       case 'json':
         return <FileJson className="h-4 w-4" />;
       case 'csv':
@@ -58,6 +61,7 @@ const DataStorage = () => {
   };
   
   const formatFileSize = (bytes: number) => {
+    if (!bytes || bytes === 0) return '0 B';
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
@@ -111,16 +115,16 @@ const DataStorage = () => {
             <TableBody>
               {exports.map((exportItem) => (
                 <TableRow key={exportItem.id}>
-                  <TableCell>{getFileIcon(exportItem.file_type)}</TableCell>
+                  <TableCell>{getFileIcon(exportItem.format)}</TableCell>
                   <TableCell className="font-medium">{exportItem.file_name}</TableCell>
-                  <TableCell className="uppercase">{exportItem.file_type}</TableCell>
+                  <TableCell className="uppercase">{exportItem.format}</TableCell>
                   <TableCell>{formatFileSize(exportItem.file_size)}</TableCell>
                   <TableCell>{format(new Date(exportItem.created_at), 'MMM d, yyyy HH:mm')}</TableCell>
                   <TableCell className="text-right">
                     <Button 
                       variant="ghost" 
                       size="sm"
-                      onClick={() => handleDownload(exportItem.file_url, exportItem.file_name)}
+                      onClick={() => handleDownload(exportItem.file_url || '', exportItem.file_name || '')}
                     >
                       <Download className="h-4 w-4 mr-2" />
                       Download

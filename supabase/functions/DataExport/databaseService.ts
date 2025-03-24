@@ -81,20 +81,33 @@ export async function saveExportRecord(supabaseAdmin: any, params: {
   fileUrl: string;
 }): Promise<void> {
   try {
-    await supabaseAdmin
+    console.log("Saving export record to database:", {
+      execution_id: params.executionId,
+      file_path: params.filePath,
+      user_id: params.userId,
+      format: params.fileType,
+      file_size: params.fileSize
+    });
+    
+    // Insert record based on actual table structure
+    const { error } = await supabaseAdmin
       .from("user_storage_exports")
       .insert({
         execution_id: params.executionId,
-        dataset_id: params.datasetId,
-        user_id: params.userId,
-        file_name: params.fileName,
         file_path: params.filePath,
-        file_type: params.fileType,
-        file_size: params.fileSize,
-        file_url: params.fileUrl,
+        user_id: params.userId,
+        format: params.fileType,
+        file_size: params.fileSize
       });
+      
+    if (error) {
+      console.error("Error inserting export record:", error);
+      throw error;
+    }
+    
+    console.log("Successfully saved export record");
   } catch (insertError) {
-    console.error("Error inserting export record:", insertError);
+    console.error("Error in saveExportRecord:", insertError);
     throw insertError;
   }
 }

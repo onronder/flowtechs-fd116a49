@@ -53,6 +53,7 @@ serve(async (req) => {
 
     // If requested, save the file to storage
     if (saveToStorage) {
+      console.log("Saving file to storage...");
       const userId = execution.dataset?.user_id;
       if (!userId) {
         return createErrorResponse("User ID not found for dataset", 400);
@@ -68,6 +69,8 @@ serve(async (req) => {
           exportData,
           contentType
         );
+        
+        console.log(`File uploaded successfully to ${filePath}, public URL: ${publicUrl}`);
         
         // Create record in the exports table
         await saveExportRecord(supabaseAdmin, {
@@ -89,6 +92,7 @@ serve(async (req) => {
           downloadUrl: publicUrl,
         };
         
+        console.log("Export completed successfully with storage");
         return createSuccessResponse(response);
       } catch (error) {
         console.error("Error in storage operations:", error);
@@ -107,6 +111,7 @@ serve(async (req) => {
         data: exportData
       };
       
+      console.log("Export completed successfully without storage");
       return createSuccessResponse(responseBody);
     }
   } catch (error) {

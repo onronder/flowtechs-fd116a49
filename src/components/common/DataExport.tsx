@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Save, MoreHorizontal } from "lucide-react";
@@ -55,6 +56,8 @@ export default function DataExport({
       const sanitizedName = (datasetName || "dataset").replace(/[^a-z0-9]/gi, "_").toLowerCase();
       const fileName = `${sanitizedName}_${timestamp}.${format}`;
 
+      console.log(`Exporting dataset ${executionId} as ${format}, saveToStorage=${saveToStorage}`);
+
       const exportOptions: ExportOptions = {
         executionId,
         format,
@@ -63,18 +66,23 @@ export default function DataExport({
         dataSource: data,
       };
 
-      await exportDataset(exportOptions);
+      const result = await exportDataset(exportOptions);
+      console.log("Export result:", result);
 
-      if (saveToStorage) {
-        toast({
-          title: "Export Saved",
-          description: `The ${format.toUpperCase()} export has been saved to your storage.`,
-        });
+      if (result.success) {
+        if (saveToStorage) {
+          toast({
+            title: "Export Saved",
+            description: `The ${format.toUpperCase()} export has been saved to your storage.`,
+          });
+        } else {
+          toast({
+            title: "Export Complete",
+            description: `The ${format.toUpperCase()} export has been downloaded.`,
+          });
+        }
       } else {
-        toast({
-          title: "Export Complete",
-          description: `The ${format.toUpperCase()} export has been downloaded.`,
-        });
+        throw new Error(result.error || "Export failed");
       }
 
       if (onExportComplete) {
