@@ -2,7 +2,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { ShopifyCredentials, ValidationResult, TestConnectionResult } from "@/types/sourceTypes";
 import { Source } from "@/hooks/useSources";
-import { fetchSourceSchema } from "../sources/sourceSchemas";
 import { detectLatestShopifyVersion } from "@/utils/shopify/versionDetector";
 
 /**
@@ -28,6 +27,7 @@ export async function validateShopifyConnection(credentials: ShopifyCredentials)
       } catch (versionError) {
         console.error("Error detecting API version:", versionError);
         // Continue with validation, the Edge Function will attempt to detect version
+        credentials.api_version = "2025-01"; // Fallback to a recent version
       }
     }
     
@@ -44,10 +44,12 @@ export async function validateShopifyConnection(credentials: ShopifyCredentials)
       };
     }
     
-    if (!data.success) {
+    if (!data || !data.success) {
+      const errorMsg = data?.error || "Unknown error validating Shopify connection";
+      console.error("Validation error:", errorMsg);
       return { 
         success: false, 
-        error: data.error || "Unknown error validating Shopify connection" 
+        error: errorMsg 
       };
     }
     
@@ -127,7 +129,17 @@ export async function testShopifyConnection(sourceId: string, source: Source): P
       // Update succeeded, now fetch the new schema
       console.log(`Fetching schema for updated API version ${latestApiVersion}`);
       try {
-        await fetchSourceSchema(sourceId, true);
+        // Use the direct Supabase function call to ensure we're getting an accurate response
+        const { data: schemaData, error: schemaError } = await supabase.functions.invoke("fetchSourceSchema", {
+          body: { sourceId, forceUpdate: true }
+        });
+        
+        if (schemaError) {
+          console.error("Error fetching schema after API version update:", schemaError);
+        } else {
+          console.log("Schema update successful:", schemaData);
+        }
+        
         updated = true;
       } catch (schemaError) {
         console.error("Error updating schema after API version change:", schemaError);
@@ -168,16 +180,25 @@ export async function testShopifyConnection(sourceId: string, source: Source): P
     if (lastValidatedAt < sevenDaysAgo) {
       console.log(`Schema is older than 7 days (last update: ${lastValidatedAt.toISOString()}), refreshing`);
       try {
-        await fetchSourceSchema(sourceId, true);
+        // Use the direct Supabase function call
+        const { data: schemaData, error: schemaError } = await supabase.functions.invoke("fetchSourceSchema", {
+          body: { sourceId, forceUpdate: true }
+        });
         
-        // Update last_validated_at timestamp
-        await supabase
-          .from("sources")
-          .update({ 
-            last_validated_at: new Date().toISOString()
-          })
-          .eq("id", sourceId);
+        if (schemaError) {
+          console.error("Error refreshing schema:", schemaError);
+        } else {
+          console.log("Schema update successful:", schemaData);
           
+          // Update last_validated_at timestamp
+          await supabase
+            .from("sources")
+            .update({ 
+              last_validated_at: new Date().toISOString()
+            })
+            .eq("id", sourceId);
+        }
+        
         return { 
           success: true, 
           updated: true, 
@@ -217,57 +238,8 @@ export async function fetchShopifySchema(sourceId: string, forceUpdate = false):
   try {
     console.log(`Fetching Shopify schema, sourceId: ${sourceId}, forceUpdate: ${forceUpdate}`);
     
-    // First get the source details to check current API version
-    const { data: source, error: sourceError } = await supabase
-      .from("sources")
-      .select("*")
-      .eq("id", sourceId)
-      .single();
-      
-    if (sourceError) {
-      console.error("Error fetching source:", sourceError);
-      return { 
-        success: false, 
-        error: sourceError.message || "Failed to fetch source" 
-      };
-    }
-    
-    // Try to detect the latest API version
-    let currentApiVersion = source.config.api_version;
-    let latestApiVersion = currentApiVersion;
-    
-    try {
-      console.log(`Detecting latest API version for store: ${source.config.storeName}`);
-      latestApiVersion = await detectLatestShopifyVersion(
-        source.config.storeName,
-        source.config.accessToken
-      );
-      console.log(`Current API version: ${currentApiVersion}, Latest available: ${latestApiVersion}`);
-      
-      // Update source if version has changed
-      if (latestApiVersion !== currentApiVersion) {
-        console.log(`Updating API version from ${currentApiVersion} to ${latestApiVersion}`);
-        
-        const updatedConfig = { ...source.config, api_version: latestApiVersion };
-        await supabase
-          .from("sources")
-          .update({ 
-            config: updatedConfig,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", sourceId);
-          
-        // Use the latest version for schema fetch
-        source.config.api_version = latestApiVersion;
-        forceUpdate = true; // Force schema update when API version changes
-      }
-    } catch (versionError) {
-      console.error("Error detecting latest API version:", versionError);
-      // Continue with current version
-    }
-    
-    // Invoke the Edge Function to fetch the schema
-    const { data, error } = await supabase.functions.invoke("fetchShopifySchema", {
+    // Use the Supabase Edge Function to fetch the schema
+    const { data, error } = await supabase.functions.invoke("fetchSourceSchema", {
       body: { sourceId, forceUpdate }
     });
     
@@ -279,10 +251,21 @@ export async function fetchShopifySchema(sourceId: string, forceUpdate = false):
       };
     }
     
+    // Handle the response properly - check if data is present and contains success status
+    if (!data) {
+      console.error("No data returned from fetchSourceSchema function");
+      return {
+        success: false,
+        error: "No data returned from schema fetch"
+      };
+    }
+    
     if (!data.success) {
+      const errorMsg = data.error || "Unknown error fetching Shopify schema";
+      console.error("Schema fetch unsuccessful:", errorMsg);
       return { 
         success: false, 
-        error: data.error || "Unknown error fetching Shopify schema" 
+        error: errorMsg
       };
     }
     

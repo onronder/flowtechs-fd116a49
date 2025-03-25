@@ -21,6 +21,10 @@ export async function fetchSourceSchema(sourceId: string, forceUpdate = false) {
       throw new Error(sourceError.message || "Failed to fetch source");
     }
     
+    if (!source) {
+      throw new Error(`Source not found: ${sourceId}`);
+    }
+    
     // Type checking and safe access to config.api_version
     const apiVersion = source.config && typeof source.config === 'object' ? 
       (source.config as Record<string, unknown>).api_version : undefined;

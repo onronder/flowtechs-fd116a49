@@ -12,7 +12,16 @@ serve(async (req) => {
   }
   
   try {
-    const { sourceId, forceUpdate = false } = await req.json();
+    // Parse request body
+    let body;
+    try {
+      body = await req.json();
+    } catch (e) {
+      console.error("Error parsing request body:", e);
+      return errorResponse("Invalid JSON in request body");
+    }
+    
+    const { sourceId, forceUpdate = false } = body;
     console.log(`Processing fetchSourceSchema request for sourceId: ${sourceId}, forceUpdate: ${forceUpdate}`);
     
     if (!sourceId) {

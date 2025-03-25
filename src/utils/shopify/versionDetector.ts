@@ -25,14 +25,16 @@ export async function detectLatestShopifyVersion(
     
     if (!response.ok) {
       console.error(`Error fetching API versions: ${response.status} ${response.statusText}`);
-      throw new Error(`Failed to fetch API versions: ${response.status} ${response.statusText}`);
+      // Fallback to a default version if we can't detect it
+      return "2025-01";
     }
     
     const data = await response.json();
     
     if (!data.supported_versions || !data.supported_versions.length) {
       console.error("No API versions found in response");
-      throw new Error("No API versions found in response");
+      // Fallback to a default version
+      return "2025-01";
     }
     
     // Sort versions to find the latest one
@@ -46,7 +48,8 @@ export async function detectLatestShopifyVersion(
     return latestVersion;
   } catch (error) {
     console.error("Error detecting latest Shopify API version:", error);
-    throw error;
+    // Always return a fallback version on error rather than throwing
+    return "2025-01";
   }
 }
 
