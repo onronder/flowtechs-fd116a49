@@ -75,7 +75,31 @@ export default function DataExport({
             title: "Export Saved",
             description: `The ${format.toUpperCase()} export has been saved to your storage.`,
           });
-        } else {
+        } else if (result.downloadUrl) {
+          // Direct download if URL is provided
+          const a = document.createElement("a");
+          a.href = result.downloadUrl;
+          a.download = result.fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          
+          toast({
+            title: "Export Complete",
+            description: `The ${format.toUpperCase()} export has been downloaded.`,
+          });
+        } else if (result.data) {
+          // Create and trigger download from data
+          const blob = new Blob([result.data], { type: result.fileType });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = result.fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          
           toast({
             title: "Export Complete",
             description: `The ${format.toUpperCase()} export has been downloaded.`,
@@ -118,15 +142,15 @@ export default function DataExport({
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => handleExport("json")} id="export-json">
             <Download className="h-4 w-4 mr-2" />
-            JSON
+            Download JSON
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => handleExport("csv")} id="export-csv">
             <Download className="h-4 w-4 mr-2" />
-            CSV
+            Download CSV
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => handleExport("xlsx")} id="export-xlsx">
             <Download className="h-4 w-4 mr-2" />
-            Excel
+            Download Excel
           </DropdownMenuItem>
 
           {showSaveOption && (
@@ -134,15 +158,15 @@ export default function DataExport({
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => handleExport("json", true)} id="save-json">
                 <Save className="h-4 w-4 mr-2" />
-                Save as JSON
+                Save as JSON to Storage
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleExport("csv", true)} id="save-csv">
                 <Save className="h-4 w-4 mr-2" />
-                Save as CSV
+                Save as CSV to Storage
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleExport("xlsx", true)} id="save-xlsx">
                 <Save className="h-4 w-4 mr-2" />
-                Save as Excel
+                Save as Excel to Storage
               </DropdownMenuItem>
             </>
           )}

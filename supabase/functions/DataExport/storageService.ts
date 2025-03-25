@@ -44,6 +44,8 @@ export async function uploadToStorage(
     }
     
     console.log("dataset_exports bucket created successfully");
+  } else {
+    console.log("dataset_exports bucket already exists");
   }
   
   // Create a proper Blob with the right content type

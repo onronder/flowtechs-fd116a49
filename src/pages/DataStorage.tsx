@@ -12,6 +12,7 @@ const DataStorage = () => {
   const [exports, setExports] = useState<StorageExport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
   
   const loadExports = async () => {
     try {
@@ -34,6 +35,15 @@ const DataStorage = () => {
   }, []);
   
   const handleDownload = (fileUrl: string, fileName: string) => {
+    if (!fileUrl) {
+      toast({
+        title: "Download Failed",
+        description: "File URL is missing",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     const a = document.createElement("a");
     a.href = fileUrl;
     a.download = fileName;
@@ -41,7 +51,7 @@ const DataStorage = () => {
     a.click();
     document.body.removeChild(a);
     
-    useToast().toast({
+    toast({
       title: "Download Started",
       description: `Downloading ${fileName}`,
     });
@@ -96,7 +106,7 @@ const DataStorage = () => {
         <div className="bg-muted p-8 rounded-lg text-center">
           <h3 className="text-lg font-medium mb-2">No Exports Yet</h3>
           <p className="text-muted-foreground mb-6">
-            You haven't exported any datasets yet. Export some data to see it here.
+            You haven't exported any datasets yet. Use the "Save as..." options when exporting to store files here.
           </p>
         </div>
       ) : (
@@ -125,6 +135,7 @@ const DataStorage = () => {
                       variant="ghost" 
                       size="sm"
                       onClick={() => handleDownload(exportItem.file_url || '', exportItem.file_name || '')}
+                      disabled={!exportItem.file_url}
                     >
                       <Download className="h-4 w-4 mr-2" />
                       Download
