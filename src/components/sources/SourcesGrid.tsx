@@ -1,13 +1,24 @@
 
 import React from "react";
-import { Source } from "@/hooks/useSources";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import SourceCard from "./SourceCard";
 
-interface SourcesGridProps {
-  sources: Source[];
+// Define a simpler Source type for the SourcesGrid component
+interface GridSource {
+  id: string;
+  name: string;
+  description?: string | null;
+  sourceType: string;
+  is_active?: boolean;
+  created_at?: string | null;
+  lastValidatedAt?: string | null;
+  apiVersion?: string;
+  [key: string]: any; // Allow additional properties
+}
+
+export interface SourcesGridProps {
+  sources: GridSource[];
   onTest: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
@@ -38,9 +49,9 @@ export default function SourcesGrid({
         <SourceCard
           key={source.id}
           source={source}
-          onTest={onTest}
-          onEdit={onEdit}
-          onDelete={onDelete}
+          onTest={() => onTest(source.id)}
+          onEdit={() => onEdit(source.id)}
+          onDelete={() => onDelete(source.id)}
           isTesting={testingSourceId === source.id}
         />
       ))}

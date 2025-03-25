@@ -4,20 +4,21 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import useSources from "@/hooks/useSources";
+import { useSources } from "@/hooks/useSources";
 import SourcesGrid from "@/components/sources/SourcesGrid";
 import EmptySourcesState from "@/components/sources/EmptySourcesState";
 
 export default function Sources() {
-  const { sources, isLoading, error, refetch } = useSources();
+  const { sources, loading: isLoading, error, fetchSources: refetch } = useSources();
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [testingSourceId, setTestingSourceId] = useState<string | null>(null);
 
   useEffect(() => {
     if (error) {
       toast({
         title: "Error loading sources",
-        description: error.message,
+        description: error,
         variant: "destructive",
       });
     }
@@ -37,14 +38,36 @@ export default function Sources() {
       setIsRefreshing(false);
     }
   };
+  
+  const handleTestSource = (id: string) => {
+    setTestingSourceId(id);
+    // Logic for testing would go here
+    // After testing completes:
+    setTimeout(() => {
+      setTestingSourceId(null);
+      handleRefresh();
+    }, 1000);
+  };
+  
+  const handleEditSource = (id: string) => {
+    // Navigate to edit page
+    window.location.href = `/sources/edit/${id}`;
+  };
+  
+  const handleDeleteSource = (id: string) => {
+    // Delete source logic would go here
+    handleRefresh();
+  };
+  
+  const handleAddNew = () => {
+    // Navigate to add source page
+    window.location.href = '/sources/add';
+  };
 
   const formattedSources = sources.map(source => ({
-    id: source.id,
-    name: source.name,
-    description: source.description,
+    ...source,
     sourceType: source.source_type,
-    lastValidatedAt: source.last_validated_at,
-    apiVersion: source.config?.api_version // Added apiVersion
+    apiVersion: source.config?.api_version
   }));
 
   return (
@@ -69,12 +92,15 @@ export default function Sources() {
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
         </div>
       ) : sources.length === 0 ? (
-        <EmptySourcesState />
+        <EmptySourcesState onAddNew={handleAddNew} />
       ) : (
         <SourcesGrid 
           sources={formattedSources} 
-          onTestSuccess={handleRefresh}
-          onDelete={handleRefresh}
+          onTest={handleTestSource}
+          onEdit={handleEditSource}
+          onDelete={handleDeleteSource}
+          onAddNew={handleAddNew}
+          testingSourceId={testingSourceId}
         />
       )}
     </div>

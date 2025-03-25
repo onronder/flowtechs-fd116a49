@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { Database, Plus, ArrowRight } from "lucide-react";
 
-interface EmptySourcesStateProps {
+export interface EmptySourcesStateProps {
   onAddNew: () => void;
 }
 
