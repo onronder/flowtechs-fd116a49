@@ -61,15 +61,18 @@ export default function DatasetActions({
   };
   
   // Create adapter functions to match the expected signatures
-  const handlePreviewClick = () => {
+  const handlePreviewClick = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation(); // Prevent event bubbling if event is provided
     onViewPreview();
   };
   
-  const handleDeleteClick = () => {
+  const handleDeleteClick = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation(); // Prevent event bubbling if event is provided
     onDeleteDataset();
   };
   
-  const handleScheduleClick = () => {
+  const handleScheduleClick = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation(); // Prevent event bubbling if event is provided
     onScheduleDataset();
   };
   
