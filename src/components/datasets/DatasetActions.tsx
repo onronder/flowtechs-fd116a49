@@ -4,6 +4,7 @@ import { PreviewButton } from "./actions/PreviewButton";
 import { RunButton } from "./actions/RunButton";
 import { DatasetActionsMenu } from "./actions/DatasetActionsMenu";
 import { useDatasetExecution } from "./actions/useDatasetExecution";
+import { DatasetExportAction } from "./actions/DatasetExportAction";
 
 interface DatasetActionsProps {
   datasetId: string;
@@ -73,9 +74,14 @@ export default function DatasetActions({
           errorState={errorState}
         />
         
+        {lastExecutionId && (
+          <DatasetExportAction
+            executionId={lastExecutionId}
+            datasetName={datasetName}
+          />
+        )}
+        
         <DatasetActionsMenu
-          lastExecutionId={lastExecutionId}
-          datasetName={datasetName}
           onViewPreview={onViewPreview}
           onScheduleDataset={onScheduleDataset}
           onDeleteDataset={onDeleteDataset}

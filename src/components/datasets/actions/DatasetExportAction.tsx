@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Download } from "lucide-react";
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import DataExport from "@/components/common/DataExport";
 
 interface DatasetExportActionProps {
@@ -13,13 +13,11 @@ export function DatasetExportAction({ executionId, datasetName }: DatasetExportA
   if (!executionId) return null;
   
   return (
-    <DropdownMenuItem className="flex items-center" id="export-action">
-      <DataExport 
-        executionId={executionId}
-        datasetName={datasetName}
-        showSaveOption={true}
-        className="w-full flex items-center"
-      />
-    </DropdownMenuItem>
+    <DataExport 
+      executionId={executionId}
+      datasetName={datasetName}
+      showSaveOption={true}
+      className="w-full flex items-center"
+    />
   );
 }

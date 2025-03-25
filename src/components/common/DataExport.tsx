@@ -129,14 +129,14 @@ export default function DataExport({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             disabled={isExporting || !executionId}
             id="export-dataset-button"
             name="export-dataset-button"
+            title="Export Dataset"
           >
-            <Download className="h-4 w-4 mr-2" />
-            {isExporting ? "Exporting..." : "Export"}
+            <Download className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">

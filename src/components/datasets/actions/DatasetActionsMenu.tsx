@@ -9,19 +9,14 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { DatasetExportAction } from "./DatasetExportAction";
 
 interface DatasetActionsMenuProps {
-  lastExecutionId?: string;
-  datasetName?: string;
   onViewPreview: () => void;
   onScheduleDataset: () => void;
   onDeleteDataset: () => void;
 }
 
 export function DatasetActionsMenu({
-  lastExecutionId,
-  datasetName = "dataset",
   onViewPreview,
   onScheduleDataset,
   onDeleteDataset
@@ -56,10 +51,6 @@ export function DatasetActionsMenu({
           <Clock className="h-4 w-4 mr-2" />
           Schedule
         </DropdownMenuItem>
-        <DatasetExportAction 
-          executionId={lastExecutionId} 
-          datasetName={datasetName} 
-        />
         <DropdownMenuItem 
           onClick={handleEditClick}
           id="edit-action"
