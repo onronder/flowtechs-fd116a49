@@ -53,16 +53,33 @@ export default function DatasetActions({
   }, [isRunning, datasetId, lastExecutionId]);
   
   // Handler for clicking the run button
-  const handleRunButtonClick = () => {
+  const handleRunButtonClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event bubbling
     console.log("Set running state to true for dataset:", datasetId);
     onRunDataset();
     handleRunClick();
   };
   
+  // Handle menu actions with proper event handling
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event bubbling
+    onDeleteDataset();
+  };
+  
+  const handleScheduleClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event bubbling
+    onScheduleDataset();
+  };
+  
+  const handlePreviewClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event bubbling
+    onViewPreview();
+  };
+  
   return (
     <div className="flex justify-between items-center w-full">
       <PreviewButton 
-        onClick={onViewPreview}
+        onClick={handlePreviewClick}
         disabled={!lastExecutionId}
       />
       
@@ -82,9 +99,9 @@ export default function DatasetActions({
         )}
         
         <DatasetActionsMenu
-          onViewPreview={onViewPreview}
-          onScheduleDataset={onScheduleDataset}
-          onDeleteDataset={onDeleteDataset}
+          onViewPreview={handlePreviewClick}
+          onScheduleDataset={handleScheduleClick}
+          onDeleteDataset={handleDeleteClick}
         />
       </div>
     </div>

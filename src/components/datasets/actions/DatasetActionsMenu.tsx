@@ -1,66 +1,47 @@
 
 import React from "react";
-import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Eye, Clock, Edit, Trash } from "lucide-react";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import { MoreVertical, Eye, Clock, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
 interface DatasetActionsMenuProps {
-  onViewPreview: () => void;
-  onScheduleDataset: () => void;
-  onDeleteDataset: () => void;
+  onViewPreview: (e: React.MouseEvent) => void;
+  onScheduleDataset: (e: React.MouseEvent) => void;
+  onDeleteDataset: (e: React.MouseEvent) => void;
 }
 
 export function DatasetActionsMenu({
   onViewPreview,
   onScheduleDataset,
-  onDeleteDataset
+  onDeleteDataset,
 }: DatasetActionsMenuProps) {
-  const { toast } = useToast();
-
-  const handleEditClick = () => {
-    toast({ 
-      title: "Coming Soon", 
-      description: "Edit functionality will be available soon." 
-    });
-  };
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button 
-          variant="ghost" 
-          size="sm"
-          id="dataset-actions-menu"
-          name="dataset-actions-menu"
-        >
-          <MoreHorizontal className="h-4 w-4" />
+        <Button variant="ghost" size="icon" className="h-8 w-8">
+          <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={onViewPreview} id="view-results-action">
-          <Eye className="h-4 w-4 mr-2" />
-          View Results
+        <DropdownMenuItem onClick={onViewPreview}>
+          <Eye className="mr-2 h-4 w-4" />
+          View Preview
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onScheduleDataset} id="schedule-action">
-          <Clock className="h-4 w-4 mr-2" />
-          Schedule
+        <DropdownMenuItem onClick={onScheduleDataset}>
+          <Clock className="mr-2 h-4 w-4" />
+          Schedule Execution
         </DropdownMenuItem>
         <DropdownMenuItem 
-          onClick={handleEditClick}
-          id="edit-action"
+          onClick={onDeleteDataset}
+          className="text-destructive focus:text-destructive"
         >
-          <Edit className="h-4 w-4 mr-2" />
-          Edit
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={onDeleteDataset} className="text-red-600" id="delete-action">
-          <Trash className="h-4 w-4 mr-2" />
-          Delete
+          <Trash2 className="mr-2 h-4 w-4" />
+          Delete Dataset
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

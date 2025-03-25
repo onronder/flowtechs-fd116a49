@@ -29,7 +29,12 @@ export default function DatasetDeleteDialog({
   onConfirm
 }: DatasetDeleteDialogProps) {
   return (
-    <AlertDialog open={isOpen} onOpenChange={onCancel}>
+    <AlertDialog open={isOpen} onOpenChange={(open) => {
+      // Only allow closing the dialog if not currently deleting
+      if (!isDeleting && !open) {
+        onCancel();
+      }
+    }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Are you sure?</AlertDialogTitle>
@@ -46,7 +51,14 @@ export default function DatasetDeleteDialog({
         )}
         
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isDeleting} onClick={(e) => {
+            e.preventDefault();
+            if (!isDeleting) {
+              onCancel();
+            }
+          }}>
+            Cancel
+          </AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();

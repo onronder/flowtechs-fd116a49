@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, RefreshCw, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import DatasetCard from "@/components/datasets/DatasetCard";
 import EmptyDatasetsState from "@/components/datasets/EmptyDatasetsState";
@@ -9,12 +9,14 @@ import { fetchUserDatasets, fetchRecentOrdersDashboard } from "@/api/datasetsApi
 import NewDatasetModal from "@/components/datasets/NewDatasetModal";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { resetStuckExecutions } from "@/api/datasets/execution/executionResetApi";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function Datasets() {
   const [datasets, setDatasets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { toast } = useToast();
 
   const loadDatasets = useCallback(async () => {
@@ -73,6 +75,7 @@ export default function Datasets() {
       });
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   }, [toast]);
 
@@ -83,6 +86,7 @@ export default function Datasets() {
   // Function to force refresh datasets
   const handleRefresh = useCallback(() => {
     console.log("Manually refreshing datasets...");
+    setIsRefreshing(true);
     loadDatasets();
   }, [loadDatasets]);
 
@@ -91,6 +95,12 @@ export default function Datasets() {
     console.log("Retrying dataset load after error");
     loadDatasets();
   }, [loadDatasets]);
+
+  // Handler for successful dataset creation or deletion
+  const handleDatasetChange = useCallback(() => {
+    console.log("Dataset changed (created/deleted), refreshing list...");
+    handleRefresh();
+  }, [handleRefresh]);
 
   return (
     <div className="h-full">
@@ -101,8 +111,14 @@ export default function Datasets() {
         </div>
         
         <div className="flex space-x-2">
-          <Button variant="outline" onClick={handleRefresh}>
-            Refresh
+          <Button 
+            variant="outline" 
+            onClick={handleRefresh}
+            disabled={isRefreshing || loading}
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            {isRefreshing ? "Refreshing..." : "Refresh"}
           </Button>
           <Button onClick={() => setShowNewModal(true)}>
             <Plus className="mr-2 h-4 w-4" />
@@ -111,14 +127,27 @@ export default function Datasets() {
         </div>
       </div>
 
+      {loadError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            {loadError}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="ml-2 mt-1" 
+              onClick={handleRetry}
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-12">
           <LoadingSpinner size="lg" />
-        </div>
-      ) : loadError ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="text-red-500 mb-4">{loadError}</div>
-          <Button onClick={handleRetry}>Retry</Button>
         </div>
       ) : datasets.length === 0 ? (
         <EmptyDatasetsState onCreateNew={() => setShowNewModal(true)} />
@@ -128,7 +157,7 @@ export default function Datasets() {
             <DatasetCard 
               key={dataset.id}
               dataset={dataset}
-              onRefresh={handleRefresh}
+              onRefresh={handleDatasetChange}
             />
           ))}
         </div>
@@ -138,7 +167,7 @@ export default function Datasets() {
         <NewDatasetModal 
           isOpen={showNewModal}
           onClose={() => setShowNewModal(false)}
-          onDatasetCreated={handleRefresh}
+          onDatasetCreated={handleDatasetChange}
         />
       )}
     </div>
