@@ -29,28 +29,55 @@ export function useSources() {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
+      // First, fetch all sources without trying to count related entities
+      const { data: sourcesData, error: sourcesError } = await supabase
         .from("sources")
-        .select(`
-          *,
-          datasets_count:user_datasets(count),
-          jobs_count:dataset_job_queue(count)
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
       
-      if (error) throw error;
+      if (sourcesError) throw sourcesError;
       
-      // Process the counts from the aggregation
-      const sourcesWithCounts = data?.map(source => ({
+      if (!sourcesData) {
+        setSources([]);
+        return;
+      }
+      
+      // Fetch dataset counts separately using a count query
+      const getDatasetCounts = async () => {
+        const countsPromises = sourcesData.map(async (source) => {
+          const { count, error } = await supabase
+            .from("user_datasets")
+            .select("*", { count: "exact", head: true })
+            .eq("source_id", source.id);
+          
+          return {
+            sourceId: source.id,
+            count: count || 0,
+            error
+          };
+        });
+        
+        return Promise.all(countsPromises);
+      };
+      
+      // Get dataset counts for all sources
+      const datasetCounts = await getDatasetCounts();
+      
+      // Create a map of source ID to dataset count
+      const datasetCountMap = datasetCounts.reduce((acc, item) => {
+        acc[item.sourceId] = item.count;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      // Construct the final sources with counts
+      const sourcesWithCounts = sourcesData.map(source => ({
         ...source,
-        datasets_count: Array.isArray(source.datasets_count) && source.datasets_count[0] ? 
-          Number(source.datasets_count[0].count) || 0 : 0,
-        jobs_count: Array.isArray(source.jobs_count) && source.jobs_count[0] ? 
-          Number(source.jobs_count[0].count) || 0 : 0
+        datasets_count: datasetCountMap[source.id] || 0,
+        jobs_count: 0 // Default to 0 for now as the dataset_job_queue table isn't correctly linked
       }));
       
       // Cast the returned data to our Source type
-      setSources(sourcesWithCounts as unknown as Source[]);
+      setSources(sourcesWithCounts as Source[]);
     } catch (error) {
       console.error("Error fetching sources:", error);
       toast({

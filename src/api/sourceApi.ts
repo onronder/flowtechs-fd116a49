@@ -1,31 +1,55 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export async function fetchUserSources() {
-  // Get sources with counts of related datasets and jobs
-  const { data, error } = await supabase
-    .from("sources")
-    .select(`
-      *,
-      datasets_count:user_datasets(count),
-      jobs_count:dataset_job_queue(count)
-    `)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    throw new Error(error.message);
+  try {
+    // Fetch all sources first
+    const { data: sourcesData, error: sourcesError } = await supabase
+      .from("sources")
+      .select("*")
+      .order("created_at", { ascending: false });
+    
+    if (sourcesError) {
+      throw new Error(sourcesError.message);
+    }
+    
+    if (!sourcesData) {
+      return [];
+    }
+    
+    // Fetch dataset counts separately
+    const datasetCounts = await Promise.all(
+      sourcesData.map(async (source) => {
+        const { count, error } = await supabase
+          .from("user_datasets")
+          .select("*", { count: "exact", head: true })
+          .eq("source_id", source.id);
+        
+        return {
+          sourceId: source.id,
+          count: count || 0,
+          error
+        };
+      })
+    );
+    
+    // Map counts to sources
+    const datasetCountMap = datasetCounts.reduce((acc, item) => {
+      acc[item.sourceId] = item.count;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    // Construct sources with counts
+    const sourcesWithCounts = sourcesData.map(source => ({
+      ...source,
+      datasets_count: datasetCountMap[source.id] || 0,
+      jobs_count: 0 // Default to 0 for jobs count until we set up that relationship
+    }));
+    
+    return sourcesWithCounts;
+  } catch (error) {
+    console.error("Error in fetchUserSources:", error);
+    throw error;
   }
-
-  // Process the counts from the aggregation
-  const sourcesWithCounts = data?.map(source => ({
-    ...source,
-    datasets_count: Array.isArray(source.datasets_count) && source.datasets_count[0] ? 
-      Number(source.datasets_count[0].count) || 0 : 0,
-    jobs_count: Array.isArray(source.jobs_count) && source.jobs_count[0] ? 
-      Number(source.jobs_count[0].count) || 0 : 0
-  })) || [];
-
-  return sourcesWithCounts;
 }
 
 export async function fetchSourceById(id: string) {
