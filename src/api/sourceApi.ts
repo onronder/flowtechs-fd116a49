@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 export async function fetchUserSources() {
@@ -18,8 +19,10 @@ export async function fetchUserSources() {
   // Process the counts from the aggregation
   const sourcesWithCounts = data?.map(source => ({
     ...source,
-    datasets_count: source.datasets_count[0]?.count || 0,
-    jobs_count: source.jobs_count[0]?.count || 0
+    datasets_count: Array.isArray(source.datasets_count) && source.datasets_count[0] ? 
+      Number(source.datasets_count[0].count) || 0 : 0,
+    jobs_count: Array.isArray(source.jobs_count) && source.jobs_count[0] ? 
+      Number(source.jobs_count[0].count) || 0 : 0
   })) || [];
 
   return sourcesWithCounts;
