@@ -40,31 +40,109 @@ serve(async (req) => {
     }
     
     const config = source.config;
-    const { storeName, accessToken, api_version } = config;
     
-    if (!storeName || !accessToken || !api_version) {
-      console.error("[fetchShopifySchema] Missing required config parameters");
-      return errorResponse("Missing required Shopify configuration");
+    // Detect the latest API version if needed
+    let apiVersion = config.api_version;
+    
+    // If forced update or no version, detect latest version
+    if (forceUpdate || !apiVersion) {
+      try {
+        console.log(`[fetchShopifySchema] Detecting latest API version for ${config.storeName}`);
+        const versionResponse = await fetch(
+          `https://${config.storeName}.myshopify.com/admin/api/versions`,
+          {
+            headers: {
+              "X-Shopify-Access-Token": config.accessToken,
+              "Content-Type": "application/json"
+            }
+          }
+        );
+        
+        if (versionResponse.ok) {
+          const versionData = await versionResponse.json();
+          
+          if (versionData.supported_versions && versionData.supported_versions.length > 0) {
+            // Sort to get latest version
+            const sortedVersions = [...versionData.supported_versions].sort((a, b) => {
+              return b.handle.localeCompare(a.handle);
+            });
+            
+            const detectedVersion = sortedVersions[0].handle;
+            console.log(`[fetchShopifySchema] Detected latest API version: ${detectedVersion}`);
+            
+            // Update version if it has changed
+            if (apiVersion !== detectedVersion) {
+              apiVersion = detectedVersion;
+              
+              // Update source config with new version
+              const updatedConfig = { ...config, api_version: apiVersion };
+              const { error: updateError } = await supabaseClient
+                .from("sources")
+                .update({ 
+                  config: updatedConfig,
+                  updated_at: new Date().toISOString()
+                })
+                .eq("id", sourceId);
+                
+              if (updateError) {
+                console.error("[fetchShopifySchema] Error updating source API version:", updateError);
+                // Continue anyway using the detected version
+              } else {
+                console.log(`[fetchShopifySchema] Updated source to use API version: ${apiVersion}`);
+              }
+            }
+          }
+        } else {
+          console.error(`[fetchShopifySchema] Version detection failed: ${versionResponse.status}`);
+        }
+      } catch (versionError) {
+        console.error("[fetchShopifySchema] Error detecting API version:", versionError);
+        // Continue with current version
+      }
     }
     
-    console.log(`[fetchShopifySchema] Processing source: ${storeName} with API version: ${api_version}`);
+    if (!apiVersion) {
+      console.error("[fetchShopifySchema] No API version available");
+      return errorResponse("Could not determine Shopify API version");
+    }
+    
+    if (!config.storeName || !config.accessToken) {
+      console.error("[fetchShopifySchema] Missing required credentials");
+      return errorResponse("Missing required Shopify credentials");
+    }
     
     // Check if we need to update the schema
     if (!forceUpdate) {
       // Check if we already have a schema for this version
       const { data: existingSchema } = await supabaseClient
         .from("source_schemas")
-        .select("created_at")
+        .select("created_at, api_version")
         .eq("source_id", sourceId)
-        .eq("api_version", api_version)
+        .eq("api_version", apiVersion)
+        .order("created_at", { ascending: false })
+        .limit(1)
         .single();
       
       if (existingSchema) {
-        console.log(`[fetchShopifySchema] Schema already exists for version ${api_version}, created at ${existingSchema.created_at}`);
-        return successResponse({ 
-          message: "Schema already exists",
-          cached: true
-        });
+        console.log(`[fetchShopifySchema] Schema already exists for version ${apiVersion}, created at ${existingSchema.created_at}`);
+        
+        // Check if schema is recent (less than 7 days old)
+        const schemaDate = new Date(existingSchema.created_at);
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        if (schemaDate > sevenDaysAgo) {
+          console.log(`[fetchShopifySchema] Schema is recent (less than 7 days old), skipping update`);
+          return successResponse({ 
+            success: true,
+            message: "Using cached schema (less than 7 days old)",
+            cached: true,
+            schemaVersion: apiVersion
+          });
+        }
+        
+        console.log(`[fetchShopifySchema] Schema is older than 7 days, will refresh`);
+        // Continue to refresh older schema
       }
     }
     
@@ -101,14 +179,14 @@ serve(async (req) => {
       }
     `;
     
-    const shopifyEndpoint = `https://${storeName}.myshopify.com/admin/api/${api_version}/graphql.json`;
+    const shopifyEndpoint = `https://${config.storeName}.myshopify.com/admin/api/${apiVersion}/graphql.json`;
     console.log(`[fetchShopifySchema] Making GraphQL introspection request to: ${shopifyEndpoint}`);
     
     const response = await fetch(shopifyEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Shopify-Access-Token": accessToken
+        "X-Shopify-Access-Token": config.accessToken
       },
       body: JSON.stringify({ query: introspectionQuery })
     });
@@ -133,8 +211,9 @@ serve(async (req) => {
       .from("source_schemas")
       .upsert({
         source_id: sourceId,
-        api_version: api_version,
-        schema: result.data
+        api_version: apiVersion,
+        schema: result.data,
+        created_at: new Date().toISOString()
       });
       
     if (insertError) {
@@ -158,7 +237,9 @@ serve(async (req) => {
     console.log("[fetchShopifySchema] Schema stored successfully");
     
     return successResponse({
-      message: "Schema fetched and cached successfully"
+      success: true,
+      message: "Schema fetched and cached successfully",
+      schemaVersion: apiVersion
     });
   } catch (error) {
     console.error("[fetchShopifySchema] Unhandled error:", error);

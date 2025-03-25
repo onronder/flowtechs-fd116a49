@@ -1,5 +1,5 @@
 
-import { supabase } from "@/integrations/supabase/client"; // Add the missing import
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Detects the latest available Shopify API version
