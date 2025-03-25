@@ -1,11 +1,12 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { testSourceConnection, deleteSource, fetchSourceSchema } from "@/api/sourceApi";
+import { fetchSourceSchema } from "@/api/sourceApi";
 import { scheduleWeeklyUpdates } from "@/utils/shopify/versionDetector";
+import { testSourceConnection as apiTestSourceConnection, deleteSource as apiDeleteSource } from "@/api/sourceApi";
 
 export async function testSourceConnection(id: string, toast: any) {
   try {
-    const result = await testSourceConnection(id);
+    const result = await apiTestSourceConnection(id);
     
     // If the source is a Shopify source, also update its schema
     const { data: source } = await supabase
@@ -39,7 +40,7 @@ export async function testSourceConnection(id: string, toast: any) {
 
 export async function deleteSource(id: string, toast: any) {
   try {
-    await deleteSource(id);
+    await apiDeleteSource(id);
     toast({
       title: "Source Deleted",
       description: "The source was deleted successfully.",
