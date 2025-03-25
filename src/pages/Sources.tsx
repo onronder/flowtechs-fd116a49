@@ -67,6 +67,7 @@ export default function Sources() {
   const formattedSources = sources.map(source => ({
     ...source,
     sourceType: source.source_type,
+    lastValidatedAt: source.last_validated_at,
     apiVersion: source.config?.api_version
   }));
 

@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Send, Trash2, RefreshCw } from "lucide-react";
+import { MoreHorizontal, Send, Trash2, RefreshCw, Edit } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { testSourceConnection, deleteSource } from "@/utils/sourceUtils";
@@ -9,10 +9,12 @@ import { testSourceConnection, deleteSource } from "@/utils/sourceUtils";
 interface SourceActionsProps {
   id: string;
   onTestSuccess?: () => void;
+  onEdit?: () => void;
   onDelete?: () => void;
+  isTesting?: boolean;
 }
 
-export default function SourceActions({ id, onTestSuccess, onDelete }: SourceActionsProps) {
+export default function SourceActions({ id, onTestSuccess, onEdit, onDelete, isTesting = false }: SourceActionsProps) {
   const { toast } = useToast();
 
   const handleTest = async () => {
@@ -39,11 +41,26 @@ export default function SourceActions({ id, onTestSuccess, onDelete }: SourceAct
     }
   };
 
+  const handleEdit = () => {
+    if (onEdit) {
+      onEdit();
+    }
+  };
+
   return (
     <div className="flex items-center space-x-2">
-      <Button variant="outline" size="sm" onClick={handleTest}>
-        <Send className="h-4 w-4 mr-2" />
-        Test Connection
+      <Button variant="outline" size="sm" onClick={handleTest} disabled={isTesting}>
+        {isTesting ? (
+          <>
+            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+            Testing...
+          </>
+        ) : (
+          <>
+            <Send className="h-4 w-4 mr-2" />
+            Test Connection
+          </>
+        )}
       </Button>
 
       <DropdownMenu>
@@ -53,7 +70,11 @@ export default function SourceActions({ id, onTestSuccess, onDelete }: SourceAct
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={handleTest}>
+          <DropdownMenuItem onClick={handleEdit}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Source
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleTest} disabled={isTesting}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Test Connection
           </DropdownMenuItem>
