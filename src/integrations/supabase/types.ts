@@ -39,6 +39,35 @@ export type Database = {
         }
         Relationships: []
       }
+      dataset_execution_results: {
+        Row: {
+          created_at: string | null
+          execution_id: string
+          id: string
+          results: Json
+        }
+        Insert: {
+          created_at?: string | null
+          execution_id: string
+          id?: string
+          results: Json
+        }
+        Update: {
+          created_at?: string | null
+          execution_id?: string
+          id?: string
+          results?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dataset_execution_results_execution_id_fkey"
+            columns: ["execution_id"]
+            isOneToOne: false
+            referencedRelation: "dataset_executions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dataset_executions: {
         Row: {
           api_call_count: number | null
@@ -425,27 +454,39 @@ export type Database = {
       user_storage_exports: {
         Row: {
           created_at: string | null
+          dataset_id: string | null
           execution_id: string
+          file_name: string | null
           file_path: string
           file_size: number | null
+          file_type: string | null
+          file_url: string | null
           format: string
           id: string
           user_id: string
         }
         Insert: {
           created_at?: string | null
+          dataset_id?: string | null
           execution_id: string
+          file_name?: string | null
           file_path: string
           file_size?: number | null
+          file_type?: string | null
+          file_url?: string | null
           format: string
           id?: string
           user_id: string
         }
         Update: {
           created_at?: string | null
+          dataset_id?: string | null
           execution_id?: string
+          file_name?: string | null
           file_path?: string
           file_size?: number | null
+          file_type?: string | null
+          file_url?: string | null
           format?: string
           id?: string
           user_id?: string

@@ -20,6 +20,8 @@ export function getSupabaseAdmin() {
  * @returns Execution data or throws error
  */
 export async function getExecutionData(supabaseAdmin: any, executionId: string): Promise<ExecutionData> {
+  console.log(`Fetching execution data for ID: ${executionId}`);
+  
   const { data, error } = await supabaseAdmin
     .from("dataset_executions")
     .select(`
@@ -41,6 +43,7 @@ export async function getExecutionData(supabaseAdmin: any, executionId: string):
     throw new Error(error?.message || "Execution not found");
   }
 
+  console.log(`Successfully fetched execution data: ${JSON.stringify(data)}`);
   return data;
 }
 
@@ -51,18 +54,53 @@ export async function getExecutionData(supabaseAdmin: any, executionId: string):
  * @returns Execution results or throws error
  */
 export async function getExecutionResults(supabaseAdmin: any, executionId: string): Promise<ExecutionResults> {
-  const { data, error } = await supabaseAdmin
-    .from("dataset_execution_results")
-    .select("results")
-    .eq("execution_id", executionId)
-    .single();
+  console.log(`Fetching execution results for ID: ${executionId}`);
+  
+  try {
+    // Try to fetch from dataset_execution_results table
+    const { data, error } = await supabaseAdmin
+      .from("dataset_execution_results")
+      .select("results")
+      .eq("execution_id", executionId)
+      .single();
 
-  if (error || !data) {
-    console.error("Results not found or error:", error);
-    throw new Error(error?.message || "Results not found");
+    if (error) {
+      console.warn(`Error fetching from dataset_execution_results: ${error.message}`);
+      throw error;
+    }
+
+    if (!data) {
+      console.warn("No results found in dataset_execution_results");
+      throw new Error("Results not found");
+    }
+
+    console.log(`Successfully fetched execution results from dataset_execution_results`);
+    return data;
+  } catch (primaryError) {
+    console.log(`Falling back to dataset_executions.data for results...`);
+    
+    // Fallback to direct data in the execution record
+    try {
+      const { data: executionData, error: execError } = await supabaseAdmin
+        .from("dataset_executions")
+        .select("data")
+        .eq("id", executionId)
+        .single();
+
+      if (execError || !executionData || !executionData.data) {
+        console.error("Fallback also failed:", execError);
+        throw new Error(execError?.message || "Results not available in both tables");
+      }
+
+      console.log(`Successfully fetched results from execution data field`);
+      
+      // Return the data field in the expected format
+      return { results: executionData.data };
+    } catch (fallbackError) {
+      console.error("Both primary and fallback fetches failed:", fallbackError);
+      throw fallbackError;
+    }
   }
-
-  return data;
 }
 
 /**
@@ -88,7 +126,9 @@ export async function saveExportRecord(supabaseAdmin: any, params: {
       user_id: params.userId,
       format: params.fileType,
       file_size: params.fileSize,
-      file_url: params.fileUrl
+      file_url: params.fileUrl,
+      file_name: params.fileName,
+      file_type: params.fileType
     });
     
     // Insert record with all necessary fields
@@ -102,7 +142,8 @@ export async function saveExportRecord(supabaseAdmin: any, params: {
         format: params.fileType,
         file_size: params.fileSize,
         file_url: params.fileUrl,
-        file_name: params.fileName
+        file_name: params.fileName,
+        file_type: params.fileType
       });
       
     if (error) {

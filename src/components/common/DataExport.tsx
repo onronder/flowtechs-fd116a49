@@ -1,177 +1,167 @@
-
 import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Download, Save, MoreHorizontal } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { exportDataset, ExportFormat, ExportOptions } from "@/api/datasets/exportApi";
+import { FileJson, FileText, FileSpreadsheet, Download, Loader2, Save } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { exportDataset } from "@/api/datasets/exportApi";
 
 interface DataExportProps {
-  executionId: string;
-  datasetName?: string;
+  executionId?: string;
+  datasetName: string;
   data?: any[];
   showSaveOption?: boolean;
   onExportStart?: () => void;
-  onExportComplete?: () => void;
   className?: string;
 }
 
 export default function DataExport({
   executionId,
-  datasetName = "dataset",
+  datasetName,
   data,
   showSaveOption = false,
   onExportStart,
-  onExportComplete,
-  className,
+  className
 }: DataExportProps) {
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
-
-  const handleExport = async (format: ExportFormat, saveToStorage: boolean = false) => {
-    if (!executionId) {
+  
+  const handleExport = async (format: 'json' | 'csv' | 'xlsx', saveToStorage = false) => {
+    if (!executionId && !data) {
       toast({
         title: "Export Failed",
-        description: "No execution ID provided",
-        variant: "destructive",
+        description: "No data available to export",
+        variant: "destructive"
       });
       return;
     }
-
+    
     try {
       setIsExporting(true);
       
       if (onExportStart) {
         onExportStart();
       }
-
-      // Generate a default file name using the dataset name and timestamp
-      const timestamp = new Date().toISOString().replace(/[:.-]/g, "_");
-      const sanitizedName = (datasetName || "dataset").replace(/[^a-z0-9]/gi, "_").toLowerCase();
-      const fileName = `${sanitizedName}_${timestamp}.${format}`;
-
+      
       console.log(`Exporting dataset ${executionId} as ${format}, saveToStorage=${saveToStorage}`);
-
-      const exportOptions: ExportOptions = {
+      
+      const result = await exportDataset({
         executionId,
         format,
-        fileName,
-        saveToStorage,
         dataSource: data,
-      };
-
-      const result = await exportDataset(exportOptions);
-      console.log("Export result:", result);
-
-      if (result.success) {
-        if (saveToStorage) {
-          toast({
-            title: "Export Saved",
-            description: `The ${format.toUpperCase()} export has been saved to your storage.`,
-          });
-        } else if (result.downloadUrl) {
-          // Direct download if URL is provided
-          const a = document.createElement("a");
-          a.href = result.downloadUrl;
-          a.download = result.fileName;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          
-          toast({
-            title: "Export Complete",
-            description: `The ${format.toUpperCase()} export has been downloaded.`,
-          });
-        } else if (result.data) {
-          // Create and trigger download from data
-          const blob = new Blob([result.data], { type: result.fileType });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = result.fileName;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          
-          toast({
-            title: "Export Complete",
-            description: `The ${format.toUpperCase()} export has been downloaded.`,
-          });
-        }
-      } else {
-        throw new Error(result.error || "Export failed");
+        saveToStorage
+      });
+      
+      if (!result.success) {
+        throw new Error(result.error || `Error exporting to ${format}`);
       }
-
-      if (onExportComplete) {
-        onExportComplete();
+      
+      if (saveToStorage) {
+        toast({
+          title: "Export Successful",
+          description: `File saved to your storage: ${result.fileName}`,
+        });
+      } else if (result.data) {
+        // For direct download (not storage)
+        const blob = new Blob([result.data], { type: result.fileType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = result.fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        toast({
+          title: "Export Successful",
+          description: `Downloaded ${result.fileName}`,
+        });
+      } else if (result.downloadUrl) {
+        // Handle case where we get a download URL
+        window.open(result.downloadUrl, '_blank');
+        
+        toast({
+          title: "Export Successful",
+          description: "File ready for download",
+        });
       }
     } catch (error) {
       console.error(`Error exporting to ${format}:`, error);
       toast({
         title: "Export Failed",
-        description: error instanceof Error ? error.message : `Failed to export to ${format}`,
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive"
       });
     } finally {
       setIsExporting(false);
     }
   };
-
+  
   return (
-    <div className={className}>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={isExporting || !executionId}
-            id="export-dataset-button"
-            name="export-dataset-button"
-            title="Export Dataset"
-          >
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button 
+          variant="ghost" 
+          size="icon"
+          disabled={isExporting}
+          className={className}
+        >
+          {isExporting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
             <Download className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => handleExport("json")} id="export-json">
-            <Download className="h-4 w-4 mr-2" />
-            Download JSON
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleExport("csv")} id="export-csv">
-            <Download className="h-4 w-4 mr-2" />
-            Download CSV
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleExport("xlsx")} id="export-xlsx">
-            <Download className="h-4 w-4 mr-2" />
-            Download Excel
-          </DropdownMenuItem>
-
-          {showSaveOption && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleExport("json", true)} id="save-json">
-                <Save className="h-4 w-4 mr-2" />
-                Save as JSON to Storage
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport("csv", true)} id="save-csv">
-                <Save className="h-4 w-4 mr-2" />
-                Save as CSV to Storage
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport("xlsx", true)} id="save-xlsx">
-                <Save className="h-4 w-4 mr-2" />
-                Save as Excel to Storage
-              </DropdownMenuItem>
-            </>
           )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+          <span className="sr-only">Export</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Export Options</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        
+        <DropdownMenuGroup>
+          <DropdownMenuItem onClick={() => handleExport('json')} disabled={isExporting}>
+            <FileJson className="mr-2 h-4 w-4" />
+            <span>JSON</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleExport('csv')} disabled={isExporting}>
+            <FileText className="mr-2 h-4 w-4" />
+            <span>CSV</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleExport('xlsx')} disabled={isExporting}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            <span>Excel</span>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        
+        {showSaveOption && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Save to Storage</DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuItem onClick={() => handleExport('json', true)} disabled={isExporting}>
+                <Save className="mr-2 h-4 w-4" />
+                <span>Save as JSON</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('csv', true)} disabled={isExporting}>
+                <Save className="mr-2 h-4 w-4" />
+                <span>Save as CSV</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('xlsx', true)} disabled={isExporting}>
+                <Save className="mr-2 h-4 w-4" />
+                <span>Save as Excel</span>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
