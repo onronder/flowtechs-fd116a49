@@ -1,5 +1,5 @@
 
-import { Button } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Database, Plus, ArrowRight } from "lucide-react";
 
 interface EmptySourcesStateProps {

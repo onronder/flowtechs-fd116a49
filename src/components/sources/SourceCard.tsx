@@ -41,9 +41,9 @@ export default function SourceCard({
         return <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-none">Shopify</Badge>;
       case 'woocommerce':
         return <Badge className="bg-secondary/10 text-secondary hover:bg-secondary/20 border-none">WooCommerce</Badge>;
-      case 'ftp':
+      case 'ftp_sftp':
         return <Badge className="bg-warning/10 text-warning hover:bg-warning/20 border-none">FTP</Badge>;
-      case 'api':
+      case 'custom_api':
         return <Badge className="bg-info/10 text-info hover:bg-info/20 border-none">API</Badge>;
       default:
         return <Badge>{source.source_type}</Badge>;

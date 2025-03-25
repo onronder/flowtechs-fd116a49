@@ -11,6 +11,7 @@ import LoadingSpinner from "@/components/ui/loading-spinner";
 import { useSources } from "@/hooks/useSources";
 import { initializeSourceUpdates } from "@/utils/sourceUtils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 
 export default function Sources() {
   const { sources, loading, error: fetchError, fetchSources } = useSources();
