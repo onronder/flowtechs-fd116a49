@@ -76,6 +76,19 @@ export default function DatasetActions({
     onScheduleDataset();
   };
   
+  // Create wrapper functions that don't take parameters for DatasetActionsMenu
+  const handlePreviewClickWrapper = () => {
+    onViewPreview();
+  };
+  
+  const handleScheduleClickWrapper = () => {
+    onScheduleDataset();
+  };
+  
+  const handleDeleteClickWrapper = () => {
+    onDeleteDataset();
+  };
+  
   return (
     <div className="flex justify-between items-center w-full">
       <PreviewButton 
@@ -99,9 +112,9 @@ export default function DatasetActions({
         )}
         
         <DatasetActionsMenu
-          onViewPreview={handlePreviewClick}
-          onScheduleDataset={handleScheduleClick}
-          onDeleteDataset={handleDeleteClick}
+          onViewPreview={handlePreviewClickWrapper}
+          onScheduleDataset={handleScheduleClickWrapper}
+          onDeleteDataset={handleDeleteClickWrapper}
         />
       </div>
     </div>
