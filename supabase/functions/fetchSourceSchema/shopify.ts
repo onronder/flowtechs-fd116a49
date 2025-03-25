@@ -17,51 +17,12 @@ export async function fetchShopifySchema(
   const config = source.config;
   console.log(`Fetching Shopify schema for store: ${config.storeName}, API version: ${config.api_version}`);
   
-  // Make sure we're using a valid API version
-  let apiVersion = config.api_version;
-  
-  // If no API version is available, try to fetch the current one
-  if (!apiVersion) {
-    try {
-      console.log(`No API version found, fetching current version for store: ${config.storeName}`);
-      const versionEndpoint = `https://${config.storeName}.myshopify.com/admin/api/versions`;
-      
-      const versionResponse = await fetch(versionEndpoint, {
-        headers: {
-          "X-Shopify-Access-Token": config.accessToken,
-          "Content-Type": "application/json"
-        }
-      });
-      
-      if (versionResponse.ok) {
-        const versionData = await versionResponse.json();
-        
-        if (versionData.supported_versions && versionData.supported_versions.length > 0) {
-          apiVersion = versionData.supported_versions[0].handle;
-          console.log(`Fetched current API version: ${apiVersion}`);
-          
-          // Update the source with the current API version
-          await supabaseClient
-            .from("sources")
-            .update({ 
-              config: { ...config, api_version: apiVersion },
-              updated_at: new Date().toISOString()
-            })
-            .eq("id", source.id);
-        }
-      }
-    } catch (error) {
-      console.error(`Error fetching current API version: ${error.message}`);
-      // Continue with default version
-      apiVersion = "2025-01"; // Fallback to a more recent version
-    }
+  // Verify required values are present
+  if (!config.storeName || !config.accessToken || !config.api_version) {
+    return errorResponse(`Missing required Shopify configuration: ${!config.storeName ? 'storeName' : ''} ${!config.accessToken ? 'accessToken' : ''} ${!config.api_version ? 'api_version' : ''}`);
   }
   
-  if (!apiVersion) {
-    return errorResponse("Could not determine Shopify API version");
-  }
-  
-  const shopifyEndpoint = `https://${config.storeName}.myshopify.com/admin/api/${apiVersion}/graphql.json`;
+  const shopifyEndpoint = `https://${config.storeName}.myshopify.com/admin/api/${config.api_version}/graphql.json`;
   
   // Introspection query to fetch schema
   const introspectionQuery = `
@@ -108,11 +69,17 @@ export async function fetchShopifySchema(
       body: JSON.stringify({ query: introspectionQuery })
     });
     
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`GraphQL request failed: ${response.status} ${errorText.substring(0, 200)}`);
+      return errorResponse(`Shopify API error: ${response.status} ${response.statusText}`);
+    }
+    
     const result = await response.json();
     
     if (result.errors) {
       console.error("GraphQL errors:", result.errors);
-      return errorResponse(result.errors[0].message);
+      return errorResponse(`GraphQL error: ${result.errors[0].message}`);
     }
     
     console.log("GraphQL schema fetched successfully, saving to database");

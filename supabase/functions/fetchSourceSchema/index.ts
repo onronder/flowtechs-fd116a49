@@ -35,6 +35,64 @@ serve(async (req) => {
 
     console.log(`Source found: type=${source.source_type}, name=${source.name}`);
     
+    // Check if source has API version in config
+    if (source.source_type === "shopify" && (!source.config || !source.config.api_version)) {
+      // If no API version, detect and set one before proceeding
+      try {
+        console.log("No API version found in source config, detecting current version");
+        
+        // Make sure we have the necessary credentials
+        if (!source.config || !source.config.storeName || !source.config.accessToken) {
+          return errorResponse("Missing required Shopify credentials");
+        }
+        
+        // Detect current API version
+        const versionEndpoint = `https://${source.config.storeName}.myshopify.com/admin/api/versions`;
+        const versionResponse = await fetch(versionEndpoint, {
+          headers: {
+            "X-Shopify-Access-Token": source.config.accessToken,
+            "Content-Type": "application/json"
+          }
+        });
+        
+        if (!versionResponse.ok) {
+          return errorResponse(`Failed to detect Shopify API version: ${versionResponse.status} ${versionResponse.statusText}`);
+        }
+        
+        const versionData = await versionResponse.json();
+        
+        if (!versionData.supported_versions || !versionData.supported_versions.length) {
+          return errorResponse("No API versions found in Shopify response");
+        }
+        
+        // Sort versions to find the latest one
+        const sortedVersions = [...versionData.supported_versions].sort((a, b) => {
+          return b.handle.localeCompare(a.handle);
+        });
+        
+        const apiVersion = sortedVersions[0].handle;
+        console.log(`Detected Shopify API version: ${apiVersion}`);
+        
+        // Update source with API version
+        const updatedConfig = { ...source.config, api_version: apiVersion };
+        const { error: updateError } = await supabaseClient
+          .from("sources")
+          .update({ config: updatedConfig })
+          .eq("id", sourceId);
+          
+        if (updateError) {
+          console.error("Failed to update source with API version:", updateError);
+          return errorResponse(`Failed to update source with API version: ${updateError.message}`);
+        }
+        
+        // Update source object for subsequent operations
+        source.config.api_version = apiVersion;
+      } catch (error) {
+        console.error("Error detecting API version:", error);
+        return errorResponse(`Failed to detect API version: ${error.message}`);
+      }
+    }
+    
     // Check if we need to update the schema
     if (!forceUpdate) {
       // Check if we already have a schema for this version

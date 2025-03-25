@@ -11,13 +11,24 @@ export async function testSourceConnection(id: string, toast: any) {
     // If the source is a Shopify source, also update its schema
     const { data: source } = await supabase
       .from("sources")
-      .select("source_type")
+      .select("source_type, config")
       .eq("id", id)
       .single();
     
     if (source && source.source_type === "shopify") {
       // Force refresh schema when testing connection
-      await fetchSourceSchema(id, true);
+      try {
+        await fetchSourceSchema(id, true);
+      } catch (schemaError) {
+        console.error("Error fetching source schema:", schemaError);
+        // Continue despite schema error - the connection test was successful
+        toast({
+          title: "Connection Successful, Schema Update Failed",
+          description: "The connection test was successful, but we couldn't update the schema. Please try again later.",
+          variant: "warning",
+        });
+        return result;
+      }
     }
     
     toast({
