@@ -10,9 +10,9 @@ import {
 import { Button } from "@/components/ui/button";
 
 interface DatasetActionsMenuProps {
-  onViewPreview: (e: React.MouseEvent) => void;
-  onScheduleDataset: (e: React.MouseEvent) => void;
-  onDeleteDataset: (e: React.MouseEvent) => void;
+  onViewPreview: () => void;
+  onScheduleDataset: () => void;
+  onDeleteDataset: () => void;
 }
 
 export function DatasetActionsMenu({
@@ -28,16 +28,25 @@ export function DatasetActionsMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={onViewPreview}>
+        <DropdownMenuItem onClick={(e) => {
+          e.stopPropagation();
+          onViewPreview();
+        }}>
           <Eye className="mr-2 h-4 w-4" />
           View Preview
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onScheduleDataset}>
+        <DropdownMenuItem onClick={(e) => {
+          e.stopPropagation();
+          onScheduleDataset();
+        }}>
           <Clock className="mr-2 h-4 w-4" />
           Schedule Execution
         </DropdownMenuItem>
         <DropdownMenuItem 
-          onClick={onDeleteDataset}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDeleteDataset();
+          }}
           className="text-destructive focus:text-destructive"
         >
           <Trash2 className="mr-2 h-4 w-4" />

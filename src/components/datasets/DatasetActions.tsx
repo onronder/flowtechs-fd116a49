@@ -60,18 +60,21 @@ export default function DatasetActions({
     handleRunClick();
   };
   
-  // Handle menu actions with proper event handling
-  const handleDeleteClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent event bubbling
+  // Create adapter functions to match the expected signatures
+  const handlePreviewClick = () => {
+    onViewPreview();
+  };
+  
+  const handleDeleteClick = () => {
     onDeleteDataset();
   };
   
-  const handleScheduleClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent event bubbling
+  const handleScheduleClick = () => {
     onScheduleDataset();
   };
   
-  const handlePreviewClick = (e: React.MouseEvent) => {
+  // This handler is used directly with the button
+  const handlePreviewButtonClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent event bubbling
     onViewPreview();
   };
@@ -79,7 +82,7 @@ export default function DatasetActions({
   return (
     <div className="flex justify-between items-center w-full">
       <PreviewButton 
-        onClick={handlePreviewClick}
+        onClick={handlePreviewButtonClick}
         disabled={!lastExecutionId}
       />
       
