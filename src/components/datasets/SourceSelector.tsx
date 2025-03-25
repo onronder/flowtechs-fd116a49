@@ -1,40 +1,18 @@
+
 // src/components/datasets/SourceSelector.tsx
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { fetchUserSources } from "@/api/sourcesApi";
+import { useSources } from "@/hooks/useSources";
 import { useToast } from "@/hooks/use-toast";
 
 export interface SourceSelectorProps {
   onSelect: (source: any) => void;
-  // onBack is not in this component's props based on the error message
 }
 
 export default function SourceSelector({ onSelect }: SourceSelectorProps) {
-  const [sources, setSources] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { sources, loading } = useSources();
   const { toast } = useToast();
-
-  useEffect(() => {
-    loadSources();
-  }, []);
-
-  async function loadSources() {
-    try {
-      setLoading(true);
-      const data = await fetchUserSources();
-      setSources(data);
-    } catch (error) {
-      console.error("Error loading sources:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load sources. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  }
 
   if (loading) {
     return <div className="py-8 text-center">Loading sources...</div>;

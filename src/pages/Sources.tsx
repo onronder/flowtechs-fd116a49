@@ -4,43 +4,21 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { fetchUserSources } from "@/api/sourceApi";
 import { testSourceConnection, deleteSource } from "@/utils/sourceUtils";
 import SourcesGrid from "@/components/sources/SourcesGrid";
 import EmptySourcesState from "@/components/sources/EmptySourcesState";
 import LoadingSpinner from "@/components/ui/loading-spinner";
+import { useSources } from "@/hooks/useSources";
 
 export default function Sources() {
-  const [sources, setSources] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { sources, loading, fetchSources } = useSources();
   const { toast } = useToast();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    loadSources();
-  }, []);
-
-  async function loadSources() {
-    try {
-      setLoading(true);
-      const data = await fetchUserSources();
-      setSources(data);
-    } catch (error) {
-      console.error("Error loading sources:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load sources. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function handleDeleteSource(id: string) {
     const success = await deleteSource(id, toast);
     if (success) {
-      setSources(sources.filter(s => s.id !== id));
+      fetchSources();
     }
   }
 

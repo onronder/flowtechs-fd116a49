@@ -116,7 +116,7 @@ export default function SourceCard({ source, onEdit, onDelete, onTest }: SourceC
         <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-4">
           <div className="flex items-center text-sm text-muted-foreground">
             <Calendar className="h-4 w-4 mr-1" />
-            <span>Updated {formatDistance(new Date(source.updated_at), new Date(), { addSuffix: true })}</span>
+            <span>Updated {formatDistance(new Date(source.updated_at || new Date()), new Date(), { addSuffix: true })}</span>
           </div>
           <div className="flex items-center text-sm text-muted-foreground">
             <Tag className="h-4 w-4 mr-1" />
@@ -124,11 +124,11 @@ export default function SourceCard({ source, onEdit, onDelete, onTest }: SourceC
           </div>
           <div className="flex items-center text-sm text-muted-foreground">
             <Database className="h-4 w-4 mr-1" />
-            <span>{source.datasets_count || 0} Datasets</span>
+            <span>{source.datasets_count || 0} {source.datasets_count === 1 ? 'Dataset' : 'Datasets'}</span>
           </div>
           <div className="flex items-center text-sm text-muted-foreground">
             <Clock className="h-4 w-4 mr-1" />
-            <span>{source.jobs_count || 0} Jobs</span>
+            <span>{source.jobs_count || 0} {source.jobs_count === 1 ? 'Job' : 'Jobs'}</span>
           </div>
         </div>
         

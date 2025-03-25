@@ -1,17 +1,28 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export async function fetchUserSources() {
+  // Get sources with counts of related datasets and jobs
   const { data, error } = await supabase
     .from("sources")
-    .select("*")
+    .select(`
+      *,
+      datasets_count:user_datasets(count),
+      jobs_count:dataset_job_queue(count)
+    `)
     .order("created_at", { ascending: false });
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return data || [];
+  // Process the counts from the aggregation
+  const sourcesWithCounts = data?.map(source => ({
+    ...source,
+    datasets_count: source.datasets_count[0]?.count || 0,
+    jobs_count: source.jobs_count[0]?.count || 0
+  })) || [];
+
+  return sourcesWithCounts;
 }
 
 export async function fetchSourceById(id: string) {

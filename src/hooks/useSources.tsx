@@ -16,8 +16,8 @@ export interface Source {
   updated_at: string | null;
   last_validated_at: string | null;
   user_id: string;
-  datasets_count?: number;
-  jobs_count?: number;
+  datasets_count: number;
+  jobs_count: number;
 }
 
 export function useSources() {
@@ -31,13 +31,24 @@ export function useSources() {
       
       const { data, error } = await supabase
         .from("sources")
-        .select("*")
+        .select(`
+          *,
+          datasets_count:user_datasets(count),
+          jobs_count:dataset_job_queue(count)
+        `)
         .order("created_at", { ascending: false });
       
       if (error) throw error;
       
+      // Process the counts from the aggregation
+      const sourcesWithCounts = data?.map(source => ({
+        ...source,
+        datasets_count: source.datasets_count[0]?.count || 0,
+        jobs_count: source.jobs_count[0]?.count || 0
+      }));
+      
       // Cast the returned data to our Source type
-      setSources(data as unknown as Source[]);
+      setSources(sourcesWithCounts as unknown as Source[]);
     } catch (error) {
       console.error("Error fetching sources:", error);
       toast({
