@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +24,7 @@ export default function SourceCard({
   const navigate = useNavigate();
 
   return (
-    <Card className="bg-cardBg">
+    <Card className="bg-card border-border shadow-sm">
       <CardHeader>
         <CardTitle>{source.name}</CardTitle>
         <CardDescription>{source.description}</CardDescription>

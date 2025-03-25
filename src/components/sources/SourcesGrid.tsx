@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Source } from "@/hooks/useSources";
 import {
@@ -52,7 +53,7 @@ function SourceCard({
     : "Never";
 
   return (
-    <Card className="bg-secondary">
+    <Card className="bg-card border-border shadow-sm">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>{source.name}</CardTitle>
@@ -160,10 +161,10 @@ export default function SourcesGrid({
           isTesting={testingSourceId === source.id}
         />
       ))}
-      <Card className="bg-secondary flex items-center justify-center">
-        <CardContent className="flex items-center justify-center">
-          <Button variant="secondary" onClick={onAddNew}>
-            <Plus className="mr-2 h-4 w-4" />
+      <Card className="bg-card border-border shadow-sm flex items-center justify-center">
+        <CardContent className="flex items-center justify-center h-full">
+          <Button variant="outline" onClick={onAddNew} className="gap-2">
+            <Plus className="h-4 w-4" />
             Add Source
           </Button>
         </CardContent>

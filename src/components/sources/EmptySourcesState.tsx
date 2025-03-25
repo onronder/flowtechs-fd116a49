@@ -8,7 +8,7 @@ interface EmptySourcesStateProps {
 
 export default function EmptySourcesState({ onAddNew }: EmptySourcesStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-border rounded-xl">
+    <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-border rounded-xl bg-card/50">
       <div className="rounded-full bg-primary/10 p-6 mb-6">
         <Database className="h-12 w-12 text-primary" />
       </div>
