@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +13,7 @@ export default function Sources() {
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [testingSourceId, setTestingSourceId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (error) {
@@ -50,8 +51,8 @@ export default function Sources() {
   };
   
   const handleEditSource = (id: string) => {
-    // Navigate to edit page
-    window.location.href = `/sources/edit/${id}`;
+    // Use React Router navigation instead of direct window.location changes
+    navigate(`/sources/${id}/edit`);
   };
   
   const handleDeleteSource = (id: string) => {
@@ -60,8 +61,8 @@ export default function Sources() {
   };
   
   const handleAddNew = () => {
-    // Navigate to add source page
-    window.location.href = '/sources/add';
+    // Use React Router navigation instead of direct window.location changes
+    navigate('/sources/add');
   };
 
   const formattedSources = sources.map(source => ({

@@ -4,7 +4,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Badge } from "@/components/ui/badge";
 import { CalendarIcon, ClockIcon, ServerIcon } from "lucide-react";
 import SourceActions from "./SourceActions";
-import { format, formatDistance } from "date-fns";
+import { formatDistance } from "date-fns";
 
 export interface SourceCardProps {
   source: {
@@ -15,9 +15,9 @@ export interface SourceCardProps {
     lastValidatedAt?: string | null;
     apiVersion?: string;
   };
-  onTest: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+  onTest: (id: string) => void;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
   isTesting?: boolean;
 }
 
@@ -76,10 +76,10 @@ export default function SourceCard({
       <CardFooter className="pt-4 flex justify-end border-t">
         <SourceActions 
           id={source.id} 
-          onTestSuccess={onTest}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          isTesting={isTesting}
+          onTestSuccess={() => onTest(source.id)}
+          onEdit={() => onEdit(source.id)}
+          onDelete={() => onDelete(source.id)}
+          isTesting={isTesting && source.id === (isTesting ? source.id : null)}
         />
       </CardFooter>
     </Card>

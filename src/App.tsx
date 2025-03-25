@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -66,7 +65,7 @@ const App = () => {
               {/* Protected app routes with Layout */}
               <Route path="/dashboard" element={<AuthRoute><Layout><Dashboard /></Layout></AuthRoute>} />
               <Route path="/sources" element={<AuthRoute><Layout><Sources /></Layout></AuthRoute>} />
-              <Route path="/sources/new" element={<AuthRoute><Layout><AddSource /></Layout></AuthRoute>} />
+              <Route path="/sources/add" element={<AuthRoute><Layout><AddSource /></Layout></AuthRoute>} />
               <Route path="/sources/:id/edit" element={<AuthRoute><Layout><EditSource /></Layout></AuthRoute>} />
               <Route path="/datasets" element={<AuthRoute><Layout><Datasets /></Layout></AuthRoute>} />
               <Route path="/transformations" element={<AuthRoute><Layout><Transformations /></Layout></AuthRoute>} />
