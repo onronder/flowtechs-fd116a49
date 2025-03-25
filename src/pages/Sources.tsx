@@ -30,8 +30,10 @@ export default function Sources() {
 
   async function handleTestConnection(id: string) {
     await testSourceConnection(id, toast);
-    // Refresh sources after testing to get updated API version info
-    fetchSources();
+    // Refresh sources after testing to get updated timestamps and API version info
+    setTimeout(() => {
+      fetchSources();
+    }, 500); // Short delay to ensure backend updates are complete
   }
 
   function handleAddNew() {

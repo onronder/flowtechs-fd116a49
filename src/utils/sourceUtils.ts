@@ -2,10 +2,16 @@
 import { supabase } from "@/integrations/supabase/client";
 import { fetchSourceSchema } from "@/api/sourceApi";
 import { scheduleWeeklyUpdates } from "@/utils/shopify/versionDetector";
-import { testSourceConnection as apiTestSourceConnection, deleteSource as apiDeleteSource } from "@/api/sourceApi";
+import { 
+  testSourceConnection as apiTestSourceConnection, 
+  deleteSource as apiDeleteSource 
+} from "@/api/sourceApi";
 
 export async function testSourceConnection(id: string, toast: any) {
   try {
+    console.log("Testing source connection for ID:", id);
+    
+    // First, test the basic connection
     const result = await apiTestSourceConnection(id);
     
     // If the source is a Shopify source, also update its schema
@@ -18,13 +24,15 @@ export async function testSourceConnection(id: string, toast: any) {
     if (source && source.source_type === "shopify") {
       // Force refresh schema when testing connection
       try {
+        console.log("Attempting to fetch source schema after successful connection test");
         await fetchSourceSchema(id, true);
+        console.log("Schema updated successfully");
       } catch (schemaError) {
         console.error("Error fetching source schema:", schemaError);
         // Continue despite schema error - the connection test was successful
         toast({
           title: "Connection Successful, Schema Update Failed",
-          description: "The connection test was successful, but we couldn't update the schema. Please try again later.",
+          description: "The connection test was successful, but we couldn't update the schema. This won't affect your ability to use the source.",
           variant: "warning",
         });
         return result;

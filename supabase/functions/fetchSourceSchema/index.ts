@@ -48,6 +48,8 @@ serve(async (req) => {
         
         // Detect current API version
         const versionEndpoint = `https://${source.config.storeName}.myshopify.com/admin/api/versions`;
+        console.log(`Fetching API versions from: ${versionEndpoint}`);
+        
         const versionResponse = await fetch(versionEndpoint, {
           headers: {
             "X-Shopify-Access-Token": source.config.accessToken,
@@ -56,37 +58,68 @@ serve(async (req) => {
         });
         
         if (!versionResponse.ok) {
-          return errorResponse(`Failed to detect Shopify API version: ${versionResponse.status} ${versionResponse.statusText}`);
-        }
-        
-        const versionData = await versionResponse.json();
-        
-        if (!versionData.supported_versions || !versionData.supported_versions.length) {
-          return errorResponse("No API versions found in Shopify response");
-        }
-        
-        // Sort versions to find the latest one
-        const sortedVersions = [...versionData.supported_versions].sort((a, b) => {
-          return b.handle.localeCompare(a.handle);
-        });
-        
-        const apiVersion = sortedVersions[0].handle;
-        console.log(`Detected Shopify API version: ${apiVersion}`);
-        
-        // Update source with API version
-        const updatedConfig = { ...source.config, api_version: apiVersion };
-        const { error: updateError } = await supabaseClient
-          .from("sources")
-          .update({ config: updatedConfig })
-          .eq("id", sourceId);
+          console.error(`API version detection failed: ${versionResponse.status} ${versionResponse.statusText}`);
+          // For now, use a default version to continue
+          const defaultVersion = "2023-10";
+          console.log(`Using default API version: ${defaultVersion}`);
           
-        if (updateError) {
-          console.error("Failed to update source with API version:", updateError);
-          return errorResponse(`Failed to update source with API version: ${updateError.message}`);
+          // Update source with default API version
+          const updatedConfig = { ...source.config, api_version: defaultVersion };
+          const { error: updateError } = await supabaseClient
+            .from("sources")
+            .update({ 
+              config: updatedConfig,
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", sourceId);
+            
+          if (updateError) {
+            console.error("Failed to update source with default API version:", updateError);
+            return errorResponse(`Failed to update source with default API version: ${updateError.message}`);
+          }
+          
+          // Update source object for subsequent operations
+          source.config.api_version = defaultVersion;
+        } else {
+          // Parse the version data
+          try {
+            const versionData = await versionResponse.json();
+            
+            if (!versionData.supported_versions || !versionData.supported_versions.length) {
+              console.error("No API versions found in Shopify response");
+              return errorResponse("No API versions found in Shopify response");
+            }
+            
+            // Sort versions to find the latest one
+            const sortedVersions = [...versionData.supported_versions].sort((a, b) => {
+              return b.handle.localeCompare(a.handle);
+            });
+            
+            const apiVersion = sortedVersions[0].handle;
+            console.log(`Detected Shopify API version: ${apiVersion}`);
+            
+            // Update source with API version
+            const updatedConfig = { ...source.config, api_version: apiVersion };
+            const { error: updateError } = await supabaseClient
+              .from("sources")
+              .update({ 
+                config: updatedConfig,
+                updated_at: new Date().toISOString()
+              })
+              .eq("id", sourceId);
+              
+            if (updateError) {
+              console.error("Failed to update source with API version:", updateError);
+              return errorResponse(`Failed to update source with API version: ${updateError.message}`);
+            }
+            
+            // Update source object for subsequent operations
+            source.config.api_version = apiVersion;
+          } catch (parseError) {
+            console.error("Error parsing API version response:", parseError);
+            return errorResponse(`Error parsing API version response: ${parseError.message}`);
+          }
         }
-        
-        // Update source object for subsequent operations
-        source.config.api_version = apiVersion;
       } catch (error) {
         console.error("Error detecting API version:", error);
         return errorResponse(`Failed to detect API version: ${error.message}`);

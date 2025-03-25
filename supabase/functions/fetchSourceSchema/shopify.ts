@@ -18,8 +18,12 @@ export async function fetchShopifySchema(
   console.log(`Fetching Shopify schema for store: ${config.storeName}, API version: ${config.api_version}`);
   
   // Verify required values are present
-  if (!config.storeName || !config.accessToken || !config.api_version) {
-    return errorResponse(`Missing required Shopify configuration: ${!config.storeName ? 'storeName' : ''} ${!config.accessToken ? 'accessToken' : ''} ${!config.api_version ? 'api_version' : ''}`);
+  if (!config.storeName || !config.accessToken) {
+    return errorResponse(`Missing required Shopify configuration: ${!config.storeName ? 'storeName' : ''} ${!config.accessToken ? 'accessToken' : ''}`);
+  }
+  
+  if (!config.api_version) {
+    return errorResponse("Missing API version in configuration");
   }
   
   const shopifyEndpoint = `https://${config.storeName}.myshopify.com/admin/api/${config.api_version}/graphql.json`;
@@ -102,7 +106,8 @@ export async function fetchShopifySchema(
     const { error: updateError } = await supabaseClient
       .from("sources")
       .update({ 
-        last_validated_at: new Date().toISOString()
+        last_validated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString() // Also update the updated_at timestamp
       })
       .eq("id", source.id);
       

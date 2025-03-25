@@ -85,10 +85,22 @@ export default function SourceCard({ source, onEdit, onDelete, onTest }: SourceC
     }
   };
   
+  // Format the updated timestamp or use a default message
+  const formatUpdatedTime = (timestamp: string | null) => {
+    if (!timestamp) return "Never updated";
+    try {
+      return formatDistance(new Date(timestamp), new Date(), { addSuffix: true });
+    } catch (error) {
+      console.error("Error formatting timestamp:", error);
+      return "Unknown";
+    }
+  };
+  
   const status = getSourceStatus(source.is_active, source.last_validated_at);
   const sourceColor = getSourceColor(source.source_type);
   const sourceDetails = getSourceDetails(source);
   const statusColor = getStatusColor(source.is_active, source.last_validated_at);
+  const updatedTime = formatUpdatedTime(source.updated_at);
 
   return (
     <div className="relative rounded-xl bg-card text-card-foreground shadow-sm hover:shadow-md transition-shadow overflow-hidden">
@@ -116,11 +128,11 @@ export default function SourceCard({ source, onEdit, onDelete, onTest }: SourceC
         <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-4">
           <div className="flex items-center text-sm text-muted-foreground">
             <Calendar className="h-4 w-4 mr-1" />
-            <span>Updated {formatDistance(new Date(source.updated_at || new Date()), new Date(), { addSuffix: true })}</span>
+            <span>Updated {updatedTime}</span>
           </div>
           <div className="flex items-center text-sm text-muted-foreground">
             <Tag className="h-4 w-4 mr-1" />
-            <span>{sourceDetails.version}</span>
+            <span>API {sourceDetails.version}</span>
           </div>
           <div className="flex items-center text-sm text-muted-foreground">
             <Database className="h-4 w-4 mr-1" />
