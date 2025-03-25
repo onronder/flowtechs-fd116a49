@@ -47,3 +47,29 @@ export async function detectLatestShopifyVersion(
     throw error;
   }
 }
+
+/**
+ * Updates all Shopify sources to the latest API version
+ * This should be scheduled to run weekly
+ */
+export async function scheduleWeeklyUpdates(): Promise<boolean> {
+  try {
+    console.log("Running scheduled update for Shopify sources");
+    
+    // Invoke the Edge Function to run the updates
+    const { data, error } = await supabase.functions.invoke("updateShopifyVersions", {
+      body: { scheduled: true }
+    });
+    
+    if (error) {
+      console.error("Error scheduling weekly updates:", error);
+      return false;
+    }
+    
+    console.log("Weekly update completed:", data);
+    return true;
+  } catch (error) {
+    console.error("Error in scheduleWeeklyUpdates:", error);
+    return false;
+  }
+}

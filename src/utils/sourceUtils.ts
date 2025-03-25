@@ -2,10 +2,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { fetchSourceSchema } from "@/api/sourceApi";
 import { scheduleWeeklyUpdates } from "@/utils/shopify/versionDetector";
-import { 
-  testSourceConnection as apiTestSourceConnection, 
-  deleteSource as apiDeleteSource 
-} from "@/api/sourceApi";
+import { testSourceConnection as apiTestSourceConnection } from "@/api/sourceApi";
+import { deleteSource as apiDeleteSource } from "@/api/sourceApi";
 import { Source } from "@/hooks/useSources";
 
 export interface TestConnectionResult {
