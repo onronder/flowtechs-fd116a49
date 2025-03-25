@@ -1,17 +1,19 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { ShopifyCredentials, ValidationResult } from "@/types/sourceTypes";
+import { ShopifyCredentials, ValidationResult, TestConnectionResult } from "@/types/sourceTypes";
 import { Source } from "@/hooks/useSources";
+import { fetchSourceSchema } from "../sources/sourceSchemas";
 
 /**
- * Validates a Shopify connection using the provided credentials via Edge Function
+ * Validates a Shopify connection using the provided credentials
  */
 export async function validateShopifyConnection(credentials: ShopifyCredentials): Promise<ValidationResult> {
   try {
-    console.log("Validating Shopify credentials via Edge Function:", { 
+    console.log("Validating Shopify credentials:", { 
       credentials: { ...credentials, accessToken: "REDACTED", apiSecret: "REDACTED" }
     });
     
+    // Invoke the Edge Function to validate the Shopify connection
     const { data, error } = await supabase.functions.invoke("validateShopifySource", {
       body: credentials
     });
@@ -46,54 +48,12 @@ export async function validateShopifyConnection(credentials: ShopifyCredentials)
 }
 
 /**
- * Fetches the Shopify schema for a source via Edge Function
- */
-export async function fetchShopifySchema(sourceId: string, forceUpdate = false): Promise<{
-  success: boolean;
-  message?: string;
-  cached?: boolean;
-  error?: string;
-}> {
-  try {
-    console.log(`Fetching Shopify schema via Edge Function, sourceId: ${sourceId}, forceUpdate: ${forceUpdate}`);
-    
-    const { data, error } = await supabase.functions.invoke("fetchShopifySchema", {
-      body: { sourceId, forceUpdate }
-    });
-    
-    if (error) {
-      console.error("Edge function error:", error);
-      return { 
-        success: false, 
-        error: error.message || "Failed to fetch Shopify schema" 
-      };
-    }
-    
-    if (!data.success) {
-      return { 
-        success: false, 
-        error: data.error || "Unknown error fetching Shopify schema" 
-      };
-    }
-    
-    return {
-      success: true,
-      message: data.message,
-      cached: data.cached
-    };
-  } catch (error) {
-    console.error("Error fetching Shopify schema:", error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : "An unknown error occurred" 
-    };
-  }
-}
-
-/**
  * Tests an existing Shopify source connection
+ * @param sourceId The ID of the source to test
+ * @param source The source object containing configuration
+ * @returns Result of the connection test
  */
-export async function testShopifyConnection(sourceId: string, source: Source) {
+export async function testShopifyConnection(sourceId: string, source: Source): Promise<TestConnectionResult> {
   try {
     console.log("Testing Shopify connection:", { 
       sourceId, 
@@ -142,7 +102,7 @@ export async function testShopifyConnection(sourceId: string, source: Source) {
       // Also update the schema when the API version changes
       try {
         console.log(`Fetching updated schema for source ${sourceId} with new API version ${validationResult.config?.api_version}`);
-        await fetchShopifySchema(sourceId, true);
+        await fetchSourceSchema(sourceId, true);
       } catch (schemaError) {
         console.error("Error updating schema after API version change:", schemaError);
         // Continue anyway
@@ -163,7 +123,7 @@ export async function testShopifyConnection(sourceId: string, source: Source) {
     if (lastValidatedAt < sevenDaysAgo) {
       console.log(`Schema is older than 7 days (last update: ${lastValidatedAt.toISOString()}), refreshing`);
       try {
-        await fetchShopifySchema(sourceId, true);
+        await fetchSourceSchema(sourceId, true);
         
         // Update last_validated_at timestamp
         await supabase
@@ -193,6 +153,54 @@ export async function testShopifyConnection(sourceId: string, source: Source) {
     return { 
       success: false, 
       message: error instanceof Error ? error.message : "An unknown error occurred" 
+    };
+  }
+}
+
+/**
+ * Fetches the Shopify schema for a source
+ * @param sourceId The ID of the source
+ * @param forceUpdate Whether to force update the schema even if it's cached
+ * @returns Result of the schema fetch operation
+ */
+export async function fetchShopifySchema(sourceId: string, forceUpdate = false): Promise<{
+  success: boolean;
+  message?: string;
+  cached?: boolean;
+  error?: string;
+}> {
+  try {
+    console.log(`Fetching Shopify schema, sourceId: ${sourceId}, forceUpdate: ${forceUpdate}`);
+    
+    const { data, error } = await supabase.functions.invoke("fetchShopifySchema", {
+      body: { sourceId, forceUpdate }
+    });
+    
+    if (error) {
+      console.error("Edge function error:", error);
+      return { 
+        success: false, 
+        error: error.message || "Failed to fetch Shopify schema" 
+      };
+    }
+    
+    if (!data.success) {
+      return { 
+        success: false, 
+        error: data.error || "Unknown error fetching Shopify schema" 
+      };
+    }
+    
+    return {
+      success: true,
+      message: data.message,
+      cached: data.cached
+    };
+  } catch (error) {
+    console.error("Error fetching Shopify schema:", error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "An unknown error occurred" 
     };
   }
 }
