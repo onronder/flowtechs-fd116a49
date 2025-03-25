@@ -66,16 +66,6 @@ export default function DatasetActions({
     onViewPreview();
   };
   
-  const handleDeleteClick = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation(); // Prevent event bubbling if event is provided
-    onDeleteDataset();
-  };
-  
-  const handleScheduleClick = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation(); // Prevent event bubbling if event is provided
-    onScheduleDataset();
-  };
-  
   // Create wrapper functions that don't take parameters for DatasetActionsMenu
   const handlePreviewClickWrapper = () => {
     onViewPreview();

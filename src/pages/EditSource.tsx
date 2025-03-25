@@ -60,8 +60,7 @@ export default function EditSource() {
           className="mr-4" 
           onClick={handleCancel}
         >
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Back to Sources
+          <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
           <h1 className="text-2xl font-semibold">Edit Data Source</h1>
