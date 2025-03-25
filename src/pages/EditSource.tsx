@@ -5,6 +5,8 @@ import { useToast } from "@/hooks/use-toast";
 import CreateSourceStepper from "@/components/sources/CreateSourceStepper";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { fetchSourceById } from "@/api/sourceApi";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 export default function EditSource() {
   const { id } = useParams();
@@ -51,9 +53,20 @@ export default function EditSource() {
 
   return (
     <div className="h-full">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Edit Data Source</h1>
-        <p className="text-muted-foreground">Update your data source</p>
+      <div className="flex items-center mb-6">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="mr-4" 
+          onClick={handleCancel}
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Back to Sources
+        </Button>
+        <div>
+          <h1 className="text-2xl font-semibold">Edit Data Source</h1>
+          <p className="text-muted-foreground">Update your data source</p>
+        </div>
       </div>
 
       {source && <CreateSourceStepper existingSource={source} onCancel={handleCancel} />}
