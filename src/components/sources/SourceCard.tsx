@@ -1,184 +1,76 @@
-
-import { formatDistance } from "date-fns";
-import { Calendar, Tag, Database, Clock, Activity, Edit, Trash } from "lucide-react";
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PlayIcon, Pencil, Trash2, Loader } from "lucide-react";
 import { Source } from "@/hooks/useSources";
-
-// Source-specific icons
-import ShopifyIcon from "@/components/icons/ShopifyIcon";
-import WooCommerceIcon from "@/components/icons/WooCommerceIcon";
-import FtpIcon from "@/components/icons/FtpIcon";
-import ApiIcon from "@/components/icons/ApiIcon";
 
 interface SourceCardProps {
   source: Source;
+  onTest: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
-  onTest: (id: string) => void;
+  isTesting?: boolean;
 }
 
-export default function SourceCard({ source, onEdit, onDelete, onTest }: SourceCardProps) {
-  // Determine status indicator color
-  const getStatusColor = (isActive: boolean, lastValidatedAt: string | null) => {
-    if (!lastValidatedAt) return "bg-gray-400";
-    if (!isActive) return "bg-yellow-500";
-    return "bg-green-500";
-  };
-  
-  // Get source status
-  const getSourceStatus = (isActive: boolean, lastValidatedAt: string | null) => {
-    if (!lastValidatedAt) return "pending";
-    if (!isActive) return "inactive";
-    return "active";
-  };
-  
-  // Icon mapping for source types
-  const getSourceIcon = (type: string) => {
-    switch (type) {
-      case "shopify": return <ShopifyIcon className="h-6 w-6" />;
-      case "woocommerce": return <WooCommerceIcon className="h-6 w-6" />;
-      case "ftp_sftp": return <FtpIcon className="h-6 w-6" />;
-      case "custom_api": return <ApiIcon className="h-6 w-6" />;
-      default: return <Database className="h-6 w-6" />;
-    }
-  };
-  
-  // Get source-specific color
-  const getSourceColor = (type: string) => {
-    switch (type) {
-      case "shopify": return "#5c6ac4";
-      case "woocommerce": return "#7f54b3";
-      case "ftp_sftp": return "#22c55e";
-      case "custom_api": return "#3b82f6";
-      default: return "#64748b";
-    }
-  };
-  
-  // Get source-specific details to display
-  const getSourceDetails = (source: Source) => {
-    switch (source.source_type) {
-      case "shopify":
-        return {
-          identifier: source.config.storeName || "Unknown Store",
-          version: source.config.api_version || "Unknown"
-        };
-      case "woocommerce":
-        return {
-          identifier: source.config.site_url || "Unknown URL",
-          version: source.config.api_version || "WC API"
-        };
-      case "ftp_sftp":
-        return {
-          identifier: source.config.host || "Unknown Host",
-          version: source.config.protocol || "Unknown"
-        };
-      case "custom_api":
-        return {
-          identifier: source.config.base_url || "Unknown URL",
-          version: "Custom"
-        };
-      default:
-        return {
-          identifier: "Unknown",
-          version: "N/A"
-        };
-    }
-  };
-  
-  // Format the updated timestamp or use a default message
-  const formatUpdatedTime = (timestamp: string | null) => {
-    if (!timestamp) return "Never updated";
-    try {
-      return formatDistance(new Date(timestamp), new Date(), { addSuffix: true });
-    } catch (error) {
-      console.error("Error formatting timestamp:", error);
-      return "Unknown";
-    }
-  };
-  
-  const status = getSourceStatus(source.is_active, source.last_validated_at);
-  const sourceColor = getSourceColor(source.source_type);
-  const sourceDetails = getSourceDetails(source);
-  const statusColor = getStatusColor(source.is_active, source.last_validated_at);
-  const updatedTime = formatUpdatedTime(source.updated_at);
+export default function SourceCard({ 
+  source, 
+  onTest, 
+  onEdit, 
+  onDelete,
+  isTesting = false
+}: SourceCardProps) {
+  const navigate = useNavigate();
 
   return (
-    <div className="relative rounded-xl bg-card text-card-foreground shadow-sm hover:shadow-md transition-shadow overflow-hidden">
-      {/* Status indicator */}
-      <div className="absolute top-3 right-3">
-        <div className={`h-3 w-3 rounded-full ${statusColor}`} title={`Status: ${status}`}></div>
-      </div>
-      
-      {/* Top colored banner based on source type */}
-      <div className="h-2 w-full" style={{ backgroundColor: sourceColor }}></div>
-      
-      <div className="p-5">
-        {/* Header with icon and name */}
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="p-2 rounded-lg" style={{ backgroundColor: `${sourceColor}10`, color: sourceColor }}>
-            {getSourceIcon(source.source_type)}
-          </div>
-          <div>
-            <h3 className="text-lg font-medium">{source.name}</h3>
-            <p className="text-sm text-muted-foreground">{sourceDetails.identifier}</p>
-          </div>
+    <Card className="bg-cardBg">
+      <CardHeader>
+        <CardTitle>{source.name}</CardTitle>
+        <CardDescription>{source.description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="text-sm text-muted-foreground">
+          <p>
+            <strong>Type:</strong> {source.source_type}
+          </p>
+          <p>
+            <strong>Created:</strong> {new Date(source.created_at || '').toLocaleDateString()}
+          </p>
+          <p>
+            <strong>Last Validated:</strong> {source.last_validated_at ? new Date(source.last_validated_at).toLocaleDateString() : 'Never'}
+          </p>
+          {source.source_type === 'shopify' && source.config?.api_version && (
+            <p>
+              <strong>API Version:</strong> {source.config.api_version}
+            </p>
+          )}
+          <p>
+            <strong>Datasets:</strong> {source.datasets_count}
+          </p>
         </div>
-        
-        {/* Meta information */}
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-4">
-          <div className="flex items-center text-sm text-muted-foreground">
-            <Calendar className="h-4 w-4 mr-1" />
-            <span>Updated {updatedTime}</span>
-          </div>
-          <div className="flex items-center text-sm text-muted-foreground">
-            <Tag className="h-4 w-4 mr-1" />
-            <span>API {sourceDetails.version}</span>
-          </div>
-          <div className="flex items-center text-sm text-muted-foreground">
-            <Database className="h-4 w-4 mr-1" />
-            <span>{source.datasets_count || 0} {source.datasets_count === 1 ? 'Dataset' : 'Datasets'}</span>
-          </div>
-          <div className="flex items-center text-sm text-muted-foreground">
-            <Clock className="h-4 w-4 mr-1" />
-            <span>{source.jobs_count || 0} {source.jobs_count === 1 ? 'Job' : 'Jobs'}</span>
-          </div>
-        </div>
-        
-        {/* Action buttons */}
-        <div className="flex justify-between pt-3 border-t">
+      </CardContent>
+      <CardFooter className="flex justify-between">
+        <div className="flex gap-2">
           <Button
-            onClick={() => onTest(source.id)}
             variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-primary"
+            size="icon"
+            onClick={() => onTest(source.id)}
+            disabled={isTesting}
           >
-            <Activity className="h-4 w-4 mr-1" />
-            Test
+            {isTesting ? (
+              <Loader className="h-4 w-4 animate-spin" />
+            ) : (
+              <PlayIcon className="h-4 w-4" />
+            )}
           </Button>
-          
-          <div className="flex space-x-2">
-            <Button
-              onClick={() => onEdit(source.id)}
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground hover:text-primary"
-            >
-              <Edit className="h-4 w-4 mr-1" />
-              Edit
-            </Button>
-            
-            <Button
-              onClick={() => onDelete(source.id)}
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground hover:text-destructive"
-            >
-              <Trash className="h-4 w-4 mr-1" />
-              Delete
-            </Button>
-          </div>
+          <Button variant="ghost" size="icon" onClick={() => onEdit(source.id)}>
+            <Pencil className="h-4 w-4" />
+          </Button>
         </div>
-      </div>
-    </div>
+        <Button variant="ghost" size="icon" onClick={() => onDelete(source.id)}>
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }

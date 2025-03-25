@@ -15,6 +15,7 @@ export default function Sources() {
   const { sources, loading, fetchSources } = useSources();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [testingSource, setTestingSource] = useState<string | null>(null);
 
   // Initialize the weekly source updates on component mount
   useEffect(() => {
@@ -29,11 +30,19 @@ export default function Sources() {
   }
 
   async function handleTestConnection(id: string) {
-    await testSourceConnection(id, toast);
-    // Refresh sources after testing to get updated timestamps and API version info
-    setTimeout(() => {
-      fetchSources();
-    }, 500); // Short delay to ensure backend updates are complete
+    setTestingSource(id);
+    try {
+      await testSourceConnection(id, toast);
+      // Refresh sources after testing to get updated timestamps and API version info
+      // Delay slightly to ensure backend updates are complete
+      setTimeout(() => {
+        fetchSources();
+        setTestingSource(null);
+      }, 1000);
+    } catch (error) {
+      setTestingSource(null);
+      console.error("Error in handleTestConnection:", error);
+    }
   }
 
   function handleAddNew() {
@@ -70,7 +79,7 @@ export default function Sources() {
           onTest={handleTestConnection}
           onEdit={handleEditSource}
           onDelete={handleDeleteSource}
-          onAddNew={handleAddNew}
+          testingSourceId={testingSource}
         />
       )}
     </div>

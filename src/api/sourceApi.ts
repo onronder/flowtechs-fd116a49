@@ -171,17 +171,27 @@ export async function fetchSourceSchema(sourceId: string, forceRefresh = false) 
   try {
     console.log(`Fetching schema for source ${sourceId}${forceRefresh ? ' (force refresh)' : ''}`);
     
+    if (!sourceId) {
+      throw new Error("Source ID is required");
+    }
+    
     // Call the Edge Function to fetch the schema
     const { data, error } = await supabase.functions.invoke("fetchSourceSchema", {
       body: { 
         sourceId,
-        forceRefresh
+        forceUpdate: forceRefresh 
       }
     });
     
     if (error) {
       console.error("Error fetching source schema:", error);
       throw new Error(error.message || "Failed to fetch source schema");
+    }
+    
+    if (!data || data.error) {
+      const errorMessage = data?.error || "Unknown error fetching schema";
+      console.error("Schema fetch error:", errorMessage);
+      throw new Error(errorMessage);
     }
     
     return data;

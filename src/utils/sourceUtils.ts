@@ -32,9 +32,23 @@ export async function testSourceConnection(id: string, toast: any) {
         // Continue despite schema error - the connection test was successful
         toast({
           title: "Connection Successful, Schema Update Failed",
-          description: "The connection test was successful, but we couldn't update the schema. This won't affect your ability to use the source.",
+          description: "The connection test was successful, but we couldn't update the schema. This may be due to missing or invalid API credentials.",
           variant: "warning",
         });
+        
+        // Update the last_validated_at timestamp anyway to show the connection was tested
+        try {
+          await supabase
+            .from("sources")
+            .update({ 
+              last_validated_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", id);
+        } catch (updateError) {
+          console.error("Error updating source timestamps:", updateError);
+        }
+        
         return result;
       }
     }
