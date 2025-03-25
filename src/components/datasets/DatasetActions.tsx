@@ -60,7 +60,7 @@ export default function DatasetActions({
     handleRunClick();
   };
   
-  // Create adapter functions to match the expected signatures
+  // Create handlers with consistent signatures that accept optional event parameters
   const handlePreviewClick = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation(); // Prevent event bubbling if event is provided
     onViewPreview();
@@ -76,15 +76,10 @@ export default function DatasetActions({
     onScheduleDataset();
   };
   
-  // This handler passes the event to handlePreviewClick
-  const handlePreviewButtonClick = (e?: React.MouseEvent) => {
-    handlePreviewClick(e);
-  };
-  
   return (
     <div className="flex justify-between items-center w-full">
       <PreviewButton 
-        onClick={handlePreviewButtonClick}
+        onClick={handlePreviewClick}
         disabled={!lastExecutionId}
       />
       
