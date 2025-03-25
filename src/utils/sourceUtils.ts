@@ -6,20 +6,41 @@ import {
   testSourceConnection as apiTestSourceConnection, 
   deleteSource as apiDeleteSource 
 } from "@/api/sourceApi";
+import { Source } from "@/hooks/useSources";
 
-export async function testSourceConnection(id: string, toast: any) {
+export interface TestConnectionResult {
+  success: boolean;
+  updated?: boolean;
+  message?: string;
+}
+
+export async function testSourceConnection(id: string, toast: any): Promise<TestConnectionResult | null> {
   try {
     console.log("Testing source connection for ID:", id);
     
     // First, test the basic connection
     const result = await apiTestSourceConnection(id);
     
+    if (!result.success) {
+      toast({
+        title: "Connection Error",
+        description: result.message || "Failed to connect to the source",
+        variant: "destructive",
+      });
+      return result;
+    }
+    
     // If the source is a Shopify source, also update its schema
-    const { data: source } = await supabase
+    const { data: source, error: sourceError } = await supabase
       .from("sources")
-      .select("source_type, config")
+      .select("source_type, config, last_validated_at")
       .eq("id", id)
       .single();
+    
+    if (sourceError) {
+      console.error("Error fetching source details:", sourceError);
+      throw new Error("Could not retrieve source details");
+    }
     
     if (source && source.source_type === "shopify") {
       // Force refresh schema when testing connection
@@ -49,25 +70,35 @@ export async function testSourceConnection(id: string, toast: any) {
           console.error("Error updating source timestamps:", updateError);
         }
         
-        return result;
+        return {
+          success: true, 
+          updated: false,
+          message: "Connection successful but schema update failed"
+        };
       }
     }
     
-    toast({
-      title: "Connection Successful",
-      description: "The source connection was tested successfully.",
-      variant: "default",
-    });
+    // Only show toast if one hasn't been shown already (in case of result.updated being true)
+    if (!result.updated) {
+      toast({
+        title: "Connection Successful",
+        description: "The source connection was tested successfully.",
+        variant: "default",
+      });
+    }
     
     return result;
   } catch (error) {
     console.error("Error testing source connection:", error);
     toast({
       title: "Connection Error",
-      description: error.message || "Failed to test connection",
+      description: error instanceof Error ? error.message : "Failed to test connection",
       variant: "destructive",
     });
-    return null;
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error occurred"
+    };
   }
 }
 
@@ -84,7 +115,7 @@ export async function deleteSource(id: string, toast: any) {
     console.error("Error deleting source:", error);
     toast({
       title: "Delete Error",
-      description: error.message || "Failed to delete source",
+      description: error instanceof Error ? error.message : "Failed to delete source",
       variant: "destructive",
     });
     return false;

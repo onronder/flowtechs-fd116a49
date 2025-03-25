@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Database } from "@/integrations/supabase/types";
@@ -24,11 +24,13 @@ export interface Source {
 export function useSources() {
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const fetchSources = async () => {
+  const fetchSources = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       
       // Use the refactored API function to fetch sources with counts
       const sourcesWithCounts = await fetchUserSources();
@@ -37,6 +39,7 @@ export function useSources() {
       setSources(sourcesWithCounts as Source[]);
     } catch (error) {
       console.error("Error fetching sources:", error);
+      setError("Failed to load sources. Please try again.");
       toast({
         title: "Error",
         description: "Failed to load sources. Please try again.",
@@ -45,15 +48,16 @@ export function useSources() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchSources();
-  }, []);
+  }, [fetchSources]);
 
   return {
     sources,
     loading,
+    error,
     fetchSources
   };
 }

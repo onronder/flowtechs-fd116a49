@@ -1,5 +1,18 @@
 import { supabase } from "@/integrations/supabase/client";
+import { Source } from "@/hooks/useSources";
+import { TestConnectionResult } from "@/utils/sourceUtils";
 
+export interface ApiResponse<T> {
+  data?: T;
+  error?: {
+    message: string;
+    code?: string;
+  };
+}
+
+/**
+ * Fetches all sources for the current user with associated datasets count
+ */
 export async function fetchUserSources() {
   try {
     // Fetch all sources first
@@ -52,18 +65,30 @@ export async function fetchUserSources() {
   }
 }
 
+/**
+ * Fetches a single source by ID
+ */
 export async function fetchSourceById(id: string) {
-  const { data, error } = await supabase
-    .from("sources")
-    .select("*")
-    .eq("id", id)
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from("sources")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-  if (error) {
-    throw new Error(error.message);
+    if (error) {
+      throw new Error(`Failed to fetch source: ${error.message}`);
+    }
+
+    if (!data) {
+      throw new Error("Source not found");
+    }
+
+    return data;
+  } catch (error) {
+    console.error(`Error fetching source ${id}:`, error);
+    throw error;
   }
-
-  return data;
 }
 
 export async function validateSourceConnection(connectionData: any) {
@@ -116,7 +141,10 @@ export async function validateSourceConnection(connectionData: any) {
   }
 }
 
-export async function testSourceConnection(id: string) {
+/**
+ * Tests an existing source connection
+ */
+export async function testSourceConnection(id: string): Promise<TestConnectionResult> {
   try {
     console.log("Testing source connection for ID:", id);
     
@@ -129,18 +157,46 @@ export async function testSourceConnection(id: string) {
     
     // Call the appropriate test function based on source type
     const { data, error } = await supabase.functions.invoke("testSourceConnection", {
-      body: { sourceId: id, sourceType: source.source_type, config: source.config }
+      body: { 
+        sourceId: id, 
+        sourceType: source.source_type, 
+        config: source.config 
+      }
     });
     
     if (error) {
       console.error("Error testing source connection:", error);
-      throw new Error(error.message || "Failed to test source connection");
+      return {
+        success: false,
+        message: error.message || "Failed to test source connection"
+      };
     }
     
-    return data;
+    // Update the last validated timestamp
+    try {
+      await supabase
+        .from("sources")
+        .update({ 
+          last_validated_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", id);
+    } catch (updateError) {
+      console.error("Error updating source timestamps:", updateError);
+      // Continue despite error - the connection test was successful
+    }
+    
+    return {
+      success: true,
+      updated: data?.updated || false,
+      message: data?.message
+    };
   } catch (error) {
     console.error("Error in testSourceConnection:", error);
-    throw error;
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "An unknown error occurred"
+    };
   }
 }
 
@@ -167,6 +223,9 @@ export async function deleteSource(id: string) {
   }
 }
 
+/**
+ * Fetches the schema for a source with improved error handling
+ */
 export async function fetchSourceSchema(sourceId: string, forceRefresh = false) {
   try {
     console.log(`Fetching schema for source ${sourceId}${forceRefresh ? ' (force refresh)' : ''}`);
@@ -188,10 +247,12 @@ export async function fetchSourceSchema(sourceId: string, forceRefresh = false) 
       throw new Error(error.message || "Failed to fetch source schema");
     }
     
-    if (!data || data.error) {
-      const errorMessage = data?.error || "Unknown error fetching schema";
-      console.error("Schema fetch error:", errorMessage);
-      throw new Error(errorMessage);
+    if (!data) {
+      throw new Error("No data returned from schema fetch");
+    }
+    
+    if (data.error) {
+      throw new Error(data.error);
     }
     
     return data;
