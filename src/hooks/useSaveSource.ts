@@ -1,57 +1,66 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { saveSource, updateShopifySource } from "@/utils/sourceSaveUtils";
 import { useToast } from "@/hooks/use-toast";
-import { saveSource as saveSourceUtil, updateShopifySource } from "@/utils/sourceSaveUtils";
-import { SourceDataForApi } from "@/types/source";
+import { fetchSourceSchema } from "@/api/sourceApi";
 
 export default function useSaveSource() {
-  const [isSaving, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const [isSaving, setIsSaving] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const handleSaveSource = async (sourceData: SourceDataForApi, existingId?: string) => {
+  const handleSaveSource = async (sourceData: any, existingId?: string) => {
     try {
-      setIsLoading(true);
+      setIsSaving(true);
       
       let result;
+      
       if (existingId) {
+        // Update existing source
         result = await updateShopifySource(existingId, sourceData);
-        
         toast({
           title: "Source updated",
-          description: "Source has been successfully updated.",
+          description: "Your data source has been updated successfully.",
         });
       } else {
-        result = await saveSourceUtil(sourceData);
-        
+        // Create new source
+        result = await saveSource(sourceData);
         toast({
           title: "Source created",
-          description: "Source has been successfully created.",
+          description: "Your data source has been created successfully.",
         });
       }
       
-      // Navigate to the sources homepage instead of the source details page
-      navigate("/sources");
+      // Ensure schema is fetched and cached with the latest API version
+      if (result && result.success && result.source) {
+        try {
+          console.log(`Fetching schema for source ${result.source.id} (force refresh)`);
+          await fetchSourceSchema(result.source.id, true);
+          console.log("Schema updated successfully");
+        } catch (schemaError) {
+          console.error("Error fetching schema:", schemaError);
+          toast({
+            title: "Schema Warning",
+            description: "Source created but schema caching encountered an issue. Some features may be limited.",
+            variant: "destructive",
+          });
+        }
+      }
       
-      return result;
+      // Navigate back to sources list
+      navigate("/sources");
     } catch (error) {
       console.error("Error saving source:", error);
-      
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save source",
+        title: "Save failed",
+        description: error instanceof Error ? error.message : "An unknown error occurred",
         variant: "destructive",
       });
-      
-      throw error;
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
-  return {
-    isSaving,
-    handleSaveSource
-  };
+  return { isSaving, handleSaveSource };
 }

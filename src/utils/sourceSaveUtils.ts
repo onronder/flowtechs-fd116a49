@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchSourceSchema } from "@/api/sourceApi";
 import { SourceDataForApi } from "@/types/source";
 import { Database } from "@/integrations/supabase/types";
+import { detectLatestShopifyVersion } from "@/utils/shopify/versionDetector";
 
 type SourceType = Database["public"]["Enums"]["source_type"];
 
@@ -26,6 +27,27 @@ export async function saveShopifySource(sourceData: SourceDataForApi) {
       throw new Error("Missing required fields for Shopify source");
     }
     
+    // Ensure we have the latest API version
+    let currentConfig = { ...config };
+    
+    if (source_type === 'shopify' && (!currentConfig.api_version || sourceData.forceLatestVersion)) {
+      try {
+        const latestVersion = await detectLatestShopifyVersion(
+          currentConfig.storeName, 
+          currentConfig.accessToken
+        );
+        
+        console.log(`Detected latest Shopify API version: ${latestVersion}`);
+        currentConfig.api_version = latestVersion;
+      } catch (versionError) {
+        console.error("Error detecting latest API version:", versionError);
+        // Continue with existing version or default
+        if (!currentConfig.api_version) {
+          currentConfig.api_version = "2023-10"; // Fallback to a default
+        }
+      }
+    }
+    
     // Create the source record
     const { data: source, error } = await supabase
       .from("sources")
@@ -33,7 +55,7 @@ export async function saveShopifySource(sourceData: SourceDataForApi) {
         name,
         description,
         source_type: source_type as SourceType, // Cast to the expected enum type
-        config,
+        config: currentConfig,
         is_active: true,
         last_validated_at: new Date().toISOString(),
         user_id: userData.user.id
