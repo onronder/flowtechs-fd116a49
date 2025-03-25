@@ -83,32 +83,26 @@ export async function saveExportRecord(supabaseAdmin: any, params: {
   try {
     console.log("Saving export record to database:", {
       execution_id: params.executionId,
+      dataset_id: params.datasetId,
       file_path: params.filePath,
       user_id: params.userId,
       format: params.fileType,
-      file_size: params.fileSize
+      file_size: params.fileSize,
+      file_url: params.fileUrl
     });
     
-    // Check if the user_storage_exports table exists
-    const { error: checkError } = await supabaseAdmin
-      .from("user_storage_exports")
-      .select("id")
-      .limit(1);
-      
-    if (checkError) {
-      console.error("Error checking user_storage_exports table:", checkError);
-      throw new Error(`Error checking user_storage_exports table: ${checkError.message}`);
-    }
-    
-    // Insert record based on actual table structure
+    // Insert record with all necessary fields
     const { error } = await supabaseAdmin
       .from("user_storage_exports")
       .insert({
         execution_id: params.executionId,
+        dataset_id: params.datasetId,
         file_path: params.filePath,
         user_id: params.userId,
         format: params.fileType,
-        file_size: params.fileSize
+        file_size: params.fileSize,
+        file_url: params.fileUrl,
+        file_name: params.fileName
       });
       
     if (error) {

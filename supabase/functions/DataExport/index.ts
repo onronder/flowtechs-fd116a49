@@ -116,10 +116,15 @@ serve(async (req) => {
       return createSuccessResponse(responseBody);
     }
   } catch (error) {
-    console.error("Error in DataExport:", error);
-    return createErrorResponse(
-      error instanceof Error ? error.message : "Unknown error occurred",
-      500
-    );
+    console.error("Error in DataExport function:", error);
+    // Provide more detailed error information
+    let errorMessage = "Unknown error occurred";
+    if (error instanceof Error) {
+      errorMessage = `${error.name}: ${error.message}`;
+      if (error.stack) {
+        console.error("Stack trace:", error.stack);
+      }
+    }
+    return createErrorResponse(errorMessage, 500);
   }
 });

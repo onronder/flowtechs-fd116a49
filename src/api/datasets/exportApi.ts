@@ -31,9 +31,10 @@ export interface StorageExport {
   execution_id: string;
   format: string;
   file_size: number;
-  file_name?: string;
-  file_type?: string;
-  file_url?: string;
+  file_name: string;
+  file_type: string;
+  file_url: string;
+  dataset_id: string;
 }
 
 /**
@@ -131,19 +132,25 @@ export async function getUserExports(): Promise<StorageExport[]> {
     
     if (error) throw error;
     
-    // Transform the data to match what the UI expects by creating derived properties
-    // from the existing database fields
-    const transformedData = (data || []).map(item => ({
-      ...item,
-      // Generate file_name from file_path if not present
-      file_name: getFileNameFromPath(item.file_path),
-      // Use format field for file_type
-      file_type: item.format,
-      // Generate public URL from the file path
-      file_url: getFileUrlFromPath(item.file_path)
-    }));
+    if (!data || data.length === 0) {
+      console.log('No exports found for user');
+      return [];
+    }
     
-    return transformedData;
+    // Make sure all expected fields are present
+    return data.map(item => ({
+      id: item.id,
+      file_path: item.file_path || '',
+      created_at: item.created_at || new Date().toISOString(),
+      user_id: item.user_id || '',
+      execution_id: item.execution_id || '',
+      format: item.format || 'json',
+      file_size: item.file_size || 0,
+      file_name: item.file_name || getFileNameFromPath(item.file_path),
+      file_type: item.file_type || item.format || 'json',
+      file_url: item.file_url || getFileUrlFromPath(item.file_path),
+      dataset_id: item.dataset_id || ''
+    }));
   } catch (error) {
     console.error('Error fetching user exports:', error);
     return [];

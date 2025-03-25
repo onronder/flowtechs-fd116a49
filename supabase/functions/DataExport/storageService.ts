@@ -17,63 +17,72 @@ export async function uploadToStorage(
 ): Promise<string> {
   console.log(`Uploading file to dataset_exports/${filePath} with content type ${contentType}`);
   
-  // Check if the bucket exists
-  const { data: buckets, error: bucketError } = await supabaseAdmin.storage
-    .listBuckets();
-    
-  if (bucketError) {
-    console.error("Error listing buckets:", bucketError);
-    throw new Error(`Error listing buckets: ${bucketError.message}`);
-  }
-  
-  const bucketExists = buckets.some((bucket: any) => bucket.name === "dataset_exports");
-  
-  if (!bucketExists) {
-    console.log("dataset_exports bucket doesn't exist, creating it...");
-    
-    // Create the bucket
-    const { error: createError } = await supabaseAdmin.storage
-      .createBucket("dataset_exports", {
-        public: true,
-        fileSizeLimit: 52428800, // 50MB
-      });
+  try {
+    // Check if the bucket exists
+    const { data: buckets, error: bucketError } = await supabaseAdmin.storage
+      .listBuckets();
       
-    if (createError) {
-      console.error("Error creating bucket:", createError);
-      throw new Error(`Error creating storage bucket: ${createError.message}`);
+    if (bucketError) {
+      console.error("Error listing buckets:", bucketError);
+      throw new Error(`Error listing buckets: ${bucketError.message}`);
     }
     
-    console.log("dataset_exports bucket created successfully");
-  } else {
-    console.log("dataset_exports bucket already exists");
+    const bucketExists = buckets.some((bucket: any) => bucket.name === "dataset_exports");
+    
+    if (!bucketExists) {
+      console.log("dataset_exports bucket doesn't exist, creating it...");
+      
+      // Create the bucket
+      const { error: createError } = await supabaseAdmin.storage
+        .createBucket("dataset_exports", {
+          public: true,
+          fileSizeLimit: 52428800, // 50MB
+        });
+        
+      if (createError) {
+        console.error("Error creating bucket:", createError);
+        throw new Error(`Error creating storage bucket: ${createError.message}`);
+      }
+      
+      console.log("dataset_exports bucket created successfully");
+    } else {
+      console.log("dataset_exports bucket already exists");
+    }
+    
+    // Create a proper Blob with the right content type
+    const fileBlob = new Blob([fileContent], { type: contentType });
+    
+    // Upload to storage
+    const { data: upload, error: uploadError } = await supabaseAdmin.storage
+      .from("dataset_exports")
+      .upload(filePath, fileBlob, {
+        contentType,
+        upsert: true,
+      });
+    
+    if (uploadError) {
+      console.error("Storage upload error:", uploadError);
+      throw new Error(`Error saving file: ${uploadError.message}`);
+    }
+    
+    console.log("File uploaded successfully, getting public URL");
+    
+    // Get public URL for the file
+    const { data: publicURL } = supabaseAdmin.storage
+      .from("dataset_exports")
+      .getPublicUrl(filePath);
+    
+    if (!publicURL || !publicURL.publicUrl) {
+      throw new Error("Failed to generate public URL");
+    }
+    
+    console.log("Public URL:", publicURL.publicUrl);
+    
+    return publicURL.publicUrl;
+  } catch (error) {
+    console.error("Error in uploadToStorage:", error);
+    throw error;
   }
-  
-  // Create a proper Blob with the right content type
-  const fileBlob = new Blob([fileContent], { type: contentType });
-  
-  // Upload to storage
-  const { data: upload, error: uploadError } = await supabaseAdmin.storage
-    .from("dataset_exports")
-    .upload(filePath, fileBlob, {
-      contentType,
-      upsert: true,
-    });
-  
-  if (uploadError) {
-    console.error("Storage upload error:", uploadError);
-    throw new Error(`Error saving file: ${uploadError.message}`);
-  }
-  
-  console.log("File uploaded successfully, getting public URL");
-  
-  // Get public URL for the file
-  const { data: publicURL } = supabaseAdmin.storage
-    .from("dataset_exports")
-    .getPublicUrl(filePath);
-  
-  console.log("Public URL:", publicURL.publicUrl);
-  
-  return publicURL.publicUrl;
 }
 
 /**
