@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Eye } from "lucide-react";
 
 interface PreviewButtonProps {
-  onClick: (e: React.MouseEvent) => void;
+  onClick: (e?: React.MouseEvent) => void;
   disabled: boolean;
 }
 
@@ -13,7 +13,7 @@ export function PreviewButton({ onClick, disabled }: PreviewButtonProps) {
     <Button 
       variant="outline" 
       size="sm"
-      onClick={onClick}
+      onClick={(e) => onClick(e)}
       disabled={disabled}
       id="preview-dataset-button"
       name="preview-dataset-button"
