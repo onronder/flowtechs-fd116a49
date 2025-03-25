@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { fetchUserSources } from "@/api/sourcesApi";
+import { fetchUserSources } from "@/api/sourceApi";
 import SourceSelector from "./SourceSelector";
 import DatasetTypeSelector from "./DatasetTypeSelector";
 import PredefinedDatasetForm from "./PredefinedDatasetForm";
@@ -21,7 +21,6 @@ export default function NewDatasetModal({ isOpen, onClose, onDatasetCreated }: N
   const [datasetType, setDatasetType] = useState<"predefined" | "dependent" | "custom" | null>(null);
   const { toast } = useToast();
 
-  // Reset the state when the modal is opened
   useEffect(() => {
     if (isOpen) {
       setStep("source");

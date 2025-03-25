@@ -1,4 +1,6 @@
 
+import { supabase } from "@/integrations/supabase/client"; // Add the missing import
+
 /**
  * Detects the latest available Shopify API version
  * @param storeName The Shopify store name

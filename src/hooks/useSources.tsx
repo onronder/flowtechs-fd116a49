@@ -33,9 +33,16 @@ export function useSources() {
       setError(null);
       
       // Use the refactored API function to fetch sources with counts
-      const sourcesWithCounts = await fetchUserSources();
+      const sourcesData = await fetchUserSources();
       
-      // Cast the returned data to our Source type
+      // Add the missing properties for compatibility with the Source type
+      const sourcesWithCounts = sourcesData.map(source => ({
+        ...source,
+        datasets_count: 0, // Default value as it's not provided by the API
+        jobs_count: 0 // Default value as it's not provided by the API
+      }));
+      
+      // Now we can safely cast to our Source type
       setSources(sourcesWithCounts as Source[]);
     } catch (error) {
       console.error("Error fetching sources:", error);
