@@ -73,7 +73,7 @@ export default function DatasetActions({
     onScheduleDataset();
   };
   
-  // This handler is used directly with the button
+  // This handler is used directly with the button and accepts the event parameter
   const handlePreviewButtonClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent event bubbling
     onViewPreview();

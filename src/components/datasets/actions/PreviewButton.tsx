@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Eye } from "lucide-react";
 
 interface PreviewButtonProps {
-  onClick: () => void;
+  onClick: (e: React.MouseEvent) => void;
   disabled: boolean;
 }
 
