@@ -1,8 +1,9 @@
+
 // src/components/datasets/NewDatasetModal.tsx
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { fetchUserSources } from "@/api/sourceApi";
+import { fetchUserSources } from "@/api/sources";
 import SourceSelector from "./SourceSelector";
 import DatasetTypeSelector from "./DatasetTypeSelector";
 import PredefinedDatasetForm from "./PredefinedDatasetForm";
