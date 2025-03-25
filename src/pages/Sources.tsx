@@ -79,6 +79,7 @@ export default function Sources() {
           onTest={handleTestConnection}
           onEdit={handleEditSource}
           onDelete={handleDeleteSource}
+          onAddNew={handleAddNew}
           testingSourceId={testingSource}
         />
       )}
