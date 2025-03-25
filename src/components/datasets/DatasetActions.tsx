@@ -52,31 +52,16 @@ export default function DatasetActions({
     console.log(`DatasetActions: datasetId=${datasetId}, isRunning=${isRunning}, lastExecutionId=${lastExecutionId || 'none'}`);
   }, [isRunning, datasetId, lastExecutionId]);
   
-  // Handler for clicking the run button
-  const handleRunButtonClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent event bubbling
+  // Handler for clicking the run button that accepts an event parameter
+  const handleRunButtonClick = () => {
     console.log("Set running state to true for dataset:", datasetId);
     onRunDataset();
     handleRunClick();
   };
   
-  // Create handlers with consistent signatures that accept optional event parameters
-  const handlePreviewClick = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation(); // Prevent event bubbling if event is provided
+  // Create handlers with consistent signatures without event parameters
+  const handlePreviewClick = () => {
     onViewPreview();
-  };
-  
-  // Create wrapper functions that don't take parameters for DatasetActionsMenu
-  const handlePreviewClickWrapper = () => {
-    onViewPreview();
-  };
-  
-  const handleScheduleClickWrapper = () => {
-    onScheduleDataset();
-  };
-  
-  const handleDeleteClickWrapper = () => {
-    onDeleteDataset();
   };
   
   return (
@@ -102,9 +87,9 @@ export default function DatasetActions({
         )}
         
         <DatasetActionsMenu
-          onViewPreview={handlePreviewClickWrapper}
-          onScheduleDataset={handleScheduleClickWrapper}
-          onDeleteDataset={handleDeleteClickWrapper}
+          onViewPreview={onViewPreview}
+          onScheduleDataset={onScheduleDataset}
+          onDeleteDataset={onDeleteDataset}
         />
       </div>
     </div>

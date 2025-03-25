@@ -4,16 +4,21 @@ import { Button } from "@/components/ui/button";
 import { Eye } from "lucide-react";
 
 interface PreviewButtonProps {
-  onClick: (e?: React.MouseEvent) => void;
+  onClick: () => void;
   disabled: boolean;
 }
 
 export function PreviewButton({ onClick, disabled }: PreviewButtonProps) {
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event bubbling
+    onClick();
+  };
+
   return (
     <Button 
       variant="outline" 
       size="sm"
-      onClick={(e) => onClick(e)}
+      onClick={handleClick}
       disabled={disabled}
       id="preview-dataset-button"
       name="preview-dataset-button"
