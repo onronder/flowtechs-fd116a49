@@ -1,69 +1,94 @@
 
-import { Source } from "@/hooks/useSources";
-import { testSourceConnection as apiTestSourceConnection, deleteSource as apiDeleteSource } from "@/api/sourceApi";
-import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { testSourceConnection, deleteSource, fetchSourceSchema } from "@/api/sourceApi";
+import { scheduleWeeklyUpdates } from "@/utils/shopify/versionDetector";
 
-// Define the correct toast type based on how it's used in the hooks/use-toast.ts file
-type ToastFunction = typeof toast;
-
-/**
- * Tests a connection to a source
- * @param id The ID of the source to test
- * @param toast The toast function to display messages
- * @returns A promise with the test result
- */
-export async function testSourceConnection(id: string, toast: ToastFunction) {
-  console.log("Testing source connection:", { id });
-  
+export async function testSourceConnection(id: string, toast: any) {
   try {
-    const result = await apiTestSourceConnection(id);
+    const result = await testSourceConnection(id);
     
-    if (result.success) {
-      toast({
-        title: "Connection successful",
-        description: result.message || "Source connection is working correctly.",
-      });
+    // If the source is a Shopify source, also update its schema
+    const { data: source } = await supabase
+      .from("sources")
+      .select("source_type")
+      .eq("id", id)
+      .single();
+    
+    if (source && source.source_type === "shopify") {
+      // Force refresh schema when testing connection
+      await fetchSourceSchema(id, true);
     }
+    
+    toast({
+      title: "Connection Successful",
+      description: "The source connection was tested successfully.",
+      variant: "default",
+    });
     
     return result;
   } catch (error) {
     console.error("Error testing source connection:", error);
-    
     toast({
-      title: "Connection failed",
-      description: error instanceof Error ? error.message : "Failed to test connection",
+      title: "Connection Error",
+      description: error.message || "Failed to test connection",
       variant: "destructive",
     });
-    
-    throw error;
+    return null;
   }
 }
 
-/**
- * Deletes a source
- * @param id The ID of the source to delete
- * @param toast The toast function to display messages
- * @returns A promise that resolves to true if successful
- */
-export async function deleteSource(id: string, toast: ToastFunction) {
+export async function deleteSource(id: string, toast: any) {
   try {
-    await apiDeleteSource(id);
-    
+    await deleteSource(id);
     toast({
-      title: "Source deleted",
-      description: "Source has been successfully deleted.",
+      title: "Source Deleted",
+      description: "The source was deleted successfully.",
+      variant: "default",
     });
-    
     return true;
   } catch (error) {
     console.error("Error deleting source:", error);
-    
     toast({
-      title: "Error",
-      description: error instanceof Error ? error.message : "Failed to delete source",
+      title: "Delete Error",
+      description: error.message || "Failed to delete source",
       variant: "destructive",
     });
-    
     return false;
   }
+}
+
+// Setup weekly update schedule on app initialization
+export function initializeSourceUpdates() {
+  console.log("Initializing weekly source updates");
+  
+  // Immediately run an update
+  scheduleWeeklyUpdates()
+    .then(success => {
+      console.log(`Initial source update ${success ? 'completed' : 'failed'}`);
+    })
+    .catch(err => {
+      console.error("Error in initial source update:", err);
+    });
+  
+  // Set up weekly update schedule (run every Sunday at 2 AM)
+  const checkAndScheduleUpdate = () => {
+    const now = new Date();
+    const day = now.getDay(); // 0 = Sunday
+    const hour = now.getHours();
+    
+    if (day === 0 && hour === 2) {
+      scheduleWeeklyUpdates()
+        .then(success => {
+          console.log(`Weekly source update ${success ? 'completed' : 'failed'}`);
+        })
+        .catch(err => {
+          console.error("Error in weekly source update:", err);
+        });
+    }
+  };
+  
+  // Check once per hour if it's time for the weekly update
+  setInterval(checkAndScheduleUpdate, 60 * 60 * 1000);
+  
+  return true;
 }

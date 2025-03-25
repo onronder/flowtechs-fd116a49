@@ -2,43 +2,72 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Detects the latest Shopify API version from a store
- * @param storeName The Shopify store name (without myshopify.com)
- * @param accessToken The access token for the store
- * @returns The latest API version (e.g., "2025-01")
+ * Detects the latest available Shopify API version for a store
+ * @param storeName The Shopify store name 
+ * @param accessToken The Shopify access token
+ * @returns The latest API version string
  */
-export async function detectLatestShopifyVersion(storeName: string, accessToken: string): Promise<string> {
+export async function detectLatestShopifyVersion(
+  storeName: string,
+  accessToken: string
+): Promise<string> {
   try {
-    console.log(`Detecting latest Shopify API version for store: ${storeName}`);
+    console.log(`Detecting latest API version for store: ${storeName}`);
     
-    // Try to fetch available versions from Shopify's version endpoint
+    // Fetch available versions from Shopify
     const response = await fetch(`https://${storeName}.myshopify.com/admin/api/versions`, {
+      method: 'GET',
       headers: {
-        'X-Shopify-Access-Token': accessToken,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': accessToken
       }
     });
     
     if (!response.ok) {
-      console.warn(`Failed to fetch versions. Status: ${response.status}. Using fallback version.`);
-      return "2025-01"; // Fallback to current known version
+      throw new Error(`Failed to fetch API versions: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
-    console.log(`Available Shopify API versions:`, data);
     
-    if (data.supported_versions && data.supported_versions.length > 0) {
-      // First version in the list is always the latest
-      const latestVersion = data.supported_versions[0].handle;
-      console.log(`Using latest Shopify API version: ${latestVersion}`);
-      return latestVersion;
+    if (!data || !data.supported_versions || !data.supported_versions.length) {
+      throw new Error('No API versions found in response');
     }
     
-    // Fallback to current known version if no versions found
-    console.warn(`No supported versions found. Using fallback version.`);
-    return "2025-01";
+    // Sort versions to find the latest one (format: YYYY-MM)
+    const sortedVersions = [...data.supported_versions].sort((a, b) => {
+      return b.handle.localeCompare(a.handle);
+    });
+    
+    const latestVersion = sortedVersions[0].handle;
+    console.log(`Latest Shopify API version: ${latestVersion}`);
+    
+    return latestVersion;
   } catch (error) {
-    console.error(`Error detecting Shopify API version:`, error);
-    return "2025-01"; // Fallback in case of error
+    console.error('Error detecting latest Shopify version:', error);
+    // Return a reasonable default in case of errors
+    return '2023-10'; // Example fallback version
+  }
+}
+
+/**
+ * Schedules a weekly update for all Shopify sources
+ */
+export async function scheduleWeeklyUpdates() {
+  try {
+    // Call the updateAllShopifySources utility function via a scheduled task
+    const { data, error } = await supabase.functions.invoke("updateShopifyVersions", {
+      body: { scheduled: true }
+    });
+    
+    if (error) {
+      console.error("Failed to schedule updates:", error);
+      return false;
+    }
+    
+    console.log("Scheduled update completed:", data);
+    return true;
+  } catch (error) {
+    console.error("Error in scheduleWeeklyUpdates:", error);
+    return false;
   }
 }

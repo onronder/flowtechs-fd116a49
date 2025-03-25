@@ -59,22 +59,22 @@ export default function SourceCard({ source, onEdit, onDelete, onTest }: SourceC
     switch (source.source_type) {
       case "shopify":
         return {
-          identifier: source.config.storeName,
+          identifier: source.config.storeName || "Unknown Store",
           version: source.config.api_version || "Unknown"
         };
       case "woocommerce":
         return {
-          identifier: source.config.site_url,
-          version: "WC API"
+          identifier: source.config.site_url || "Unknown URL",
+          version: source.config.api_version || "WC API"
         };
       case "ftp_sftp":
         return {
-          identifier: source.config.host,
-          version: source.config.protocol
+          identifier: source.config.host || "Unknown Host",
+          version: source.config.protocol || "Unknown"
         };
       case "custom_api":
         return {
-          identifier: source.config.base_url,
+          identifier: source.config.base_url || "Unknown URL",
           version: "Custom"
         };
       default:

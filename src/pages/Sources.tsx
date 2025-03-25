@@ -9,11 +9,17 @@ import SourcesGrid from "@/components/sources/SourcesGrid";
 import EmptySourcesState from "@/components/sources/EmptySourcesState";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { useSources } from "@/hooks/useSources";
+import { initializeSourceUpdates } from "@/utils/sourceUtils";
 
 export default function Sources() {
   const { sources, loading, fetchSources } = useSources();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Initialize the weekly source updates on component mount
+  useEffect(() => {
+    initializeSourceUpdates();
+  }, []);
 
   async function handleDeleteSource(id: string) {
     const success = await deleteSource(id, toast);
@@ -24,6 +30,8 @@ export default function Sources() {
 
   async function handleTestConnection(id: string) {
     await testSourceConnection(id, toast);
+    // Refresh sources after testing to get updated API version info
+    fetchSources();
   }
 
   function handleAddNew() {

@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Database } from "@/integrations/supabase/types";
+import { fetchUserSources } from "@/api/sourceApi";
 
 // Define the Source type based on the database types
 export interface Source {
@@ -29,52 +30,8 @@ export function useSources() {
     try {
       setLoading(true);
       
-      // First, fetch all sources without trying to count related entities
-      const { data: sourcesData, error: sourcesError } = await supabase
-        .from("sources")
-        .select("*")
-        .order("created_at", { ascending: false });
-      
-      if (sourcesError) throw sourcesError;
-      
-      if (!sourcesData) {
-        setSources([]);
-        return;
-      }
-      
-      // Fetch dataset counts separately using a count query
-      const getDatasetCounts = async () => {
-        const countsPromises = sourcesData.map(async (source) => {
-          const { count, error } = await supabase
-            .from("user_datasets")
-            .select("*", { count: "exact", head: true })
-            .eq("source_id", source.id);
-          
-          return {
-            sourceId: source.id,
-            count: count || 0,
-            error
-          };
-        });
-        
-        return Promise.all(countsPromises);
-      };
-      
-      // Get dataset counts for all sources
-      const datasetCounts = await getDatasetCounts();
-      
-      // Create a map of source ID to dataset count
-      const datasetCountMap = datasetCounts.reduce((acc, item) => {
-        acc[item.sourceId] = item.count;
-        return acc;
-      }, {} as Record<string, number>);
-      
-      // Construct the final sources with counts
-      const sourcesWithCounts = sourcesData.map(source => ({
-        ...source,
-        datasets_count: datasetCountMap[source.id] || 0,
-        jobs_count: 0 // Default to 0 for now as the dataset_job_queue table isn't correctly linked
-      }));
+      // Use the refactored API function to fetch sources with counts
+      const sourcesWithCounts = await fetchUserSources();
       
       // Cast the returned data to our Source type
       setSources(sourcesWithCounts as Source[]);
