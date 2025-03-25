@@ -51,17 +51,19 @@ export default function Sources() {
   };
   
   const handleEditSource = (id: string) => {
-    // Use React Router navigation instead of direct window.location changes
     navigate(`/sources/${id}/edit`);
   };
   
   const handleDeleteSource = (id: string) => {
     // Delete source logic would go here
+    toast({
+      title: "Source deleted",
+      description: "The source has been successfully deleted."
+    });
     handleRefresh();
   };
   
   const handleAddNew = () => {
-    // Use React Router navigation instead of direct window.location changes
     navigate('/sources/add');
   };
 

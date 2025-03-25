@@ -33,9 +33,9 @@ export default function SourcesGrid({
         <SourceCard
           key={source.id}
           source={source}
-          onTest={onTest}
-          onEdit={onEdit}
-          onDelete={onDelete}
+          onTest={() => onTest(source.id)}
+          onEdit={() => onEdit(source.id)}
+          onDelete={() => onDelete(source.id)}
           isTesting={testingSourceId === source.id}
         />
       ))}

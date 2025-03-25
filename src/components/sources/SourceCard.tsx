@@ -15,9 +15,9 @@ export interface SourceCardProps {
     lastValidatedAt?: string | null;
     apiVersion?: string;
   };
-  onTest: (id: string) => void;
-  onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
+  onTest: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
   isTesting?: boolean;
 }
 
@@ -75,11 +75,11 @@ export default function SourceCard({
       
       <CardFooter className="pt-4 flex justify-end border-t">
         <SourceActions 
-          id={source.id} 
-          onTestSuccess={() => onTest(source.id)}
-          onEdit={() => onEdit(source.id)}
-          onDelete={() => onDelete(source.id)}
-          isTesting={isTesting && source.id === (isTesting ? source.id : null)}
+          id={source.id}
+          onTestSuccess={onTest}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          isTesting={isTesting}
         />
       </CardFooter>
     </Card>
