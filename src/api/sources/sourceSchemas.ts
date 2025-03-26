@@ -238,7 +238,7 @@ export async function checkSchemaPermissions(schemaId: string): Promise<SchemaPe
       `Exception checking schema permissions`,
       { schemaId, errorMessage: error.message },
       error,
-      { schemaId }
+      { tags: ['schema-permissions'] } // Using a valid property from LogEntry instead of schemaId
     );
     
     // Default to view-only if exception
