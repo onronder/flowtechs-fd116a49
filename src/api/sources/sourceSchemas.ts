@@ -218,7 +218,7 @@ export async function checkSchemaPermissions(schemaId: string): Promise<SchemaPe
         COMPONENT,
         `Error checking schema permissions`,
         { schemaId, errorMessage: error.message },
-        error
+        new Error(error.message) // FIX: Create a proper Error object
       );
       
       // Default to view-only if error
@@ -237,7 +237,8 @@ export async function checkSchemaPermissions(schemaId: string): Promise<SchemaPe
       COMPONENT,
       `Exception checking schema permissions`,
       { schemaId, errorMessage: error.message },
-      error
+      error,
+      { schemaId }
     );
     
     // Default to view-only if exception
@@ -304,7 +305,7 @@ export async function getSchemaAccessLogs(
         COMPONENT,
         `Error fetching schema access logs`,
         { schemaId, errorMessage: error.message },
-        error
+        new Error(error.message) // FIX: Create a proper Error object
       );
       return [];
     }
