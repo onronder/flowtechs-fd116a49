@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { fetchUserSources } from "@/api/sources";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import SourceSelector from "./SourceSelector";
 import DatasetTypeSelector from "./DatasetTypeSelector";
 import PredefinedDatasetForm from "./PredefinedDatasetForm";
 import DependentDatasetForm from "./DependentDatasetForm";
 import CustomDatasetForm from "./CustomDatasetForm";
+import { useMediaQuery } from "@/hooks/use-mobile";
 
 interface NewDatasetModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export default function NewDatasetModal({ isOpen, onClose, onDatasetCreated }: N
   const [selectedSource, setSelectedSource] = useState<any>(null);
   const [datasetType, setDatasetType] = useState<"predefined" | "dependent" | "custom" | null>(null);
   const { toast } = useToast();
+  const isMobile = useMediaQuery("(max-width: 768px)");
 
   useEffect(() => {
     if (isOpen) {
@@ -57,48 +59,89 @@ export default function NewDatasetModal({ isOpen, onClose, onDatasetCreated }: N
     onClose();
   }
 
+  const getStepTitle = () => {
+    if (step === "source") return "Select Data Source";
+    if (step === "type") return "Select Dataset Type";
+    if (step === "configure") {
+      if (datasetType === "predefined") return "Configure Predefined Dataset";
+      if (datasetType === "dependent") return "Configure Dependent Dataset";
+      return "Configure Custom Dataset";
+    }
+    return "";
+  };
+
+  const renderContent = () => {
+    if (step === "source") {
+      return <SourceSelector onSelect={handleSourceSelect} />;
+    }
+    
+    if (step === "type") {
+      return (
+        <DatasetTypeSelector 
+          onSelect={handleTypeSelect}
+          onBack={handleBack}
+          sourceType={selectedSource?.source_type}
+        />
+      );
+    }
+    
+    if (step === "configure") {
+      if (datasetType === "predefined") {
+        return (
+          <PredefinedDatasetForm
+            source={selectedSource}
+            onBack={handleBack}
+            onComplete={handleDatasetCreated}
+          />
+        );
+      }
+      
+      if (datasetType === "dependent") {
+        return (
+          <DependentDatasetForm
+            source={selectedSource}
+            onBack={handleBack}
+            onComplete={handleDatasetCreated}
+          />
+        );
+      }
+      
+      if (datasetType === "custom") {
+        return (
+          <CustomDatasetForm
+            source={selectedSource}
+            onBack={handleBack}
+            onComplete={handleDatasetCreated}
+          />
+        );
+      }
+    }
+    
+    return null;
+  };
+
+  // On mobile, use a full-screen Sheet component instead of a Dialog
+  if (isMobile) {
+    return (
+      <Sheet open={isOpen} onOpenChange={onClose}>
+        <SheetContent side="bottom" className="h-[90dvh] sm:max-w-full">
+          <SheetHeader className="mb-4">
+            <SheetTitle>{getStepTitle()}</SheetTitle>
+          </SheetHeader>
+          <div className="overflow-y-auto py-2">{renderContent()}</div>
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>
-            {step === "source" && "Select Data Source"}
-            {step === "type" && "Select Dataset Type"}
-            {step === "configure" && `Configure ${datasetType === "predefined" ? "Predefined" : datasetType === "dependent" ? "Dependent" : "Custom"} Dataset`}
-          </DialogTitle>
+          <DialogTitle>{getStepTitle()}</DialogTitle>
         </DialogHeader>
-        <div>
-          {step === "source" && (
-            <SourceSelector onSelect={handleSourceSelect} />
-          )}
-          {step === "type" && (
-            <DatasetTypeSelector 
-              onSelect={handleTypeSelect}
-              onBack={handleBack}
-              sourceType={selectedSource?.source_type}
-            />
-          )}
-          {step === "configure" && datasetType === "predefined" && (
-            <PredefinedDatasetForm
-              source={selectedSource}
-              onBack={handleBack}
-              onComplete={handleDatasetCreated}
-            />
-          )}
-          {step === "configure" && datasetType === "dependent" && (
-            <DependentDatasetForm
-              source={selectedSource}
-              onBack={handleBack}
-              onComplete={handleDatasetCreated}
-            />
-          )}
-          {step === "configure" && datasetType === "custom" && (
-            <CustomDatasetForm
-              source={selectedSource}
-              onBack={handleBack}
-              onComplete={handleDatasetCreated}
-            />
-          )}
+        <div className="max-h-[70vh] overflow-y-auto py-2">
+          {renderContent()}
         </div>
       </DialogContent>
     </Dialog>
