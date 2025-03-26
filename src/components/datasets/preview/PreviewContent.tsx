@@ -69,7 +69,7 @@ export default function PreviewContent({
         </div>
         
         <div className="flex space-x-2">
-          {/* Use our new DataExport component */}
+          {/* Use our DataExport component */}
           <DataExport 
             executionId={executionId} 
             datasetName={datasetName}
@@ -78,14 +78,7 @@ export default function PreviewContent({
             onExportStart={() => onExport('json')} 
           />
           
-          <Button
-            variant="outline"
-            size="sm"
-            disabled
-          >
-            <Download className="h-4 w-4 mr-2" />
-            All Rows
-          </Button>
+          {/* All Rows button removed as requested */}
         </div>
       </div>
       
