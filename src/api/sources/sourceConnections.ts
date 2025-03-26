@@ -1,8 +1,7 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { updateSourceApiVersionAndSchema } from "@/utils/shopify/sourceUpdater";
 import { fetchSourceSchema } from "./sourceSchemas";
-import { logger } from "@/utils/logging";
+import { logger } from "@/utils/logger";
 
 const COMPONENT = "sourceConnections";
 

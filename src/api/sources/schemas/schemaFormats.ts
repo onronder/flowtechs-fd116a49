@@ -1,5 +1,4 @@
-
-import { logger } from "@/utils/logging";
+import { logger } from "@/utils/logger";
 
 const COMPONENT = "schemaFormats";
 

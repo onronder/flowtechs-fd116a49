@@ -1,6 +1,5 @@
-
 import { supabase } from "@/integrations/supabase/client";
-import { logger } from "@/utils/logging";
+import { logger } from "@/utils/logger";
 
 const COMPONENT = "schemaAccessLogs";
 
