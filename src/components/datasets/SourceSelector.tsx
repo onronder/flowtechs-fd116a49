@@ -5,10 +5,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useSources } from "@/hooks/useSources";
 import { useToast } from "@/hooks/use-toast";
-import { ShopifyIcon } from "@/components/icons/ShopifyIcon";
-import { WooCommerceIcon } from "@/components/icons/WooCommerceIcon";
-import { FtpIcon } from "@/components/icons/FtpIcon";
-import { ApiIcon } from "@/components/icons/ApiIcon";
+import ShopifyIcon from "@/components/icons/ShopifyIcon";
+import WooCommerceIcon from "@/components/icons/WooCommerceIcon";
+import FtpIcon from "@/components/icons/FtpIcon";
+import ApiIcon from "@/components/icons/ApiIcon";
 import { Loader2 } from "lucide-react";
 
 export interface SourceSelectorProps {
