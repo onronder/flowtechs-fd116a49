@@ -86,22 +86,30 @@ export async function logEntry(entry: LogEntry): Promise<string | null> {
   if (LOG_CONFIG.databaseEnabled) {
     try {
       // Since add_log_entry RPC is not in the typed functions list,
-      // we need to use a more generic approach
-      const { data, error } = await supabase.rpc('add_log_entry', {
-        p_level: level,
-        p_component: component,
-        p_message: message,
-        p_details: details ? JSON.stringify(details) : null,
-        p_function: functionName,
-        p_user_id: userId,
-        p_source_id: sourceId,
-        p_dataset_id: datasetId,
-        p_execution_id: executionId,
-        p_request_data: requestData ? JSON.stringify(requestData) : null,
-        p_response_data: responseData ? JSON.stringify(responseData) : null,
-        p_stack_trace: stackTrace,
-        p_tags: tags
-      }) as { data: any, error: any };
+      // we need to use a more generic approach with type assertion
+      const response = await supabase.rpc(
+        'add_log_entry' as any, 
+        {
+          p_level: level,
+          p_component: component,
+          p_message: message,
+          p_details: details ? JSON.stringify(details) : null,
+          p_function: functionName,
+          p_user_id: userId,
+          p_source_id: sourceId,
+          p_dataset_id: datasetId,
+          p_execution_id: executionId,
+          p_request_data: requestData ? JSON.stringify(requestData) : null,
+          p_response_data: responseData ? JSON.stringify(responseData) : null,
+          p_stack_trace: stackTrace,
+          p_tags: tags
+        }
+      );
+      
+      const { data, error } = response as unknown as { 
+        data: string | null, 
+        error: { message: string } | null 
+      };
       
       if (error) {
         console.error("Failed to save log to database:", error);

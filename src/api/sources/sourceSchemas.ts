@@ -202,10 +202,16 @@ export interface SchemaPermissionInfo {
 export async function checkSchemaPermissions(schemaId: string): Promise<SchemaPermissionInfo> {
   try {
     // Since the check_schema_permissions RPC is not in the typed functions,
-    // we need to use a more generic approach
-    const { data, error } = await supabase.rpc('check_schema_permissions', { 
-      p_schema_id: schemaId 
-    }) as { data: SchemaPermissionInfo, error: any };
+    // we need to use a more generic approach with type assertion
+    const response = await supabase.rpc(
+      'check_schema_permissions' as any, 
+      { p_schema_id: schemaId }
+    );
+    
+    const { data, error } = response as unknown as { 
+      data: SchemaPermissionInfo, 
+      error: { message: string } | null 
+    };
     
     if (error) {
       logger.error(
@@ -272,8 +278,8 @@ export async function getSchemaAccessLogs(
 ): Promise<SchemaAccessLog[]> {
   try {
     // Since schema_access_logs is not in the type definitions,
-    // we'll use a more type-safe custom query approach
-    const { data, error } = await supabase
+    // we'll use a generic query approach with type assertion
+    const response = await (supabase as any)
       .from('schema_access_logs')
       .select(`
         id, 
@@ -286,7 +292,12 @@ export async function getSchemaAccessLogs(
       `)
       .eq('schema_id', schemaId)
       .order('timestamp', { ascending: false })
-      .range(offset, offset + limit - 1) as { data: SchemaAccessLog[], error: any };
+      .range(offset, offset + limit - 1);
+      
+    const { data, error } = response as unknown as {
+      data: SchemaAccessLog[],
+      error: { message: string } | null
+    };
       
     if (error) {
       logger.error(
