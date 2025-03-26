@@ -22,18 +22,14 @@ export function getStackTrace(error?: Error): string {
 
 /**
  * Error boundary for async functions - logs errors and returns null
- * @param fn Async function to execute with error boundary
- * @param component Component name for logging
- * @param message Error message prefix
- * @param logError Function to log the error
- * @param context Additional context for error logs
+ * This function is exported for backward compatibility but the main implementation
+ * is now in the index.ts file to avoid circular dependencies
  */
 export async function withErrorBoundary<T>(
   fn: () => Promise<T>,
   component: string,
   message: string,
-  logError: (component: string, message: string, details?: Record<string, any>, error?: Error, context?: any) => Promise<any>,
-  context?: any
+  logError: (component: string, message: string, details?: Record<string, any>, error?: Error) => Promise<any>
 ): Promise<T | null> {
   try {
     return await fn();
@@ -42,8 +38,7 @@ export async function withErrorBoundary<T>(
       component,
       `${message}: ${error.message}`,
       { originalError: error.toString() },
-      error,
-      context
+      error
     );
     return null;
   }

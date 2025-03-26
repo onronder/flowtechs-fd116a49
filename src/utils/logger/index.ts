@@ -5,14 +5,14 @@
  */
 import { LogLevel, shouldProcessLogLevel } from './logLevels';
 import { LogEntry, logToConsole, logToDatabase } from './logEntry';
-import { getStackTrace, withErrorBoundary } from './errorUtils';
+import { getStackTrace } from './errorUtils';
 
 /**
  * Main logger function
  * @param entry The log entry to record
  * @returns Promise with the log ID if saved to database
  */
-export async function logEntry(entry: LogEntry): Promise<string | null> {
+async function logEntry(entry: LogEntry): Promise<string | null> {
   // Skip if below minimum log level
   if (!shouldProcessLogLevel(entry.level)) {
     return null;
@@ -112,7 +112,11 @@ export const logger = {
 };
 
 /**
- * Re-export the withErrorBoundary function with logger.error as the default error handler
+ * Error boundary for async functions - logs errors and returns null
+ * @param fn Async function to execute with error boundary
+ * @param component Component name for logging
+ * @param message Error message prefix
+ * @param context Additional context for error logs
  */
 export async function withErrorBoundary<T>(
   fn: () => Promise<T>,
@@ -120,7 +124,18 @@ export async function withErrorBoundary<T>(
   message: string,
   context?: Partial<Omit<LogEntry, 'level' | 'component' | 'message' | 'details'>>
 ): Promise<T | null> {
-  return errorUtils.withErrorBoundary(fn, component, message, logger.error, context);
+  try {
+    return await fn();
+  } catch (error: any) {
+    await logger.error(
+      component,
+      `${message}: ${error.message}`,
+      { originalError: error.toString() },
+      error,
+      context
+    );
+    return null;
+  }
 }
 
 // Re-export for backward compatibility
@@ -130,11 +145,5 @@ export { getStackTrace } from './errorUtils';
 // Export a complete errorUtils object for direct imports
 export const errorUtils = {
   getStackTrace,
-  withErrorBoundary: (
-    fn: () => Promise<any>, 
-    component: string, 
-    message: string, 
-    logError = logger.error,
-    context?: any
-  ) => withErrorBoundary(fn, component, message, logError, context)
+  withErrorBoundary
 };
