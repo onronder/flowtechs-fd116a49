@@ -87,7 +87,7 @@ export async function fetchSourceSchema(
         `Error fetching source schema`,
         { sourceId, errorMessage: error.message },
         new Error(error.message),
-        { sourceId, options: opts }
+        { sourceId }
       );
       
       throw new Error(error.message || "Failed to fetch schema");
@@ -183,22 +183,29 @@ export async function getSupportedSchemaFormats(sourceType: string): Promise<str
 }
 
 /**
- * Checks if the current user has appropriate permissions for a schema
- * @param schemaId Schema ID to check
- * @returns Permission information
+ * Permission information interface for schema access
  */
-export async function checkSchemaPermissions(schemaId: string): Promise<{
+export interface SchemaPermissionInfo {
   canView: boolean;
   canEdit: boolean;
   canDelete: boolean;
   canShare: boolean;
   isOwner: boolean;
   role?: string;
-}> {
+}
+
+/**
+ * Checks if the current user has appropriate permissions for a schema
+ * @param schemaId Schema ID to check
+ * @returns Permission information
+ */
+export async function checkSchemaPermissions(schemaId: string): Promise<SchemaPermissionInfo> {
   try {
+    // Since the check_schema_permissions RPC is not in the typed functions,
+    // we need to use a more generic approach
     const { data, error } = await supabase.rpc('check_schema_permissions', { 
       p_schema_id: schemaId 
-    });
+    }) as { data: SchemaPermissionInfo, error: any };
     
     if (error) {
       logger.error(
@@ -239,6 +246,19 @@ export async function checkSchemaPermissions(schemaId: string): Promise<{
 }
 
 /**
+ * Access log interface for schema audit logs
+ */
+export interface SchemaAccessLog {
+  id: string;
+  timestamp: string;
+  action: string;
+  user_id: string;
+  ip_address: string;
+  success: boolean;
+  users?: { email: string };
+}
+
+/**
  * Get schema access audit logs
  * @param schemaId Schema ID to get logs for
  * @param limit Number of logs to return
@@ -249,8 +269,10 @@ export async function getSchemaAccessLogs(
   schemaId: string, 
   limit = 20, 
   offset = 0
-): Promise<any[]> {
+): Promise<SchemaAccessLog[]> {
   try {
+    // Since schema_access_logs is not in the type definitions,
+    // we'll use a more type-safe custom query approach
     const { data, error } = await supabase
       .from('schema_access_logs')
       .select(`
@@ -264,7 +286,7 @@ export async function getSchemaAccessLogs(
       `)
       .eq('schema_id', schemaId)
       .order('timestamp', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .range(offset, offset + limit - 1) as { data: SchemaAccessLog[], error: any };
       
     if (error) {
       logger.error(

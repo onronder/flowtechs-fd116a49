@@ -1,3 +1,4 @@
+
 /**
  * Comprehensive logging system for FlowTechs
  * Handles console logs and also logs to the Dev_Logs table in Supabase
@@ -84,6 +85,8 @@ export async function logEntry(entry: LogEntry): Promise<string | null> {
   // Log to database if enabled
   if (LOG_CONFIG.databaseEnabled) {
     try {
+      // Since add_log_entry RPC is not in the typed functions list,
+      // we need to use a more generic approach
       const { data, error } = await supabase.rpc('add_log_entry', {
         p_level: level,
         p_component: component,
@@ -98,14 +101,14 @@ export async function logEntry(entry: LogEntry): Promise<string | null> {
         p_response_data: responseData ? JSON.stringify(responseData) : null,
         p_stack_trace: stackTrace,
         p_tags: tags
-      });
+      }) as { data: any, error: any };
       
       if (error) {
         console.error("Failed to save log to database:", error);
         return null;
       }
       
-      return data;
+      return data ? String(data) : null;
     } catch (err) {
       // Don't retry or it might cause an infinite loop
       console.error("Exception saving log to database:", err);
