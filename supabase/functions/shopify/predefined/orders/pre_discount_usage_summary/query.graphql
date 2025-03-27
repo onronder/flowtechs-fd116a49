@@ -1,6 +1,5 @@
-
-query DiscountUsageSummary($first: Int!, $query: String, $after: String) {
-  orders(first: $first, query: $query, after: $after) {
+query PreDiscountUsageSummary($first: Int!, $after: String) {
+  orders(first: $first, after: $after, sortKey: PROCESSED_AT, reverse: true) {
     pageInfo {
       hasNextPage
       endCursor
@@ -9,8 +8,8 @@ query DiscountUsageSummary($first: Int!, $query: String, $after: String) {
       node {
         id
         name
-        createdAt
-        totalDiscountsSet {
+        processedAt
+        totalPriceSet {
           shopMoney {
             amount
             currencyCode
@@ -19,9 +18,9 @@ query DiscountUsageSummary($first: Int!, $query: String, $after: String) {
         discountApplications(first: 10) {
           edges {
             node {
+              __typename
               ... on DiscountCodeApplication {
                 code
-                type
                 value {
                   ... on MoneyV2 {
                     amount
@@ -32,9 +31,8 @@ query DiscountUsageSummary($first: Int!, $query: String, $after: String) {
                   }
                 }
               }
-              ... on AutomaticDiscountApplication {
+              ... on ManualDiscountApplication {
                 title
-                type
                 value {
                   ... on MoneyV2 {
                     amount
@@ -44,6 +42,12 @@ query DiscountUsageSummary($first: Int!, $query: String, $after: String) {
                     percentage
                   }
                 }
+              }
+              ... on ScriptDiscountApplication {
+                title
+              }
+              ... on AutomaticDiscountApplication {
+                title
               }
             }
           }
