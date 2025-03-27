@@ -1,6 +1,6 @@
 
-query GetRecentOrders($first: Int!, $after: String, $query: String) {
-  orders(first: $first, after: $after, query: $query) {
+query PreRecentOrdersDashboard($first: Int!, $after: String) {
+  orders(first: $first, after: $after, sortKey: CREATED_AT, reverse: true) {
     pageInfo {
       hasNextPage
       endCursor
@@ -9,7 +9,7 @@ query GetRecentOrders($first: Int!, $after: String, $query: String) {
       node {
         id
         name
-        createdAt
+        processedAt
         displayFinancialStatus
         displayFulfillmentStatus
         totalPriceSet {
@@ -19,8 +19,9 @@ query GetRecentOrders($first: Int!, $after: String, $query: String) {
           }
         }
         customer {
-          displayName
+          id
           email
+          displayName
         }
       }
     }

@@ -1,40 +1,84 @@
 
-import { BaseShopifyClient } from '../../../_shared/client.ts';
+import { DocumentNode } from 'graphql';
+import { gql } from 'https://esm.sh/graphql-request@6.1.0';
 
-interface OrdersQueryParams {
-  limit: number;
-  days: number;
-  status: string;
+export const RECENT_ORDERS_QUERY = gql`
+query PreRecentOrdersDashboard($first: Int!, $after: String) {
+  orders(first: $first, after: $after, sortKey: CREATED_AT, reverse: true) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    edges {
+      node {
+        id
+        name
+        processedAt
+        displayFinancialStatus
+        displayFulfillmentStatus
+        totalPriceSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+        }
+        customer {
+          id
+          email
+          displayName
+        }
+      }
+    }
+  }
 }
+`;
 
-export class ShopifyClient extends BaseShopifyClient {
-  /**
-   * Execute the recent orders query
-   */
-  async executeRecentOrdersQuery(limit: number = 10, days: number = 30, status: string = 'any'): Promise<any> {
-    // Load the query from the .graphql file
-    const queryString = await this.loadGraphQLQuery('./query.graphql');
-    
-    // Construct the query string based on parameters
-    const queryFilter = `created_at:>-${days}d${status !== 'any' ? ` status:${status}` : ''}`;
-    
-    // Variables for the GraphQL query
+export class ShopifyClient {
+  private storeName: string;
+  private accessToken: string;
+  private apiVersion: string;
+  
+  constructor(storeName: string, accessToken: string, apiVersion: string = '2023-10') {
+    this.storeName = storeName;
+    this.accessToken = accessToken;
+    this.apiVersion = apiVersion || '2023-10';
+  }
+  
+  async executeRecentOrdersQuery(limit: number = 25, days: number = 30, status: string = 'any'): Promise<any> {
     const variables = {
-      first: Math.min(limit, 250), // Maximum of 250 per request
-      query: queryFilter
+      first: limit,
+      after: null
     };
     
     try {
-      console.log(`Executing Shopify GraphQL query to fetch recent orders`);
-      const data = await this.executeQuery(queryString, variables);
+      const endpoint = `https://${this.storeName}.myshopify.com/admin/api/${this.apiVersion}/graphql.json`;
       
-      // Process the orders data
-      const orders = data.orders.edges.map((edge: any) => edge.node);
-      const pageInfo = data.orders.pageInfo;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Shopify-Access-Token': this.accessToken
+        },
+        body: JSON.stringify({
+          query: RECENT_ORDERS_QUERY,
+          variables
+        })
+      });
       
-      return { orders, pageInfo };
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Shopify API error (${response.status}): ${errorText}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.errors) {
+        throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`);
+      }
+      
+      return result.data;
     } catch (error) {
-      console.error('Error fetching recent orders:', error);
+      console.error('Error executing recent orders query:', error);
       throw error;
     }
   }
