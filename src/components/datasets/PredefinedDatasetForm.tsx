@@ -65,6 +65,20 @@ export default function PredefinedDatasetForm({ source, onBack, onComplete }: Pr
             updated_at: new Date().toISOString(),
             field_list: null,
             is_direct_api: true // Custom property to identify direct API templates
+          },
+          {
+            id: 'product-collection-membership',
+            display_name: 'Product Collection Membership',
+            description: 'Retrieve products along with their associated collections to analyze and manage categorization.',
+            name: 'product_collection_membership',
+            type: 'predefined',
+            resource_type: 'products',
+            query_template: '', // Not used for direct API
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            field_list: null,
+            is_direct_api: true // Custom property to identify direct API templates
           }
         ];
         
@@ -120,6 +134,8 @@ export default function PredefinedDatasetForm({ source, onBack, onComplete }: Pr
         // Determine which edge function to use based on the template
         if (selectedTemplateObj.id === 'product-catalog-snapshot') {
           edgeFunction = 'pre_product_catalog_snapshot';
+        } else if (selectedTemplateObj.id === 'product-collection-membership') {
+          edgeFunction = 'pre_product_collection_membership';
         }
         
         const { data, error } = await supabase

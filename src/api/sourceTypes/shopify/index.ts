@@ -8,3 +8,4 @@ export { fetchShopifySchema } from './schema';
 export { fetchSalesByGeographicRegion } from '../../shopify/predefined/salesByGeographicRegion';
 export { fetchTopProductsByRevenue } from '../../shopify/predefined/topProductsByRevenue';
 export { fetchProductCatalogSnapshot } from '../../shopify/predefined/productCatalogSnapshot';
+export { fetchProductCollectionMembership } from '../../shopify/predefined/productCollectionMembership';
