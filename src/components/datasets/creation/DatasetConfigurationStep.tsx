@@ -57,7 +57,7 @@ export default function DatasetConfigurationStep({
               name,
               description,
               source_id: source.id,
-              dataset_type: "direct_api",
+              dataset_type: "predefined", // Changed from direct_api to predefined
               parameters: {
                 edge_function: queryData.template,
                 template_name: queryData.name
@@ -86,7 +86,7 @@ export default function DatasetConfigurationStep({
               name,
               description,
               source_id: source.id,
-              dataset_type: "direct_api",
+              dataset_type: "dependent", // Changed from direct_api to dependent
               parameters: {
                 edge_function: queryData.template,
                 template_name: queryData.name
