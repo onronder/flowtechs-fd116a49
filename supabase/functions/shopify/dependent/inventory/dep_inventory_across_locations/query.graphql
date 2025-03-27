@@ -1,0 +1,34 @@
+
+query InventoryAcrossLocations($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on Product {
+      id
+      title
+      variants(first: 50) {
+        edges {
+          node {
+            id
+            title
+            displayName
+            sku
+            inventoryItem {
+              id
+              inventoryLevels(first: 20) {
+                edges {
+                  node {
+                    id
+                    available
+                    location {
+                      id
+                      name
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

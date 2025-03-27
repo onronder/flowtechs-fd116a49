@@ -1,0 +1,33 @@
+
+query CustomerOrderHistory($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on Customer {
+      id
+      displayName
+      email
+      phone
+      ordersCount
+      totalSpent {
+        amount
+        currencyCode
+      }
+      orders(first: 20) {
+        edges {
+          node {
+            id
+            name
+            createdAt
+            totalPriceSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+            }
+            displayFinancialStatus
+            displayFulfillmentStatus
+          }
+        }
+      }
+    }
+  }
+}

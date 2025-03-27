@@ -1,0 +1,33 @@
+
+query OrderTransactions($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on Order {
+      id
+      name
+      createdAt
+      transactions(first: 10) {
+        edges {
+          node {
+            id
+            createdAt
+            status
+            kind
+            gateway
+            amountSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+            }
+            paymentDetails {
+              ... on CardPaymentDetails {
+                cardBrand
+                cardNumber
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

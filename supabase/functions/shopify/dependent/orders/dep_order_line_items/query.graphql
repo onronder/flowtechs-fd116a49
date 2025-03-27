@@ -1,0 +1,41 @@
+
+query OrderLineItems($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on Order {
+      id
+      name
+      createdAt
+      lineItems(first: 50) {
+        edges {
+          node {
+            id
+            name
+            quantity
+            originalUnitPrice
+            originalTotalSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+            }
+            discountedTotalSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+            }
+            product {
+              id
+              title
+            }
+            variant {
+              id
+              title
+              sku
+            }
+          }
+        }
+      }
+    }
+  }
+}

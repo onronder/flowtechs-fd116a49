@@ -1,0 +1,29 @@
+
+query SalesByGeographicRegion($first: Int!, $query: String, $after: String) {
+  orders(first: $first, query: $query, after: $after) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    edges {
+      node {
+        id
+        name
+        createdAt
+        totalPriceSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+        }
+        shippingAddress {
+          country
+          countryCodeV2
+          province
+          provinceCode
+          city
+        }
+      }
+    }
+  }
+}

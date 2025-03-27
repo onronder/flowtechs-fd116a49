@@ -1,0 +1,36 @@
+
+query FulfillmentDetails($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on Order {
+      id
+      name
+      createdAt
+      fulfillments(first: 10) {
+        edges {
+          node {
+            id
+            status
+            createdAt
+            updatedAt
+            trackingInfo(first: 5) {
+              number
+              url
+              company
+            }
+            fulfillmentLineItems(first: 50) {
+              edges {
+                node {
+                  quantity
+                  lineItem {
+                    name
+                    quantity
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

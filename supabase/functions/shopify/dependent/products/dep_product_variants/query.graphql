@@ -1,0 +1,30 @@
+
+query ProductVariants($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on Product {
+      id
+      title
+      variants(first: 50) {
+        edges {
+          node {
+            id
+            title
+            displayName
+            sku
+            inventoryQuantity
+            price
+            compareAtPrice
+            selectedOptions {
+              name
+              value
+            }
+            image {
+              url
+              altText
+            }
+          }
+        }
+      }
+    }
+  }
+}

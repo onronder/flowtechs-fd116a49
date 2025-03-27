@@ -3,11 +3,10 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders } from '../../../_shared/cors.ts';
 import { ShopifyClient } from './query.ts';
 
-const SHOPIFY_ADMIN_API_VERSION = '2023-07';
-
 interface ShopifyCredentials {
   storeName: string;
   accessToken: string;
+  api_version?: string;
 }
 
 interface TopProductsResponse {
@@ -16,6 +15,7 @@ interface TopProductsResponse {
       node: {
         id: string;
         title: string;
+        handle: string;
         vendor: string;
         productType: string;
         totalInventory: number;
@@ -66,10 +66,11 @@ async function handler(req: Request): Promise<Response> {
       );
     }
     
+    // Use the provided API version or let the ShopifyClient handle detection
     const client = new ShopifyClient(
       credentials.storeName,
       credentials.accessToken,
-      SHOPIFY_ADMIN_API_VERSION
+      credentials.api_version // Pass the API version from credentials
     );
     
     console.log("Executing query for top products by revenue");

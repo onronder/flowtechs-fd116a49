@@ -1,37 +1,36 @@
 
 # Top Products by Revenue
 
-This predefined dataset provides information about your top-selling products ranked by revenue.
+This Edge Function fetches the top-selling products from a Shopify store, ordered by total sales.
 
-## Data Returned
+## Input Parameters
 
-This dataset returns the following information for your top products by sales:
+- `credentials`: Object containing Shopify API credentials
+  - `storeName`: The Shopify store name (without .myshopify.com)
+  - `accessToken`: The access token for the Shopify Admin API
+  - `api_version`: (Optional) The API version to use, will detect latest if not provided
+- `limit`: (Optional) Number of products to return, defaults to 10
 
-- Product ID
-- Title
-- Handle (URL slug)
-- Vendor
-- Product Type
-- Total Inventory
-- Total Variants
-- Publish Date
-- Price Range (min and max prices)
-- Primary Image
+## Output Format
 
-## Use Cases
+Returns a JSON response with an array of products containing:
+- Product ID, title, handle, vendor, and type
+- Inventory information
+- Price range details
+- Primary image information
 
-- Identify your best-selling products
-- Track inventory levels of popular items
-- Analyze pricing strategies for successful products
-- Create featured collections based on sales performance
+## Usage Example
 
-## Technical Notes
+```javascript
+const response = await supabase.functions.invoke("shopify/predefined/products/pre_top_products_by_revenue", {
+  body: {
+    credentials: {
+      storeName: "your-store",
+      accessToken: "your-access-token"
+    },
+    limit: 20
+  }
+});
 
-- Uses the Shopify Admin GraphQL API
-- Sorted by total sales in descending order
-- Limited to 10 products by default (configurable)
-- Supports filtering and customization options
-
-## Query Parameters
-
-- `limit`: Number of products to return (default: 10)
+const { data } = response;
+```

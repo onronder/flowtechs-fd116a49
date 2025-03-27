@@ -1,0 +1,17 @@
+
+query OrderFulfillmentStatus($first: Int!, $query: String, $after: String) {
+  orders(first: $first, query: $query, after: $after) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    edges {
+      node {
+        id
+        name
+        displayFulfillmentStatus
+        createdAt
+      }
+    }
+  }
+}

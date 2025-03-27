@@ -1,0 +1,19 @@
+
+query ProductCollections($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on Product {
+      id
+      title
+      collections(first: 20) {
+        edges {
+          node {
+            id
+            title
+            handle
+            productsCount
+          }
+        }
+      }
+    }
+  }
+}

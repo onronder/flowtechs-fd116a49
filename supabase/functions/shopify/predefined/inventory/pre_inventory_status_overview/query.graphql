@@ -1,0 +1,20 @@
+
+query InventoryStatusOverview($first: Int!, $after: String) {
+  products(first: $first, after: $after) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    edges {
+      node {
+        id
+        title
+        vendor
+        productType
+        totalInventory
+        availableForSale
+        status
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+
+query CustomerTagsAndSegments($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on Customer {
+      id
+      displayName
+      email
+      tags
+      metafields(first: 20, namespace: "customer_segment") {
+        edges {
+          node {
+            key
+            value
+            type
+          }
+        }
+      }
+    }
+  }
+}

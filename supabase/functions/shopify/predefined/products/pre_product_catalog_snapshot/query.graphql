@@ -1,17 +1,22 @@
 
-export const load = `
-query TopProductsByRevenue($first: Int!) {
-  products(first: $first, sortKey: TOTAL_SALES) {
+query ProductCatalogSnapshot($first: Int!, $after: String) {
+  products(first: $first, after: $after) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
     edges {
       node {
         id
         title
         handle
+        status
         vendor
         productType
         totalInventory
         totalVariants
-        publishedAt
+        createdAt
+        updatedAt
         priceRangeV2 {
           minVariantPrice {
             amount
@@ -22,16 +27,7 @@ query TopProductsByRevenue($first: Int!) {
             currencyCode
           }
         }
-        images(first: 1) {
-          edges {
-            node {
-              url
-              altText
-            }
-          }
-        }
       }
     }
   }
 }
-`;

@@ -1,0 +1,24 @@
+
+query ProductCollectionMembership($first: Int!, $after: String) {
+  collections(first: 50) {
+    edges {
+      node {
+        id
+        title
+        productsCount
+        products(first: $first, after: $after) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          edges {
+            node {
+              id
+              title
+            }
+          }
+        }
+      }
+    }
+  }
+}

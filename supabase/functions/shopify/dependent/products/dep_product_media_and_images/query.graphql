@@ -1,0 +1,35 @@
+
+query ProductMediaAndImages($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on Product {
+      id
+      title
+      images(first: 20) {
+        edges {
+          node {
+            id
+            url
+            altText
+            width
+            height
+          }
+        }
+      }
+      media(first: 20) {
+        edges {
+          node {
+            id
+            alt
+            mediaContentType
+            status
+            preview {
+              image {
+                url
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

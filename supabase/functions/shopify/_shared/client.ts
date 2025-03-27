@@ -1,14 +1,12 @@
 
-import { corsHeaders } from '../../../_shared/cors.ts';
-
 /**
- * ShopifyClient for Edge Functions
+ * Base Shopify GraphQL client for Edge Functions
  */
-export class ShopifyClient {
-  private storeName: string;
-  private accessToken: string;
-  private apiVersion: string;
-  private endpoint: string;
+export class BaseShopifyClient {
+  protected storeName: string;
+  protected accessToken: string;
+  protected apiVersion: string;
+  protected endpoint: string;
   
   constructor(storeName: string, accessToken: string, apiVersion?: string) {
     this.storeName = storeName;
@@ -32,7 +30,7 @@ export class ShopifyClient {
    * Initialize API endpoint with proper version
    * This will detect the latest version if none was provided
    */
-  private async initializeEndpoint(): Promise<void> {
+  protected async initializeEndpoint(): Promise<void> {
     if (this.apiVersion === "fallback") {
       try {
         this.apiVersion = await this.detectLatestApiVersion();
@@ -51,7 +49,7 @@ export class ShopifyClient {
   /**
    * Detect the latest available Shopify API version
    */
-  private async detectLatestApiVersion(): Promise<string> {
+  protected async detectLatestApiVersion(): Promise<string> {
     console.log(`Detecting latest API version for store: ${this.storeName}`);
     
     const versionEndpoint = `https://${this.storeName}.myshopify.com/admin/api/versions`;
@@ -84,9 +82,9 @@ export class ShopifyClient {
   /**
    * Load query from the .graphql file
    */
-  private async loadGraphQLQuery(): Promise<string> {
+  protected async loadGraphQLQuery(path: string): Promise<string> {
     try {
-      const response = await fetch(new URL('./query.graphql', import.meta.url).href);
+      const response = await fetch(new URL(path, import.meta.url).href);
       if (!response.ok) {
         throw new Error(`Failed to load GraphQL query: ${response.status} ${response.statusText}`);
       }
@@ -98,18 +96,14 @@ export class ShopifyClient {
   }
 
   /**
-   * Execute the top products query
+   * Execute a GraphQL query
    */
-  async executeTopProductsQuery<T>(limit: number = 10): Promise<T> {
+  protected async executeQuery<T>(queryString: string, variables: Record<string, any> = {}): Promise<T> {
     // Initialize endpoint with proper API version before executing query
     await this.initializeEndpoint();
     
-    // Load the query from the .graphql file
-    const queryString = await this.loadGraphQLQuery();
-    const variables = { first: limit };
-    
     try {
-      console.log(`Executing Shopify GraphQL query to fetch top ${limit} products by revenue`);
+      console.log(`Executing Shopify GraphQL query with variables:`, variables);
       
       const response = await fetch(this.endpoint, {
         method: 'POST',

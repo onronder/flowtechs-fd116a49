@@ -1,0 +1,21 @@
+
+query DraftOrderConversions($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on Order {
+      id
+      name
+      createdAt
+      metafields(first: 10, namespace: "draft_order") {
+        edges {
+          node {
+            key
+            value
+            type
+          }
+        }
+      }
+      originalTotalPrice
+      totalPrice
+    }
+  }
+}

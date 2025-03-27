@@ -1,0 +1,28 @@
+
+query RecentCustomerActivity($first: Int!, $query: String, $after: String) {
+  customers(first: $first, query: $query, after: $after) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    edges {
+      node {
+        id
+        displayName
+        email
+        createdAt
+        updatedAt
+        lastOrderId
+        ordersCount
+        totalSpent {
+          amount
+          currencyCode
+        }
+        averageOrderAmount {
+          amount
+          currencyCode
+        }
+      }
+    }
+  }
+}

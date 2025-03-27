@@ -1,0 +1,28 @@
+
+query GetRecentOrders($first: Int!, $after: String, $query: String) {
+  orders(first: $first, after: $after, query: $query) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    edges {
+      node {
+        id
+        name
+        createdAt
+        displayFinancialStatus
+        displayFulfillmentStatus
+        totalPriceSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+        }
+        customer {
+          displayName
+          email
+        }
+      }
+    }
+  }
+}
