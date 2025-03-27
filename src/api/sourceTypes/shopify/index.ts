@@ -7,3 +7,4 @@ export { fetchShopifySchema } from './schema';
 // Re-export predefined dataset functions
 export { fetchSalesByGeographicRegion } from '../../shopify/predefined/salesByGeographicRegion';
 export { fetchTopProductsByRevenue } from '../../shopify/predefined/topProductsByRevenue';
+export { fetchProductCatalogSnapshot } from '../../shopify/predefined/productCatalogSnapshot';

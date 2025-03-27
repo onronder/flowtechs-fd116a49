@@ -5,13 +5,14 @@ export class ShopifyClient extends BaseShopifyClient {
   /**
    * Execute the product catalog query
    */
-  async executeProductCatalogQuery(limit: number = 50): Promise<any> {
+  async executeProductCatalogQuery(limit: number = 50, cursor: string | null = null): Promise<any> {
     // Load the query from the .graphql file
     const queryString = await this.loadGraphQLQuery('./query.graphql');
     
     // Variables for the GraphQL query
     const variables = {
-      first: Math.min(limit, 250) // Maximum of 250 per request
+      first: Math.min(limit, 250), // Maximum of 250 per request
+      after: cursor
     };
     
     try {
@@ -29,12 +30,13 @@ export class ShopifyClient extends BaseShopifyClient {
           vendor: product.vendor,
           productType: product.productType,
           totalInventory: product.totalInventory,
-          totalVariants: product.totalVariants,
-          createdAt: product.createdAt,
-          updatedAt: product.updatedAt,
-          priceRange: product.priceRangeV2 ? {
-            min: product.priceRangeV2.minVariantPrice,
-            max: product.priceRangeV2.maxVariantPrice
+          tags: product.tags,
+          variant: product.variants.edges.length > 0 ? {
+            id: product.variants.edges[0].node.id,
+            title: product.variants.edges[0].node.title,
+            sku: product.variants.edges[0].node.sku,
+            price: product.variants.edges[0].node.price,
+            inventoryQuantity: product.variants.edges[0].node.inventoryQuantity
           } : null
         };
       });

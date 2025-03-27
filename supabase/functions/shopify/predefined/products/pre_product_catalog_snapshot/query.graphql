@@ -1,6 +1,6 @@
 
 query ProductCatalogSnapshot($first: Int!, $after: String) {
-  products(first: $first, after: $after) {
+  products(first: $first, after: $after, sortKey: TITLE) {
     pageInfo {
       hasNextPage
       endCursor
@@ -10,21 +10,20 @@ query ProductCatalogSnapshot($first: Int!, $after: String) {
         id
         title
         handle
-        status
         vendor
         productType
+        status
         totalInventory
-        totalVariants
-        createdAt
-        updatedAt
-        priceRangeV2 {
-          minVariantPrice {
-            amount
-            currencyCode
-          }
-          maxVariantPrice {
-            amount
-            currencyCode
+        tags
+        variants(first: 1) {
+          edges {
+            node {
+              id
+              title
+              sku
+              price
+              inventoryQuantity
+            }
           }
         }
       }

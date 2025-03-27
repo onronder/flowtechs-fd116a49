@@ -13,9 +13,9 @@ async function handler(req: Request): Promise<Response> {
   
   try {
     const requestData = await req.json();
-    const { credentials, limit = 50 } = requestData;
+    const { credentials, limit = 50, cursor = null } = requestData;
     
-    console.log(`Processing request with limit: ${limit}`);
+    console.log(`Processing request with limit: ${limit}, cursor: ${cursor || 'null'}`);
     
     if (!credentials || !credentials.storeName || !credentials.accessToken) {
       console.error("Missing required Shopify credentials");
@@ -32,7 +32,7 @@ async function handler(req: Request): Promise<Response> {
     );
     
     console.log("Executing query for product catalog snapshot");
-    const data = await client.executeProductCatalogQuery(limit);
+    const data = await client.executeProductCatalogQuery(limit, cursor);
     
     console.log(`Successfully retrieved product catalog data`);
     

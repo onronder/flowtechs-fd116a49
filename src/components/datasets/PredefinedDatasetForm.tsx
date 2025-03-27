@@ -36,24 +36,40 @@ export default function PredefinedDatasetForm({ source, onBack, onComplete }: Pr
       
       // Update templates to include a "Recent Orders Dashboard" template if source is Shopify
       if (source.source_type === 'shopify') {
-        // Create a custom template object with required properties to match the regular template type
-        const recentOrdersTemplate = {
-          id: 'recent-orders-dashboard',
-          display_name: 'Recent Orders Dashboard',
-          description: 'A dashboard of recent orders from your Shopify store with sorting and filtering capabilities.',
-          name: 'recent_orders_dashboard',
-          type: 'predefined',
-          resource_type: 'orders',
-          query_template: '', // Not used for direct API
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          field_list: null,
-          is_direct_api: true // Custom property to identify direct API templates
-        };
+        // Create custom template objects with required properties to match the regular template type
+        const customTemplates = [
+          {
+            id: 'recent-orders-dashboard',
+            display_name: 'Recent Orders Dashboard',
+            description: 'A dashboard of recent orders from your Shopify store with sorting and filtering capabilities.',
+            name: 'recent_orders_dashboard',
+            type: 'predefined',
+            resource_type: 'orders',
+            query_template: '', // Not used for direct API
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            field_list: null,
+            is_direct_api: true // Custom property to identify direct API templates
+          },
+          {
+            id: 'product-catalog-snapshot',
+            display_name: 'Product Catalog Snapshot',
+            description: 'A complete snapshot of your product catalog including pricing, inventory, and categorization info.',
+            name: 'product_catalog_snapshot',
+            type: 'predefined',
+            resource_type: 'products',
+            query_template: '', // Not used for direct API
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            field_list: null,
+            is_direct_api: true // Custom property to identify direct API templates
+          }
+        ];
         
-        // Add the template to the beginning of the array
-        data.unshift(recentOrdersTemplate);
+        // Add the templates to the beginning of the array
+        data.unshift(...customTemplates);
       }
       
       setTemplates(data);
@@ -98,7 +114,14 @@ export default function PredefinedDatasetForm({ source, onBack, onComplete }: Pr
       const selectedTemplateObj = templates.find(t => t.id === selectedTemplate);
       
       if (selectedTemplateObj?.is_direct_api) {
-        // For the Recent Orders Dashboard, create a special dataset entry
+        // For direct API templates, create a special dataset entry
+        let edgeFunction = 'pre_recent_orders_dashboard'; // Default
+        
+        // Determine which edge function to use based on the template
+        if (selectedTemplateObj.id === 'product-catalog-snapshot') {
+          edgeFunction = 'pre_product_catalog_snapshot';
+        }
+        
         const { data, error } = await supabase
           .from("user_datasets")
           .insert({
@@ -107,7 +130,7 @@ export default function PredefinedDatasetForm({ source, onBack, onComplete }: Pr
             source_id: source.id,
             dataset_type: "direct_api",
             parameters: {
-              edge_function: "pre_recent_orders_dashboard",
+              edge_function: edgeFunction,
               template_name: selectedTemplateObj.display_name
             },
             user_id: (await supabase.auth.getUser()).data.user?.id
