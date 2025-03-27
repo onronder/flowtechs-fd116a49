@@ -1,6 +1,6 @@
 
 import { Button } from "@/components/ui/button";
-import { PlusCircle } from "lucide-react";
+import { Database, Plus } from "lucide-react";
 
 interface EmptyDatasetsStateProps {
   onCreateNew: () => void;
@@ -8,18 +8,19 @@ interface EmptyDatasetsStateProps {
 
 export default function EmptyDatasetsState({ onCreateNew }: EmptyDatasetsStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="rounded-full bg-muted p-6 mb-6">
-        <PlusCircle className="h-12 w-12 text-muted-foreground" />
+    <div className="border border-dashed rounded-lg flex flex-col items-center justify-center py-16 px-6 text-center">
+      <div className="bg-muted rounded-full p-4 mb-4">
+        <Database className="h-8 w-8 text-muted-foreground" />
       </div>
       
-      <h3 className="text-xl font-semibold mb-2">No datasets yet</h3>
+      <h2 className="text-xl font-semibold mb-2">No Datasets Yet</h2>
+      
       <p className="text-muted-foreground max-w-md mb-6">
-        Create a dataset to extract and transform data from your sources.
+        Create your first dataset to start extracting and organizing data from your connected sources.
       </p>
       
-      <Button onClick={onCreateNew}>
-        <PlusCircle className="h-4 w-4 mr-2" />
+      <Button onClick={onCreateNew} className="gap-2">
+        <Plus className="h-4 w-4" />
         Create Your First Dataset
       </Button>
     </div>

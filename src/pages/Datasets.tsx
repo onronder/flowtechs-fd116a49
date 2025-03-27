@@ -3,10 +3,10 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, RefreshCw, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import DatasetCard from "@/components/datasets/DatasetCard";
 import EmptyDatasetsState from "@/components/datasets/EmptyDatasetsState";
 import { fetchUserDatasets, fetchRecentOrdersDashboard } from "@/api/datasetsApi";
-import NewDatasetModal from "@/components/datasets/NewDatasetModal";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { resetStuckExecutions } from "@/api/datasets/execution/executionResetApi";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -15,9 +15,9 @@ export default function Datasets() {
   const [datasets, setDatasets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [showNewModal, setShowNewModal] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const loadDatasets = useCallback(async () => {
     try {
@@ -102,6 +102,11 @@ export default function Datasets() {
     handleRefresh();
   }, [handleRefresh]);
 
+  // Navigate to create dataset page
+  const handleCreateNew = useCallback(() => {
+    navigate("/datasets/create");
+  }, [navigate]);
+
   return (
     <div className="h-full">
       <div className="mb-6 flex justify-between items-center">
@@ -120,7 +125,7 @@ export default function Datasets() {
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
             {isRefreshing ? "Refreshing..." : "Refresh"}
           </Button>
-          <Button onClick={() => setShowNewModal(true)}>
+          <Button onClick={handleCreateNew}>
             <Plus className="mr-2 h-4 w-4" />
             New Dataset
           </Button>
@@ -150,7 +155,7 @@ export default function Datasets() {
           <LoadingSpinner size="lg" />
         </div>
       ) : datasets.length === 0 ? (
-        <EmptyDatasetsState onCreateNew={() => setShowNewModal(true)} />
+        <EmptyDatasetsState onCreateNew={handleCreateNew} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {datasets.map(dataset => (
@@ -161,14 +166,6 @@ export default function Datasets() {
             />
           ))}
         </div>
-      )}
-
-      {showNewModal && (
-        <NewDatasetModal 
-          isOpen={showNewModal}
-          onClose={() => setShowNewModal(false)}
-          onDatasetCreated={handleDatasetChange}
-        />
       )}
     </div>
   );

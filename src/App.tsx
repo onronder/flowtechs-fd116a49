@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,6 +15,7 @@ import Sources from "./pages/Sources";
 import AddSource from "./pages/AddSource";
 import EditSource from "./pages/EditSource";
 import Datasets from "./pages/Datasets";
+import DatasetCreate from "./pages/DatasetCreate";
 import Transformations from "./pages/Transformations";
 import Destinations from "./pages/Destinations";
 import Jobs from "./pages/Jobs";
@@ -68,6 +70,7 @@ const App = () => {
               <Route path="/sources/add" element={<AuthRoute><Layout><AddSource /></Layout></AuthRoute>} />
               <Route path="/sources/:id/edit" element={<AuthRoute><Layout><EditSource /></Layout></AuthRoute>} />
               <Route path="/datasets" element={<AuthRoute><Layout><Datasets /></Layout></AuthRoute>} />
+              <Route path="/datasets/create" element={<AuthRoute><Layout><DatasetCreate /></Layout></AuthRoute>} />
               <Route path="/transformations" element={<AuthRoute><Layout><Transformations /></Layout></AuthRoute>} />
               <Route path="/destinations" element={<AuthRoute><Layout><Destinations /></Layout></AuthRoute>} />
               <Route path="/jobs" element={<AuthRoute><Layout><Jobs /></Layout></AuthRoute>} />
