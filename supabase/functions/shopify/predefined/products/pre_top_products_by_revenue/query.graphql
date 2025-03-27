@@ -1,31 +1,25 @@
 
-query TopProductsByRevenue($first: Int!) {
-  products(first: $first, sortKey: TOTAL_SALES) {
+query PreTopProductsByRevenue($first: Int!, $after: String) {
+  products(first: $first, after: $after, sortKey: BEST_SELLING) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
     edges {
       node {
         id
         title
-        handle
         vendor
-        productType
+        status
         totalInventory
-        totalVariants
-        publishedAt
-        priceRangeV2 {
-          minVariantPrice {
-            amount
-            currencyCode
-          }
-          maxVariantPrice {
-            amount
-            currencyCode
-          }
-        }
-        images(first: 1) {
+        variants(first: 1) {
           edges {
             node {
-              url
-              altText
+              id
+              title
+              price
+              inventoryQuantity
+              sku
             }
           }
         }

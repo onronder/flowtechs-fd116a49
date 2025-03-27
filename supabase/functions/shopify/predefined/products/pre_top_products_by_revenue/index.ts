@@ -9,41 +9,6 @@ interface ShopifyCredentials {
   api_version?: string;
 }
 
-interface TopProductsResponse {
-  products: {
-    edges: Array<{
-      node: {
-        id: string;
-        title: string;
-        handle: string;
-        vendor: string;
-        productType: string;
-        totalInventory: number;
-        totalVariants: number;
-        publishedAt: string;
-        priceRangeV2: {
-          minVariantPrice: {
-            amount: string;
-            currencyCode: string;
-          };
-          maxVariantPrice: {
-            amount: string;
-            currencyCode: string;
-          };
-        };
-        images: {
-          edges: Array<{
-            node: {
-              url: string;
-              altText: string | null;
-            }
-          }>
-        };
-      }
-    }>
-  }
-}
-
 async function handler(req: Request): Promise<Response> {
   console.log("Received request for top products by revenue");
   
@@ -54,9 +19,9 @@ async function handler(req: Request): Promise<Response> {
   
   try {
     const requestData = await req.json();
-    const { credentials, limit = 10 } = requestData;
+    const { credentials, limit = 25, cursor = null } = requestData;
     
-    console.log(`Processing request with limit: ${limit}`);
+    console.log(`Processing request with limit: ${limit}, cursor: ${cursor || 'none'}`);
     
     if (!credentials || !credentials.storeName || !credentials.accessToken) {
       console.error("Missing required Shopify credentials");
@@ -74,43 +39,15 @@ async function handler(req: Request): Promise<Response> {
     );
     
     console.log("Executing query for top products by revenue");
-    const data = await client.executeTopProductsQuery<TopProductsResponse>(limit);
+    const result = await client.executeTopProductsQuery(limit, cursor);
     
-    // Transform the data for easier consumption
-    const transformedProducts = data.products.edges.map(edge => {
-      const product = edge.node;
-      return {
-        id: product.id,
-        title: product.title,
-        handle: product.handle,
-        vendor: product.vendor,
-        productType: product.productType,
-        totalInventory: product.totalInventory,
-        totalVariants: product.totalVariants,
-        publishedAt: product.publishedAt,
-        priceRange: {
-          min: {
-            amount: product.priceRangeV2.minVariantPrice.amount,
-            currencyCode: product.priceRangeV2.minVariantPrice.currencyCode
-          },
-          max: {
-            amount: product.priceRangeV2.maxVariantPrice.amount,
-            currencyCode: product.priceRangeV2.maxVariantPrice.currencyCode
-          }
-        },
-        primaryImage: product.images.edges.length > 0 ? {
-          url: product.images.edges[0].node.url,
-          altText: product.images.edges[0].node.altText
-        } : null
-      };
-    });
-    
-    console.log(`Successfully retrieved ${transformedProducts.length} products`);
+    console.log(`Successfully retrieved ${result.products.length} products`);
     
     return new Response(
       JSON.stringify({ 
         success: true,
-        data: transformedProducts 
+        data: result.products,
+        pagination: result.pagination
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }}
     );
