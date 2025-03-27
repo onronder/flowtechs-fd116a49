@@ -4,9 +4,15 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft } from "lucide-react";
 import CustomQueryBuilder from "./customQueryBuilder/CustomQueryBuilder";
+import { ShopifyCredentials } from "@/types/sourceTypes";
 
 interface CustomDatasetFormProps {
-  source: any;
+  source: {
+    id: string;
+    name: string;
+    source_type: string;
+    config: ShopifyCredentials;
+  };
   onBack: () => void;
   onComplete: () => void;
 }

@@ -3,9 +3,15 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { ShopifyCredentials } from "@/types/sourceTypes";
 
 export interface CustomQueryBuilderProps {
-  source: any;
+  source: {
+    id: string;
+    name: string;
+    source_type: string;
+    config: ShopifyCredentials;
+  };
   onComplete: (queryData: any) => void;
   onBack: () => void;
   isLoading?: boolean;

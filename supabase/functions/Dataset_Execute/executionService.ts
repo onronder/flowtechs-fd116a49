@@ -14,7 +14,14 @@ export async function invokeExecutionFunction(
   authHeader: string
 ): Promise<void> {
   console.log(`Invoking execution function: ${executionFunction}`);
-  console.log("With payload:", JSON.stringify(payload));
+  console.log("With payload:", JSON.stringify({
+    ...payload,
+    sourceCredentials: payload.sourceCredentials ? {
+      storeName: payload.sourceCredentials.storeName,
+      hasAccessToken: !!payload.sourceCredentials.accessToken,
+      hasApiSecret: !!payload.sourceCredentials.apiSecret
+    } : undefined
+  }));
   
   try {
     // Use edge function invoke to trigger the execution function
@@ -45,7 +52,13 @@ export async function invokeExecutionFunction(
 /**
  * Prepare the payload for the execution function
  */
-export function prepareExecutionPayload(execution: any, datasetId: string, userId: string, template: any): any {
+export function prepareExecutionPayload(
+  execution: any, 
+  datasetId: string, 
+  userId: string, 
+  template: any, 
+  sourceCredentials?: any
+): any {
   console.log(`Preparing execution payload for dataset ${datasetId}`);
   
   // Create a comprehensive payload with all needed information
@@ -62,10 +75,20 @@ export function prepareExecutionPayload(execution: any, datasetId: string, userI
       resource_type: template.resource_type,
       field_list: template.field_list
     } : null,
+    // Add source credentials if available
+    sourceCredentials: sourceCredentials,
     // Add execution timestamp for diagnostics
     timestamp: new Date().toISOString()
   };
   
-  console.log("Prepared payload:", JSON.stringify(payload));
+  console.log("Prepared payload:", JSON.stringify({
+    ...payload,
+    sourceCredentials: sourceCredentials ? {
+      storeName: sourceCredentials.storeName,
+      hasAccessToken: !!sourceCredentials.accessToken,
+      hasApiSecret: !!sourceCredentials.apiSecret
+    } : undefined
+  }));
+  
   return payload;
 }

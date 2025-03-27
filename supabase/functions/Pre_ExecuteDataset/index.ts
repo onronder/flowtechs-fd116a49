@@ -31,14 +31,15 @@ serve(async (req) => {
         executionId: body.executionId,
         datasetId: body.datasetId,
         userId: body.userId,
-        hasTemplate: !!body.template
+        hasTemplate: !!body.template,
+        hasCredentials: !!body.sourceCredentials
       }));
     } catch (error) {
       console.error("Error parsing request body:", error);
       return errorResponse("Invalid JSON in request body", 400);
     }
 
-    const { executionId, datasetId, userId, template: passedTemplate } = body;
+    const { executionId, datasetId, userId, template: passedTemplate, sourceCredentials } = body;
     
     if (!executionId || !datasetId || !userId) {
       console.error("Missing required parameters");
@@ -103,18 +104,23 @@ serve(async (req) => {
         return errorResponse(`Fetch error: ${fetchError.message}`, 500);
       }
       
-      if (!dataset || !dataset.source || !dataset.source.config) {
+      // Use provided credentials or get from dataset source
+      const config = sourceCredentials || (dataset.source ? dataset.source.config : null);
+      
+      if (!config) {
         const errorMsg = "Missing or invalid source configuration";
         console.error(errorMsg, "Dataset details:", JSON.stringify({
           id: dataset?.id,
           hasSource: !!dataset?.source,
-          hasConfig: !!dataset?.source?.config
+          hasConfig: !!dataset?.source?.config,
+          hasSourceCredentials: !!sourceCredentials
         }));
         await markExecutionAsFailed(supabaseClient, executionId, errorMsg);
         await logErrorToAuditLogs(supabaseClient, userId, datasetId, executionId, "Missing source configuration", { 
           datasetId,
           hasSource: !!dataset?.source,
-          hasConfig: !!dataset?.source?.config
+          hasConfig: !!dataset?.source?.config,
+          hasSourceCredentials: !!sourceCredentials
         });
         return errorResponse(errorMsg, 400);
       }
@@ -137,7 +143,7 @@ serve(async (req) => {
       // Execute the query with pagination
       try {
         const { results, apiCallCount, executionTime, apiErrors } = await fetchPaginatedData(
-          dataset.source.config,
+          config,
           template.query_template,
           template.resource_type || "Product" // Default to Product if not specified
         );
@@ -173,8 +179,8 @@ serve(async (req) => {
           error: errorMessage,
           stack: fetchError.stack,
           config: JSON.stringify({
-            storeName: dataset.source.config.storeName,
-            apiVersion: dataset.source.config.api_version || '2023-01'
+            storeName: config.storeName,
+            apiVersion: config.api_version || '2023-01'
           }),
           resourceType: template.resource_type || "Product"
         });

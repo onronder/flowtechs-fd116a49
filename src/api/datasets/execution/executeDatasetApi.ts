@@ -25,11 +25,42 @@ export async function executeDataset(datasetId: string) {
     
     console.log("Authentication token obtained successfully");
     
-    // Create the payload with the dataset ID
-    const payload = { datasetId };
+    // Get the dataset to check its type
+    const { data: dataset, error: datasetError } = await supabase
+      .from("user_datasets")
+      .select("*, source:source_id(*)")
+      .eq("id", datasetId)
+      .single();
+      
+    if (datasetError) {
+      console.error("Error fetching dataset details:", datasetError);
+      throw new Error(`Failed to fetch dataset details: ${datasetError.message}`);
+    }
     
-    // Log the payload we're sending
-    console.log("Request payload:", JSON.stringify(payload));
+    console.log("Dataset details retrieved:", {
+      id: dataset.id,
+      name: dataset.name,
+      type: dataset.dataset_type,
+      hasSource: !!dataset.source,
+      sourceType: dataset.source?.source_type
+    });
+    
+    // Create the payload with the dataset ID and source credentials if needed
+    const payload = { 
+      datasetId,
+      sourceCredentials: dataset.source?.config
+    };
+    
+    // Log the payload we're sending (without sensitive data)
+    console.log("Request payload:", {
+      ...payload, 
+      sourceCredentials: dataset.source ? 
+        { 
+          storeName: dataset.source.config.storeName,
+          hasAccessToken: !!dataset.source.config.accessToken,
+          hasApiSecret: !!dataset.source.config.apiSecret
+        } : null
+    });
     
     // Use supabase.functions.invoke instead of direct fetch
     console.log("Invoking Dataset_Execute function via supabase client...");
@@ -87,8 +118,32 @@ export async function executeCustomDataset(sourceId: string, query: string) {
       throw new Error("Authentication required to execute custom dataset. Please sign in.");
     }
     
-    const payload = { sourceId, query };
-    console.log("Request payload for custom dataset:", JSON.stringify(payload));
+    // Get the source to retrieve credentials
+    const { data: source, error: sourceError } = await supabase
+      .from("sources")
+      .select("*")
+      .eq("id", sourceId)
+      .single();
+      
+    if (sourceError) {
+      console.error("Error fetching source details:", sourceError);
+      throw new Error(`Failed to fetch source details: ${sourceError.message}`);
+    }
+    
+    const payload = { 
+      sourceId, 
+      query,
+      sourceCredentials: source.config
+    };
+    console.log("Request payload for custom dataset:", {
+      ...payload,
+      sourceCredentials: source ? 
+        { 
+          storeName: source.config.storeName,
+          hasAccessToken: !!source.config.accessToken,
+          hasApiSecret: !!source.config.apiSecret
+        } : null
+    });
     
     const { data, error } = await supabase.functions.invoke(
       "Cust_ExecuteDataset", 

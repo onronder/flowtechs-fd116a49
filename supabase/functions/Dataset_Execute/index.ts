@@ -19,7 +19,7 @@ serve(async (req) => {
       return errorResponse("Invalid or empty request body. The datasetId is required.", 400);
     }
     
-    const { datasetId } = parsedBody;    
+    const { datasetId, sourceCredentials } = parsedBody;    
     console.log("Processing dataset execution for datasetId:", datasetId);
     
     // Validate environment
@@ -66,8 +66,12 @@ serve(async (req) => {
       const executionFunction = determineExecutionFunction(dataset);
       console.log("Using execution function:", executionFunction);
       
+      // Use source credentials from dataset source if not provided in request
+      const credentials = sourceCredentials || (dataset.source ? dataset.source.config : null);
+      console.log("Source credentials available:", !!credentials);
+      
       // Prepare execution payload
-      const payload = prepareExecutionPayload(execution, datasetId, user.id, template);
+      const payload = prepareExecutionPayload(execution, datasetId, user.id, template, credentials);
       
       // Invoke the execution function - don't wait for it to complete
       try {
