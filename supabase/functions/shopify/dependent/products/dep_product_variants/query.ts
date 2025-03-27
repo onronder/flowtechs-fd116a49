@@ -24,7 +24,14 @@ export class ShopifyClient extends BaseShopifyClient {
       
       try {
         const batchData = await this.executeQuery(queryString, variables);
-        results.push(...batchData.nodes.filter(Boolean));
+        results.push(...batchData.nodes.filter(Boolean).map(product => {
+          // Extract variants from the product
+          return {
+            id: product.id,
+            title: product.title,
+            variants: product.variants?.edges?.map(edge => edge.node) || []
+          };
+        }));
         
         // Small delay to avoid rate limiting
         if (i + batchSize < productIds.length) {
@@ -40,5 +47,37 @@ export class ShopifyClient extends BaseShopifyClient {
       products: results,
       totalCount: results.length
     };
+  }
+  
+  /**
+   * Fetch product IDs using the primary query
+   */
+  async fetchProductIds(limit: number = 25, cursor: string | null = null): Promise<any> {
+    // Load the primary query
+    const primaryQueryString = await this.loadGraphQLQuery('./primary.graphql');
+    
+    // Variables for the primary query
+    const variables = {
+      first: limit,
+      after: cursor
+    };
+    
+    try {
+      console.log(`Fetching up to ${limit} products${cursor ? ' after cursor' : ''}`);
+      const data = await this.executeQuery(primaryQueryString, variables);
+      
+      const products = data.products.edges.map(edge => ({
+        id: edge.node.id,
+        title: edge.node.title
+      }));
+      
+      return {
+        products,
+        pageInfo: data.products.pageInfo
+      };
+    } catch (error) {
+      console.error('Error fetching product IDs:', error);
+      throw error;
+    }
   }
 }
