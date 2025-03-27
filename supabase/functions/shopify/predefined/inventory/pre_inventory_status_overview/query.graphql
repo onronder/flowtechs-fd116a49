@@ -1,6 +1,5 @@
-
-query InventoryStatusOverview($first: Int!, $after: String) {
-  products(first: $first, after: $after) {
+query PreInventoryStatusOverview($first: Int!, $after: String) {
+  products(first: $first, after: $after, sortKey: TITLE) {
     pageInfo {
       hasNextPage
       endCursor
@@ -9,11 +8,21 @@ query InventoryStatusOverview($first: Int!, $after: String) {
       node {
         id
         title
-        vendor
-        productType
-        totalInventory
-        availableForSale
         status
+        totalInventory
+        variants(first: 1) {
+          edges {
+            node {
+              id
+              title
+              inventoryQuantity
+              sku
+              inventoryItem {
+                tracked
+              }
+            }
+          }
+        }
       }
     }
   }
