@@ -60,11 +60,14 @@ export async function fetchTopProductsByRevenue(
       throw new Error('Source configuration not found');
     }
     
+    // Properly type the config object using type assertion to access properties
+    const config = source.config as Record<string, any>;
+    
     // Extract credentials from source config
     const credentials = {
-      storeName: source.config.store_name,
-      accessToken: source.config.access_token,
-      api_version: source.config.api_version
+      storeName: config.storeName,
+      accessToken: config.accessToken,
+      api_version: config.api_version
     };
     
     // Call the Edge Function
