@@ -1,10 +1,9 @@
-
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Send, Trash2, RefreshCw, Edit } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { testSourceConnection, deleteSource } from "@/utils/sourceUtils";
+import { testSourceConnection, deleteSource } from "@/utils/sources";
 
 interface SourceActionsProps {
   id: string;
