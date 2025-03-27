@@ -3,6 +3,12 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders } from '../../../_shared/cors.ts';
 import { ShopifyClient } from './query.ts';
 
+interface ShopifyCredentials {
+  storeName: string;
+  accessToken: string;
+  api_version?: string;
+}
+
 async function handler(req: Request): Promise<Response> {
   console.log("Received request for customer acquisition timeline");
   
@@ -28,7 +34,7 @@ async function handler(req: Request): Promise<Response> {
     const client = new ShopifyClient(
       credentials.storeName,
       credentials.accessToken,
-      credentials.api_version
+      credentials.api_version // Pass the API version from credentials
     );
     
     console.log("Executing query for customer acquisition timeline");
