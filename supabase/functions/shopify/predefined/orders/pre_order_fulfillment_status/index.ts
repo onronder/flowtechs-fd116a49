@@ -13,28 +13,28 @@ async function handler(req: Request): Promise<Response> {
   
   try {
     const requestData = await req.json();
-    const { credentials, days = 30 } = requestData;
+    const { config, limit = 25 } = requestData;
     
-    console.log(`Processing request for last ${days} days`);
+    console.log(`Processing request for order fulfillment status with limit: ${limit}`);
     
-    if (!credentials || !credentials.storeName || !credentials.accessToken) {
+    if (!config || !config.storeName || !config.accessToken) {
       console.error("Missing required Shopify credentials");
       return new Response(
-        JSON.stringify({ error: 'Missing required Shopify credentials' }),
+        JSON.stringify({ success: false, error: 'Missing required Shopify credentials' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }}
       );
     }
     
     const client = new ShopifyClient(
-      credentials.storeName,
-      credentials.accessToken,
-      credentials.api_version
+      config.storeName,
+      config.accessToken,
+      config.apiVersion || config.api_version
     );
     
     console.log("Executing query for order fulfillment status");
-    const data = await client.executeFulfillmentStatusQuery(days);
+    const data = await client.executeFulfillmentStatusQuery(limit);
     
-    console.log(`Successfully retrieved fulfillment status data`);
+    console.log(`Successfully retrieved fulfillment status data for ${data.orders.length} orders`);
     
     return new Response(
       JSON.stringify({ 
@@ -48,6 +48,7 @@ async function handler(req: Request): Promise<Response> {
     
     return new Response(
       JSON.stringify({ 
+        success: false,
         error: 'Failed to fetch order fulfillment status data',
         details: error instanceof Error ? error.message : String(error)
       }),
