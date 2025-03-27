@@ -19,14 +19,13 @@ export class ShopifyClient {
   }
   
   /**
-   * Execute a GraphQL query from a .graphql file content
+   * Execute a GraphQL query from a .graphql file
    */
-  async executeQueryFromFile<T = any>(
-    queryFileContent: string,
+  async executeGraphQLFile<T = any>(
+    queryFile: DocumentNode,
     variables: Record<string, any> = {}
   ): Promise<T> {
-    const parsedQuery = parseGql(queryFileContent);
-    return this.executeQuery<T>(parsedQuery, variables);
+    return this.executeQuery<T>(queryFile, variables);
   }
   
   /**
@@ -37,6 +36,9 @@ export class ShopifyClient {
     variables: Record<string, any> = {}
   ): Promise<T> {
     try {
+      const queryString = print(query);
+      console.log(`Executing Shopify GraphQL query: ${queryString.substring(0, 100)}...`);
+      
       const response = await fetch(this.endpoint, {
         method: 'POST',
         headers: {
@@ -44,7 +46,7 @@ export class ShopifyClient {
           'X-Shopify-Access-Token': this.accessToken
         },
         body: JSON.stringify({
-          query: print(query),
+          query: queryString,
           variables
         })
       });

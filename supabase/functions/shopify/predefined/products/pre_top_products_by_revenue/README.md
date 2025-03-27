@@ -5,7 +5,7 @@ This predefined dataset provides information about your top-selling products ran
 
 ## Data Returned
 
-This dataset returns the following information for your top 10 products by sales:
+This dataset returns the following information for your top products by sales:
 
 - Product ID
 - Title
@@ -29,4 +29,9 @@ This dataset returns the following information for your top 10 products by sales
 
 - Uses the Shopify Admin GraphQL API
 - Sorted by total sales in descending order
-- Limited to 10 products by default
+- Limited to 10 products by default (configurable)
+- Supports filtering and customization options
+
+## Query Parameters
+
+- `limit`: Number of products to return (default: 10)
