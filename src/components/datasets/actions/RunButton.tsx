@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Play, AlertCircle } from "lucide-react";
+import { Play, AlertCircle, Loader2 } from "lucide-react";
 import { 
   Tooltip, 
   TooltipContent, 
@@ -30,7 +30,9 @@ export function RunButton({ onClick, isRunning, isExecuting, errorState }: RunBu
             id="run-dataset-button"
             name="run-dataset-button"
           >
-            {errorState ? (
+            {(isRunning || isExecuting) ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : errorState ? (
               <AlertCircle className="h-4 w-4 mr-1" />
             ) : (
               <Play className="h-4 w-4 mr-1" />

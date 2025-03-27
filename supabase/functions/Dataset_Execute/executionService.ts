@@ -13,7 +13,8 @@ export async function invokeExecutionFunction(
   payload: any,
   authHeader: string
 ): Promise<void> {
-  console.log("Invoking function with payload:", JSON.stringify(payload));
+  console.log(`Invoking execution function: ${executionFunction}`);
+  console.log("With payload:", JSON.stringify(payload));
   
   try {
     // Use edge function invoke to trigger the execution function
@@ -33,7 +34,8 @@ export async function invokeExecutionFunction(
       throw new Error(`Failed to invoke ${executionFunction}: ${response.status} ${errorText}`);
     }
     
-    console.log(`Successfully invoked ${executionFunction}`);
+    const responseData = await response.json();
+    console.log(`Successfully invoked ${executionFunction}. Response:`, JSON.stringify(responseData));
   } catch (e) {
     console.error(`Error invoking ${executionFunction}:`, e);
     throw e;
@@ -44,8 +46,10 @@ export async function invokeExecutionFunction(
  * Prepare the payload for the execution function
  */
 export function prepareExecutionPayload(execution: any, datasetId: string, userId: string, template: any): any {
+  console.log(`Preparing execution payload for dataset ${datasetId}`);
+  
   // Create a comprehensive payload with all needed information
-  return {
+  const payload = {
     executionId: execution.id,
     datasetId: datasetId,
     userId: userId,
@@ -61,4 +65,7 @@ export function prepareExecutionPayload(execution: any, datasetId: string, userI
     // Add execution timestamp for diagnostics
     timestamp: new Date().toISOString()
   };
+  
+  console.log("Prepared payload:", JSON.stringify(payload));
+  return payload;
 }
