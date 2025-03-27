@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { fetchShopifySchema } from "@/api/datasetsApi";
@@ -8,17 +7,17 @@ import FieldSelectionStep from "./FieldSelectionStep";
 import QueryValidationStep from "./QueryValidationStep";
 import LoadingSpinner from "@/components/ui/loading-spinner";
 
-interface CustomQueryBuilderProps {
+export interface CustomQueryBuilderProps {
   source: any;
-  onSave: (queryData: { query: string; fields: string[]; resourceType: string }) => void;
-  onCancel: () => void;
+  onComplete: (queryData: any) => void;
+  onBack: () => void;
   isLoading?: boolean;
 }
 
 export default function CustomQueryBuilder({ 
   source, 
-  onSave, 
-  onCancel, 
+  onComplete, 
+  onBack, 
   isLoading = false 
 }: CustomQueryBuilderProps) {
   const [step, setStep] = useState<'resource' | 'fields' | 'preview'>('resource');
@@ -62,7 +61,7 @@ export default function CustomQueryBuilder({
   }
 
   function handleComplete() {
-    onSave({
+    onComplete({
       query: generatedQuery,
       fields: selectedFields,
       resourceType: selectedResource.name
@@ -96,7 +95,7 @@ export default function CustomQueryBuilder({
             }} 
           />
           <div className="flex justify-between pt-4">
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button type="button" variant="outline" onClick={onBack}>
               Back
             </Button>
           </div>

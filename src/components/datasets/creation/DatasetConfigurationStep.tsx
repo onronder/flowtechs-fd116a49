@@ -7,11 +7,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   createPredefinedDataset,
   createDependentDataset,
   createCustomDataset
-} from "@/api/datasetsApi";
+} from "@/api/datasets/datasetCreationApi";
 
 interface DatasetConfigurationStepProps {
   source: any;
@@ -47,19 +48,63 @@ export default function DatasetConfigurationStep({
       setLoading(true);
       
       if (datasetType === "predefined") {
-        await createPredefinedDataset({
-          name,
-          description,
-          sourceId: source.id,
-          templateId: queryData.template
-        });
+        // Check if this is a direct API template (edge function path)
+        if (queryData.template && typeof queryData.template === 'string' && queryData.template.startsWith('pre_')) {
+          // Handle direct API dataset creation (using edge functions)
+          const { data, error } = await supabase
+            .from("user_datasets")
+            .insert({
+              name,
+              description,
+              source_id: source.id,
+              dataset_type: "direct_api",
+              parameters: {
+                edge_function: queryData.template,
+                template_name: queryData.name
+              },
+              user_id: (await supabase.auth.getUser()).data.user?.id
+            })
+            .select();
+            
+          if (error) throw error;
+        } else {
+          // Regular predefined dataset
+          await createPredefinedDataset({
+            name,
+            description,
+            sourceId: source.id,
+            templateId: queryData.template
+          });
+        }
       } else if (datasetType === "dependent") {
-        await createDependentDataset({
-          name,
-          description,
-          sourceId: source.id,
-          templateId: queryData.template
-        });
+        // Check if this is a direct API template (edge function path)
+        if (queryData.template && typeof queryData.template === 'string' && queryData.template.startsWith('dep_')) {
+          // Handle direct API dataset creation (using edge functions)
+          const { data, error } = await supabase
+            .from("user_datasets")
+            .insert({
+              name,
+              description,
+              source_id: source.id,
+              dataset_type: "direct_api",
+              parameters: {
+                edge_function: queryData.template,
+                template_name: queryData.name
+              },
+              user_id: (await supabase.auth.getUser()).data.user?.id
+            })
+            .select();
+            
+          if (error) throw error;
+        } else {
+          // Regular dependent dataset
+          await createDependentDataset({
+            name,
+            description,
+            sourceId: source.id,
+            templateId: queryData.template
+          });
+        }
       } else if (datasetType === "custom") {
         await createCustomDataset({
           name,

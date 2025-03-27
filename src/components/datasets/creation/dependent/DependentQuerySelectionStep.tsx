@@ -1,182 +1,150 @@
 
 import React, { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import LoadingSpinner from "@/components/ui/loading-spinner";
+
+// Organize templates by category
+const TEMPLATE_CATEGORIES = {
+  "products": [
+    {
+      id: "dep_product_variants",
+      name: "Product Variants",
+      description: "Fetch all variants for each product, including pricing, inventory, and option combinations.",
+      is_direct_api: true
+    },
+    {
+      id: "dep_product_media_and_images",
+      name: "Product Media and Images",
+      description: "Extract all media assets (images, videos, 3D models) associated with products, including full metadata.",
+      is_direct_api: true
+    },
+    {
+      id: "dep_product_collections",
+      name: "Product Collections",
+      description: "Get all collections that each product belongs to for better catalog organization.",
+      is_direct_api: true
+    }
+  ],
+  "orders": [
+    {
+      id: "dep_order_line_items",
+      name: "Order Line Items",
+      description: "Retrieve detailed information about items purchased in each order, including variants and properties.",
+      is_direct_api: true
+    },
+    {
+      id: "dep_order_transactions",
+      name: "Order Transactions",
+      description: "Get payment transaction details for each order, including amounts, gateway info, and status.",
+      is_direct_api: true
+    },
+    {
+      id: "dep_fulfillment_details",
+      name: "Fulfillment Details",
+      description: "Access shipping and fulfillment information for each order, including tracking numbers and carriers.",
+      is_direct_api: true
+    },
+    {
+      id: "dep_draft_order_conversions",
+      name: "Draft Order Conversions",
+      description: "Track which draft orders have been converted to actual orders and when.",
+      is_direct_api: true
+    }
+  ],
+  "customers": [
+    {
+      id: "dep_customer_order_history",
+      name: "Customer Order History",
+      description: "See the complete order history for each customer, including order values and frequencies.",
+      is_direct_api: true
+    },
+    {
+      id: "dep_customer_tags_and_segments",
+      name: "Customer Tags and Segments",
+      description: "Analyze customer tags and segmentation data to better target marketing efforts.",
+      is_direct_api: true
+    }
+  ],
+  "inventory": [
+    {
+      id: "dep_inventory_across_locations",
+      name: "Inventory Across Locations",
+      description: "View inventory levels for products across all of your locations for better stock management.",
+      is_direct_api: true
+    }
+  ]
+};
 
 interface DependentQuerySelectionStepProps {
-  sourceType?: string;
+  sourceType: string;
   category: string | null;
   onSelect: (query: any) => void;
 }
 
-export default function DependentQuerySelectionStep({ 
-  sourceType, 
-  category, 
-  onSelect 
-}: DependentQuerySelectionStepProps) {
-  const [queries, setQueries] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
-
+export default function DependentQuerySelectionStep({ sourceType, category, onSelect }: DependentQuerySelectionStepProps) {
+  const [loading, setLoading] = useState(false);
+  const [templates, setTemplates] = useState<any[]>([]);
+  
   useEffect(() => {
-    async function loadDependentQueries() {
-      if (!sourceType || !category) return;
-      
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Here we're mocking the queries based on category
-        // In production, you'd fetch these from your API
-        let mockQueries: any[] = [];
-        
-        if (sourceType === "shopify") {
-          if (category === "orders") {
-            mockQueries = [
-              {
-                id: "dep_order_line_items",
-                name: "Order Line Items",
-                description: "Detailed order data with complete line item information",
-                template: "dep_order_line_items"
-              },
-              {
-                id: "dep_order_transactions",
-                name: "Order Transactions",
-                description: "Order data with associated payment transactions",
-                template: "dep_order_transactions"
-              },
-              {
-                id: "dep_fulfillment_details",
-                name: "Fulfillment Details",
-                description: "Comprehensive order fulfillment information",
-                template: "dep_fulfillment_details"
-              },
-              {
-                id: "dep_draft_order_conversions",
-                name: "Draft Order Conversions",
-                description: "Track draft orders that converted to regular orders",
-                template: "dep_draft_order_conversions"
-              }
-            ];
-          } else if (category === "products") {
-            mockQueries = [
-              {
-                id: "dep_product_variants",
-                name: "Product Variants",
-                description: "Complete product data with all variant information",
-                template: "dep_product_variants"
-              },
-              {
-                id: "dep_product_media_and_images",
-                name: "Product Media & Images",
-                description: "All product images and media assets in your catalog",
-                template: "dep_product_media_and_images"
-              },
-              {
-                id: "dep_product_collections",
-                name: "Product Collections",
-                description: "Products with their associated collections",
-                template: "dep_product_collections"
-              }
-            ];
-          } else if (category === "customers") {
-            mockQueries = [
-              {
-                id: "dep_customer_order_history",
-                name: "Customer Order History",
-                description: "Customers with their complete order history",
-                template: "dep_customer_order_history"
-              },
-              {
-                id: "dep_customer_tags_and_segments",
-                name: "Customer Tags & Segments",
-                description: "Customer data with tags and segment information",
-                template: "dep_customer_tags_and_segments"
-              }
-            ];
-          } else if (category === "inventory") {
-            mockQueries = [
-              {
-                id: "dep_inventory_across_locations",
-                name: "Inventory Across Locations",
-                description: "Inventory levels for products across all locations",
-                template: "dep_inventory_across_locations"
-              }
-            ];
-          }
-        }
-        
-        setQueries(mockQueries);
-      } catch (err: any) {
-        console.error("Error loading dependent queries:", err);
-        setError(err.message || "Failed to load queries");
-        toast({
-          title: "Error",
-          description: "Failed to load dependent queries",
-          variant: "destructive"
-        });
-      } finally {
-        setLoading(false);
-      }
+    if (category && TEMPLATE_CATEGORIES[category as keyof typeof TEMPLATE_CATEGORIES]) {
+      setTemplates(TEMPLATE_CATEGORIES[category as keyof typeof TEMPLATE_CATEGORIES]);
+    } else {
+      setTemplates([]);
     }
-    
-    loadDependentQueries();
-  }, [sourceType, category, toast]);
+  }, [category]);
+
+  const handleSelect = (template: any) => {
+    onSelect({
+      name: template.name,
+      description: template.description,
+      template: template.id
+    });
+  };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Loading available queries...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="py-8 text-center">
-        <p className="text-destructive mb-4">Error loading queries: {error}</p>
-      </div>
-    );
-  }
-
-  if (queries.length === 0) {
-    return (
-      <div className="py-8 text-center">
-        <p className="text-muted-foreground mb-4">No dependent queries available for this category.</p>
+        <LoadingSpinner size="lg" />
+        <span className="ml-3">Loading templates...</span>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <p className="text-muted-foreground mb-6">
-        Select a dependent query to use as your dataset
-      </p>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {queries.map(query => (
-          <Card
-            key={query.id}
-            className="p-6 cursor-pointer hover:border-primary hover:shadow-md transition-all"
-            onClick={() => onSelect(query)}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {templates.map((template) => (
+          <Card 
+            key={template.id} 
+            className="cursor-pointer hover:border-primary/50 transition-colors"
+            onClick={() => handleSelect(template)}
           >
-            <div>
-              <h3 className="font-medium text-lg">{query.name}</h3>
-              <p className="text-sm text-muted-foreground mt-2">
-                {query.description}
-              </p>
-              <div className="mt-4 text-xs bg-purple-500/10 text-purple-700 dark:text-purple-300 px-3 py-1 rounded-full inline-block">
-                {category?.charAt(0).toUpperCase() + category?.slice(1)}
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">{template.name}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription className="text-sm text-muted-foreground">
+                {template.description}
+              </CardDescription>
+              <div className="mt-4 flex justify-end">
+                <Button size="sm" variant="secondary" onClick={(e) => {
+                  e.stopPropagation();
+                  handleSelect(template);
+                }}>
+                  Select
+                </Button>
               </div>
-            </div>
+            </CardContent>
           </Card>
         ))}
       </div>
+
+      {templates.length === 0 && (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground">No templates available for this category.</p>
+        </div>
+      )}
     </div>
   );
 }
