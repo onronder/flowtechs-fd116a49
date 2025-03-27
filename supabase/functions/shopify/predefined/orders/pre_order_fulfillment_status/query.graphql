@@ -1,6 +1,5 @@
-
-query OrderFulfillmentStatus($first: Int!, $query: String, $after: String) {
-  orders(first: $first, query: $query, after: $after) {
+query PreOrderFulfillmentStatus($first: Int!, $after: String) {
+  orders(first: $first, after: $after, sortKey: PROCESSED_AT, reverse: true) {
     pageInfo {
       hasNextPage
       endCursor
@@ -9,8 +8,25 @@ query OrderFulfillmentStatus($first: Int!, $query: String, $after: String) {
       node {
         id
         name
-        displayFulfillmentStatus
-        createdAt
+        processedAt
+        fulfillmentStatus
+        shippingAddress {
+          name
+          address1
+          city
+          country
+          zip
+        }
+        fulfillments(first: 5) {
+          trackingCompany
+          trackingInfo {
+            number
+            url
+          }
+          status
+          estimatedDeliveryAt
+          deliveredAt
+        }
       }
     }
   }
