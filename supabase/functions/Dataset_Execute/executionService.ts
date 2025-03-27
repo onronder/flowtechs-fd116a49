@@ -19,7 +19,8 @@ export async function invokeExecutionFunction(
     sourceCredentials: payload.sourceCredentials ? {
       storeName: payload.sourceCredentials.storeName,
       hasAccessToken: !!payload.sourceCredentials.accessToken,
-      hasApiSecret: !!payload.sourceCredentials.apiSecret
+      hasApiSecret: !!payload.sourceCredentials.apiSecret,
+      hasClientId: !!payload.sourceCredentials.clientId
     } : undefined
   }));
   
@@ -85,8 +86,10 @@ export function prepareExecutionPayload(
     ...payload,
     sourceCredentials: sourceCredentials ? {
       storeName: sourceCredentials.storeName,
+      hasClientId: !!sourceCredentials.clientId,
       hasAccessToken: !!sourceCredentials.accessToken,
-      hasApiSecret: !!sourceCredentials.apiSecret
+      hasApiSecret: !!sourceCredentials.apiSecret,
+      apiVersion: sourceCredentials.api_version
     } : undefined
   }));
   

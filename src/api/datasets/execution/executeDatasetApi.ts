@@ -1,5 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { ShopifyCredentials } from "@/types/sourceTypes";
 
 /**
  * Execute dataset with improved error handling
@@ -45,21 +46,50 @@ export async function executeDataset(datasetId: string) {
       sourceType: dataset.source?.source_type
     });
     
+    // Safely extract source credentials
+    let sourceCredentials: ShopifyCredentials | undefined;
+    
+    if (dataset.source && dataset.source.config) {
+      const config = dataset.source.config;
+      
+      // Check if config is a proper object with credentials
+      if (typeof config === 'object' && config !== null) {
+        sourceCredentials = {
+          storeName: String(config.storeName || ''),
+          clientId: String(config.clientId || ''),
+          apiSecret: String(config.apiSecret || ''),
+          accessToken: String(config.accessToken || ''),
+          api_version: String(config.api_version || '')
+        };
+        
+        console.log("Source credentials extracted:", {
+          storeName: sourceCredentials.storeName,
+          hasClientId: !!sourceCredentials.clientId,
+          hasApiSecret: !!sourceCredentials.apiSecret,
+          hasAccessToken: !!sourceCredentials.accessToken,
+          apiVersion: sourceCredentials.api_version
+        });
+      } else {
+        console.error("Invalid source config format:", config);
+      }
+    }
+    
     // Create the payload with the dataset ID and source credentials if needed
     const payload = { 
       datasetId,
-      sourceCredentials: dataset.source?.config
+      sourceCredentials: sourceCredentials
     };
     
     // Log the payload we're sending (without sensitive data)
     console.log("Request payload:", {
-      ...payload, 
-      sourceCredentials: dataset.source ? 
-        { 
-          storeName: dataset.source.config.storeName,
-          hasAccessToken: !!dataset.source.config.accessToken,
-          hasApiSecret: !!dataset.source.config.apiSecret
-        } : null
+      datasetId: payload.datasetId,
+      sourceCredentials: sourceCredentials ? {
+        storeName: sourceCredentials.storeName,
+        hasClientId: !!sourceCredentials.clientId,
+        hasApiSecret: !!sourceCredentials.apiSecret,
+        hasAccessToken: !!sourceCredentials.accessToken,
+        apiVersion: sourceCredentials.api_version
+      } : null
     });
     
     // Use supabase.functions.invoke instead of direct fetch
@@ -130,19 +160,42 @@ export async function executeCustomDataset(sourceId: string, query: string) {
       throw new Error(`Failed to fetch source details: ${sourceError.message}`);
     }
     
+    // Safely extract source credentials
+    let sourceCredentials: ShopifyCredentials | undefined;
+    
+    if (source && source.config) {
+      const config = source.config;
+      
+      // Check if config is a proper object with credentials
+      if (typeof config === 'object' && config !== null) {
+        sourceCredentials = {
+          storeName: String(config.storeName || ''),
+          clientId: String(config.clientId || ''),
+          apiSecret: String(config.apiSecret || ''),
+          accessToken: String(config.accessToken || ''),
+          api_version: String(config.api_version || '')
+        };
+      } else {
+        console.error("Invalid source config format:", config);
+      }
+    }
+    
     const payload = { 
       sourceId, 
       query,
-      sourceCredentials: source.config
+      sourceCredentials: sourceCredentials
     };
+    
     console.log("Request payload for custom dataset:", {
-      ...payload,
-      sourceCredentials: source ? 
-        { 
-          storeName: source.config.storeName,
-          hasAccessToken: !!source.config.accessToken,
-          hasApiSecret: !!source.config.apiSecret
-        } : null
+      sourceId: payload.sourceId,
+      queryLength: payload.query.length,
+      sourceCredentials: sourceCredentials ? { 
+        storeName: sourceCredentials.storeName,
+        hasClientId: !!sourceCredentials.clientId,
+        hasApiSecret: !!sourceCredentials.apiSecret,
+        hasAccessToken: !!sourceCredentials.accessToken,
+        apiVersion: sourceCredentials.api_version
+      } : null
     });
     
     const { data, error } = await supabase.functions.invoke(
