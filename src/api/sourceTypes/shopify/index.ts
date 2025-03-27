@@ -4,6 +4,7 @@ export { validateShopifyConnection } from './validation';
 export { testShopifyConnection } from './testing';
 export { fetchShopifySchema } from './schema';
 export { fetchProductVariants } from './productVariants';
+export { fetchProductMediaAndImages } from './productMediaAndImages';
 
 // Re-export predefined dataset functions
 export { fetchSalesByGeographicRegion } from '../../shopify/predefined/salesByGeographicRegion';
