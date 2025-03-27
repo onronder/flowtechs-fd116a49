@@ -1,3 +1,4 @@
+
 query PreOrderFulfillmentStatus($first: Int!, $after: String) {
   orders(first: $first, after: $after, sortKey: PROCESSED_AT, reverse: true) {
     pageInfo {
@@ -9,7 +10,7 @@ query PreOrderFulfillmentStatus($first: Int!, $after: String) {
         id
         name
         processedAt
-        fulfillmentStatus
+        displayFulfillmentStatus
         shippingAddress {
           name
           address1
@@ -18,10 +19,10 @@ query PreOrderFulfillmentStatus($first: Int!, $after: String) {
           zip
         }
         fulfillments(first: 5) {
-          trackingCompany
           trackingInfo {
             number
             url
+            company
           }
           status
           estimatedDeliveryAt

@@ -1,28 +1,89 @@
 
-import { BaseShopifyClient } from '../../../_shared/client.ts';
+import { DocumentNode } from 'graphql';
+import { gql } from 'https://esm.sh/graphql-request@6.1.0';
 
-export class ShopifyClient extends BaseShopifyClient {
-  /**
-   * Execute the order fulfillment status query
-   */
+export const ORDER_FULFILLMENT_QUERY = gql`
+query PreOrderFulfillmentStatus($first: Int!, $after: String) {
+  orders(first: $first, after: $after, sortKey: PROCESSED_AT, reverse: true) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    edges {
+      node {
+        id
+        name
+        processedAt
+        displayFulfillmentStatus
+        shippingAddress {
+          name
+          address1
+          city
+          country
+          zip
+        }
+        fulfillments(first: 5) {
+          trackingInfo {
+            number
+            url
+            company
+          }
+          status
+          estimatedDeliveryAt
+          deliveredAt
+        }
+      }
+    }
+  }
+}
+`;
+
+export class ShopifyClient {
+  private storeName: string;
+  private accessToken: string;
+  private apiVersion: string;
+  
+  constructor(storeName: string, accessToken: string, apiVersion: string = '2023-10') {
+    this.storeName = storeName;
+    this.accessToken = accessToken;
+    this.apiVersion = apiVersion || '2023-10';
+  }
+  
   async executeFulfillmentStatusQuery(limit: number = 25): Promise<any> {
-    // Load the query from the .graphql file
-    const queryString = await this.loadGraphQLQuery('./query.graphql');
-    
-    // Variables for the GraphQL query
     const variables = {
       first: limit,
       after: null
     };
     
     try {
-      console.log(`Executing Shopify GraphQL query for fulfillment status with limit: ${limit}`);
-      const data = await this.executeQuery(queryString, variables);
+      const endpoint = `https://${this.storeName}.myshopify.com/admin/api/${this.apiVersion}/graphql.json`;
       
-      // Process the data
-      return this.processFulfillmentData(data);
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Shopify-Access-Token': this.accessToken
+        },
+        body: JSON.stringify({
+          query: ORDER_FULFILLMENT_QUERY,
+          variables
+        })
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Shopify API error (${response.status}): ${errorText}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.errors) {
+        throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`);
+      }
+      
+      return this.processFulfillmentData(result.data);
     } catch (error) {
-      console.error('Error fetching fulfillment status:', error);
+      console.error('Error executing fulfillment status query:', error);
       throw error;
     }
   }
@@ -46,13 +107,13 @@ export class ShopifyClient extends BaseShopifyClient {
         const trackingInfo = fulfillment.trackingInfo && fulfillment.trackingInfo.length > 0 
           ? fulfillment.trackingInfo.map((info: any) => ({
               number: info.number,
-              url: info.url
+              url: info.url,
+              company: info.company
             }))
           : [];
           
         return {
           status: fulfillment.status,
-          trackingCompany: fulfillment.trackingCompany,
           trackingInfo,
           estimatedDeliveryAt: fulfillment.estimatedDeliveryAt,
           deliveredAt: fulfillment.deliveredAt
@@ -63,7 +124,7 @@ export class ShopifyClient extends BaseShopifyClient {
         id: order.id,
         name: order.name,
         processedAt: order.processedAt,
-        fulfillmentStatus: order.fulfillmentStatus,
+        fulfillmentStatus: order.displayFulfillmentStatus,
         shippingAddress: order.shippingAddress,
         fulfillments: processedFulfillments
       };

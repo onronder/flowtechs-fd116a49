@@ -19,10 +19,10 @@ export interface OrderFulfillmentStatusResponse {
     } | null;
     fulfillments: Array<{
       status: string;
-      trackingCompany: string | null;
       trackingInfo: Array<{
         number: string;
         url: string | null;
+        company: string | null;
       }>;
       estimatedDeliveryAt: string | null;
       deliveredAt: string | null;
