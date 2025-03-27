@@ -1,6 +1,6 @@
 
 /**
- * Base Shopify GraphQL client for Edge Functions
+ * Base client for Shopify API interactions
  */
 export class BaseShopifyClient {
   protected storeName: string;
@@ -8,103 +8,33 @@ export class BaseShopifyClient {
   protected apiVersion: string;
   protected endpoint: string;
   
-  constructor(storeName: string, accessToken: string, apiVersion?: string) {
+  constructor(storeName: string, accessToken: string, apiVersion: string = '2025-01') {
     this.storeName = storeName;
     this.accessToken = accessToken;
-    
-    // If API version is not provided, we'll detect it or use a fallback
-    if (!apiVersion) {
-      // We'll detect the latest version or use a recent version as fallback
-      console.log("No API version provided, will detect during execution");
-      this.apiVersion = "detect"; // This will be updated during execution
-    } else {
-      this.apiVersion = apiVersion;
-      console.log(`Using provided API version: ${this.apiVersion}`);
-    }
-    
-    // The endpoint will be properly initialized before use
-    this.endpoint = "";
+    this.apiVersion = apiVersion || '2025-01'; // Default to latest version if not provided
+    this.endpoint = `https://${storeName}.myshopify.com/admin/api/${this.apiVersion}/graphql.json`;
   }
   
   /**
-   * Initialize API endpoint with proper version
-   * This will detect the latest version if none was provided
+   * Load a GraphQL query from a file path
    */
-  protected async initializeEndpoint(): Promise<void> {
-    if (this.apiVersion === "detect") {
-      try {
-        this.apiVersion = await this.detectLatestApiVersion();
-        console.log(`Detected latest Shopify API version: ${this.apiVersion}`);
-      } catch (error) {
-        console.error("Error detecting API version:", error);
-        this.apiVersion = "2023-10"; // Use a recent version as fallback
-        console.log(`Using fallback API version: ${this.apiVersion}`);
-      }
-    }
-    
-    this.endpoint = `https://${this.storeName}.myshopify.com/admin/api/${this.apiVersion}/graphql.json`;
-    console.log(`Initialized Shopify API endpoint: ${this.endpoint}`);
-  }
-  
-  /**
-   * Detect the latest available Shopify API version
-   */
-  protected async detectLatestApiVersion(): Promise<string> {
-    console.log(`Detecting latest API version for store: ${this.storeName}`);
-    
-    const versionEndpoint = `https://${this.storeName}.myshopify.com/admin/api/versions`;
-    
-    const response = await fetch(versionEndpoint, {
-      headers: {
-        "X-Shopify-Access-Token": this.accessToken,
-        "Content-Type": "application/json"
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch API versions: ${response.status} ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    
-    if (!data.supported_versions || !data.supported_versions.length) {
-      throw new Error("No supported API versions found");
-    }
-    
-    // Sort versions to find the latest one
-    const sortedVersions = [...data.supported_versions].sort((a, b) => {
-      return b.handle.localeCompare(a.handle);
-    });
-    
-    return sortedVersions[0].handle;
-  }
-
-  /**
-   * Load query from the .graphql file
-   */
-  protected async loadGraphQLQuery(path: string): Promise<string> {
+  async loadGraphQLQuery(path: string): Promise<string> {
     try {
-      const response = await fetch(new URL(path, import.meta.url).href);
-      if (!response.ok) {
-        throw new Error(`Failed to load GraphQL query: ${response.status} ${response.statusText}`);
-      }
-      return await response.text();
+      const queryPath = new URL(path, import.meta.url);
+      const rawQuery = await Deno.readTextFile(queryPath);
+      return rawQuery;
     } catch (error) {
-      console.error('Error loading GraphQL query:', error);
-      throw new Error(`Failed to load GraphQL query: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`Error loading GraphQL query from ${path}:`, error);
+      throw new Error(`Failed to load GraphQL query: ${error.message}`);
     }
   }
-
+  
   /**
    * Execute a GraphQL query
    */
-  protected async executeQuery<T>(queryString: string, variables: Record<string, any> = {}): Promise<T> {
-    // Initialize endpoint with proper API version before executing query
-    await this.initializeEndpoint();
-    
+  async executeQuery<T = any>(query: string, variables: Record<string, any> = {}): Promise<T> {
     try {
-      console.log(`Executing Shopify GraphQL query with variables:`, JSON.stringify(variables));
-      
+      // Execute the GraphQL query
       const response = await fetch(this.endpoint, {
         method: 'POST',
         headers: {
@@ -112,16 +42,16 @@ export class BaseShopifyClient {
           'X-Shopify-Access-Token': this.accessToken
         },
         body: JSON.stringify({
-          query: queryString,
+          query,
           variables
         })
       });
-
+      
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Shopify API error (${response.status}): ${errorText}`);
+        const textResponse = await response.text();
+        throw new Error(`Shopify API error (${response.status}): ${textResponse}`);
       }
-
+      
       const result = await response.json();
       
       if (result.errors) {

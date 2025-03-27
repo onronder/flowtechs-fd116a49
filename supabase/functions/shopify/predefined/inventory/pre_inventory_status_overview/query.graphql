@@ -1,3 +1,4 @@
+
 query PreInventoryStatusOverview($first: Int!, $after: String) {
   products(first: $first, after: $after, sortKey: TITLE) {
     pageInfo {
