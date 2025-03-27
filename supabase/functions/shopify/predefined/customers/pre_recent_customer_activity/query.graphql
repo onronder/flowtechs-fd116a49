@@ -1,6 +1,5 @@
-
-query RecentCustomerActivity($first: Int!, $query: String, $after: String) {
-  customers(first: $first, query: $query, after: $after) {
+query PreRecentCustomerActivity($first: Int!, $after: String) {
+  customers(first: $first, after: $after, sortKey: CREATED_AT, reverse: true) {
     pageInfo {
       hasNextPage
       endCursor
@@ -11,16 +10,16 @@ query RecentCustomerActivity($first: Int!, $query: String, $after: String) {
         displayName
         email
         createdAt
-        updatedAt
-        lastOrderId
-        ordersCount
-        totalSpent {
-          amount
-          currencyCode
-        }
-        averageOrderAmount {
-          amount
-          currencyCode
+        lastOrder {
+          id
+          name
+          processedAt
+          totalPriceSet {
+            shopMoney {
+              amount
+              currencyCode
+            }
+          }
         }
       }
     }
