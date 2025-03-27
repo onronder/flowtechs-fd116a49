@@ -50,16 +50,20 @@ export async function executeDataset(datasetId: string) {
     let sourceCredentials: ShopifyCredentials | undefined;
     
     if (dataset.source && dataset.source.config) {
+      // Ensure we're working with the config object correctly
       const config = dataset.source.config;
       
-      // Check if config is a proper object with credentials
-      if (typeof config === 'object' && config !== null) {
+      // Type assertion to handle the JSON shape properly
+      if (typeof config === 'object' && config !== null && !Array.isArray(config)) {
+        // Safe property access with type checking
+        const configObj = config as Record<string, any>;
+        
         sourceCredentials = {
-          storeName: String(config.storeName || ''),
-          clientId: String(config.clientId || ''),
-          apiSecret: String(config.apiSecret || ''),
-          accessToken: String(config.accessToken || ''),
-          api_version: String(config.api_version || '')
+          storeName: String(configObj.storeName || ''),
+          clientId: String(configObj.clientId || ''),
+          apiSecret: String(configObj.apiSecret || ''),
+          accessToken: String(configObj.accessToken || ''),
+          api_version: String(configObj.api_version || '')
         };
         
         console.log("Source credentials extracted:", {
@@ -164,17 +168,29 @@ export async function executeCustomDataset(sourceId: string, query: string) {
     let sourceCredentials: ShopifyCredentials | undefined;
     
     if (source && source.config) {
+      // Ensure we're working with the config object correctly
       const config = source.config;
       
-      // Check if config is a proper object with credentials
-      if (typeof config === 'object' && config !== null) {
+      // Type assertion to handle the JSON shape properly
+      if (typeof config === 'object' && config !== null && !Array.isArray(config)) {
+        // Safe property access with type checking
+        const configObj = config as Record<string, any>;
+        
         sourceCredentials = {
-          storeName: String(config.storeName || ''),
-          clientId: String(config.clientId || ''),
-          apiSecret: String(config.apiSecret || ''),
-          accessToken: String(config.accessToken || ''),
-          api_version: String(config.api_version || '')
+          storeName: String(configObj.storeName || ''),
+          clientId: String(configObj.clientId || ''),
+          apiSecret: String(configObj.apiSecret || ''),
+          accessToken: String(configObj.accessToken || ''),
+          api_version: String(configObj.api_version || '')
         };
+        
+        console.log("Source credentials extracted for custom query:", {
+          storeName: sourceCredentials.storeName,
+          hasClientId: !!sourceCredentials.clientId,
+          hasApiSecret: !!sourceCredentials.apiSecret,
+          hasAccessToken: !!sourceCredentials.accessToken,
+          apiVersion: sourceCredentials.api_version
+        });
       } else {
         console.error("Invalid source config format:", config);
       }
@@ -221,3 +237,4 @@ export async function executeCustomDataset(sourceId: string, query: string) {
     throw enhancedError;
   }
 }
+
