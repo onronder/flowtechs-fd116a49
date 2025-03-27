@@ -1,64 +1,108 @@
 
-import { BaseShopifyClient } from '../../../_shared/client.ts';
+import { BaseShopifyClient } from "../../../../_shared/client.ts";
+
+export interface InventoryProduct {
+  id: string;
+  title: string;
+  vendor: string;
+  productType: string;
+  totalInventory: number;
+  availableForSale: boolean;
+  status: string;
+}
+
+export interface InventoryStatusResponse {
+  products: InventoryProduct[];
+  statistics: {
+    total: number;
+    statusCounts: {
+      outOfStock: number;
+      low: number;
+      medium: number;
+      high: number;
+    };
+  };
+  pageInfo: {
+    hasNextPage: boolean;
+    endCursor: string;
+  };
+}
 
 export class ShopifyClient extends BaseShopifyClient {
   /**
    * Execute the inventory status query
    */
-  async executeInventoryStatusQuery(limit: number = 50): Promise<any> {
-    // Load the query from the .graphql file
-    const queryString = await this.loadGraphQLQuery('./query.graphql');
-    
-    // Variables for the GraphQL query
-    const variables = {
-      first: Math.min(limit, 250) // Maximum of 250 per request
-    };
-    
+  async executeInventoryStatusQuery(
+    limit: number = 50,
+    cursor?: string
+  ): Promise<InventoryStatusResponse> {
     try {
-      console.log(`Executing Shopify GraphQL query for inventory status`);
-      const data = await this.executeQuery(queryString, variables);
+      // Load the query from the .graphql file
+      const queryString = await this.loadGraphQLQuery('./query.graphql');
       
-      // Process the inventory data
-      return this.processInventoryData(data);
+      console.log(`Executing inventory status query with limit: ${limit}, cursor: ${cursor || 'none'}`);
+      
+      // Variables for the GraphQL query
+      const variables = {
+        first: Math.min(limit, 250), // Maximum of 250 per request
+        after: cursor
+      };
+      
+      // Execute the query
+      const result = await this.executeQuery<{
+        products: {
+          pageInfo: {
+            hasNextPage: boolean;
+            endCursor: string;
+          };
+          edges: Array<{
+            node: {
+              id: string;
+              title: string;
+              vendor: string;
+              productType: string;
+              totalInventory: number;
+              availableForSale: boolean;
+              status: string;
+            };
+          }>;
+        };
+      }>(queryString, variables);
+      
+      // Extract products with inventory information
+      const products = result.products.edges.map(edge => edge.node);
+      
+      // Count products by inventory status
+      const statusCounts = {
+        outOfStock: 0,
+        low: 0,
+        medium: 0,
+        high: 0
+      };
+      
+      // Process each product to determine inventory status
+      const processedProducts = products.map(product => {
+        const status = this.getInventoryStatus(product.totalInventory);
+        statusCounts[status as keyof typeof statusCounts]++;
+        
+        return {
+          ...product,
+          status
+        };
+      });
+      
+      return {
+        products: processedProducts,
+        statistics: {
+          total: processedProducts.length,
+          statusCounts
+        },
+        pageInfo: result.products.pageInfo
+      };
     } catch (error) {
-      console.error('Error fetching inventory status:', error);
+      console.error('Error executing inventory status query:', error);
       throw error;
     }
-  }
-  
-  private processInventoryData(data: any): any {
-    // Extract products with inventory information
-    const products = data.products.edges.map((edge: any) => {
-      const product = edge.node;
-      return {
-        id: product.id,
-        title: product.title,
-        vendor: product.vendor,
-        productType: product.productType,
-        totalInventory: product.totalInventory,
-        status: this.getInventoryStatus(product.totalInventory)
-      };
-    });
-    
-    // Count products by inventory status
-    const statusCounts = {
-      outOfStock: 0,
-      low: 0,
-      medium: 0,
-      high: 0
-    };
-    
-    products.forEach((product: any) => {
-      statusCounts[product.status as keyof typeof statusCounts]++;
-    });
-    
-    return {
-      products,
-      statistics: {
-        total: products.length,
-        statusCounts
-      }
-    };
   }
   
   private getInventoryStatus(inventory: number): string {
