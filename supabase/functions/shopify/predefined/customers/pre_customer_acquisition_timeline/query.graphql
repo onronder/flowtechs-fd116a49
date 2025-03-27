@@ -1,6 +1,5 @@
-
-query CustomerAcquisition($first: Int!, $query: String, $after: String) {
-  customers(first: $first, query: $query, after: $after) {
+query PreCustomerAcquisitionTimeline($first: Int!, $after: String) {
+  customers(first: $first, after: $after, sortKey: CREATED_AT, reverse: false) {
     pageInfo {
       hasNextPage
       endCursor
@@ -11,7 +10,21 @@ query CustomerAcquisition($first: Int!, $query: String, $after: String) {
         displayName
         email
         createdAt
-        ordersCount
+        orders(first: 1, sortKey: PROCESSED_AT, reverse: false) {
+          edges {
+            node {
+              id
+              name
+              processedAt
+              totalPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
+            }
+          }
+        }
       }
     }
   }
