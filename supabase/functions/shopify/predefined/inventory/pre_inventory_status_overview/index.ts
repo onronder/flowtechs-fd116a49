@@ -51,7 +51,8 @@ async function handler(req: Request): Promise<Response> {
         query: "inventory_status_overview",
         timestamp: new Date().toISOString(),
         limit,
-        hasMore: data.pageInfo.hasNextPage
+        hasMore: data.pageInfo.hasNextPage,
+        nextCursor: data.pageInfo.hasNextPage ? data.pageInfo.endCursor : null
       }
     };
     

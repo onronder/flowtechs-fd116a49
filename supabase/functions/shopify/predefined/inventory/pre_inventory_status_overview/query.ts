@@ -4,11 +4,15 @@ import { BaseShopifyClient } from "../../../../_shared/client.ts";
 export interface InventoryProduct {
   id: string;
   title: string;
-  vendor: string;
-  productType: string;
-  totalInventory: number;
-  availableForSale: boolean;
   status: string;
+  totalInventory: number;
+  variant: {
+    id: string;
+    title: string;
+    inventoryQuantity: number;
+    sku: string;
+    inventoryTracked: boolean;
+  };
 }
 
 export interface InventoryStatusResponse {
@@ -59,18 +63,45 @@ export class ShopifyClient extends BaseShopifyClient {
             node: {
               id: string;
               title: string;
-              vendor: string;
-              productType: string;
-              totalInventory: number;
-              availableForSale: boolean;
               status: string;
+              totalInventory: number;
+              variants: {
+                edges: Array<{
+                  node: {
+                    id: string;
+                    title: string;
+                    inventoryQuantity: number;
+                    sku: string;
+                    inventoryItem: {
+                      tracked: boolean;
+                    };
+                  };
+                }>;
+              };
             };
           }>;
         };
       }>(queryString, variables);
       
       // Extract products with inventory information
-      const products = result.products.edges.map(edge => edge.node);
+      const products = result.products.edges.map(edge => {
+        const product = edge.node;
+        const firstVariant = product.variants.edges[0]?.node;
+        
+        return {
+          id: product.id,
+          title: product.title,
+          status: product.status,
+          totalInventory: product.totalInventory,
+          variant: firstVariant ? {
+            id: firstVariant.id,
+            title: firstVariant.title,
+            inventoryQuantity: firstVariant.inventoryQuantity,
+            sku: firstVariant.sku,
+            inventoryTracked: firstVariant.inventoryItem?.tracked || false
+          } : null
+        };
+      });
       
       // Count products by inventory status
       const statusCounts = {
@@ -82,12 +113,12 @@ export class ShopifyClient extends BaseShopifyClient {
       
       // Process each product to determine inventory status
       const processedProducts = products.map(product => {
-        const status = this.getInventoryStatus(product.totalInventory);
-        statusCounts[status as keyof typeof statusCounts]++;
+        const inventoryStatus = this.getInventoryStatus(product.totalInventory);
+        statusCounts[inventoryStatus as keyof typeof statusCounts]++;
         
         return {
           ...product,
-          status
+          status: inventoryStatus
         };
       });
       
