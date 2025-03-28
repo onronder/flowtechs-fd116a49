@@ -1,5 +1,4 @@
 
-// src/api/datasets/datasetCreationApi.ts
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUserId } from "./datasetsCommonApi";
 import { 
@@ -15,9 +14,14 @@ export async function createPredefinedDataset(datasetData: PredefinedDataset) {
   try {
     const userId = await getCurrentUserId();
     
+    // Validate that the template exists (this would ideally check if the edge function exists)
+    if (!datasetData.templateId) {
+      throw new Error("Template ID is required");
+    }
+    
+    console.log("Creating predefined dataset with template:", datasetData.templateId);
+    
     // Insert the user dataset with template_id as the name of the edge function
-    // This works because we're now using the function name as the ID
-    // instead of trying to reference a UUID from query_templates
     const { data, error } = await supabase
       .from("user_datasets")
       .insert({
@@ -25,12 +29,15 @@ export async function createPredefinedDataset(datasetData: PredefinedDataset) {
         description: datasetData.description || "",
         source_id: datasetData.sourceId,
         dataset_type: "predefined",
-        template_id: datasetData.templateId, // Using edge function name as template_id
+        template_id: datasetData.templateId, // Now storing the edge function name directly
         user_id: userId
       })
       .select();
       
-    if (error) throw error;
+    if (error) {
+      console.error("Error inserting dataset:", error);
+      throw error;
+    }
     return data[0];
   } catch (error) {
     console.error("Error creating predefined dataset:", error);

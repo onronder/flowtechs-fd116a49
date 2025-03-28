@@ -1,68 +1,26 @@
 
-// src/api/datasets/datasetsApiTypes.ts
-import { Json } from "@/integrations/supabase/types";
+import { supabase } from "@/integrations/supabase/client";
 
-// Type definitions
-export interface DatasetBase {
+// Common types for dataset APIs
+export type PredefinedDataset = {
   name: string;
   description?: string;
   sourceId: string;
-}
+  templateId: string; // Now using string instead of UUID for edge function names
+};
 
-export interface PredefinedDataset extends DatasetBase {
+export type DependentDataset = {
+  name: string;
+  description?: string;
+  sourceId: string;
   templateId: string;
-}
+};
 
-export interface DependentDataset extends DatasetBase {
-  templateId: string;
-}
-
-export interface CustomDataset extends DatasetBase {
+export type CustomDataset = {
+  name: string;
+  description?: string;
+  sourceId: string;
+  resourceType: string;
   query: string;
   selectedFields: string[];
-  resourceType: string;
-}
-
-export interface ExportOptions {
-  format: 'json' | 'csv' | 'xlsx';
-  saveToStorage?: boolean;
-}
-
-export interface DatasetSchedule {
-  type: 'once' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'custom';
-  value?: string;
-  date?: string;
-  time?: string;
-  dayOfWeek?: number;
-  dayOfMonth?: number;
-  hour?: number;
-  minute?: number;
-}
-
-export interface DatasetExecution {
-  id: string;
-  dataset_id: string;
-  status: string;
-  start_time: string;
-  end_time?: string;
-  row_count?: number;
-  execution_time_ms?: number;
-  error?: string;
-  dataset?: {
-    name: string;
-    description?: string;
-    source_id: string;
-  };
-}
-
-export interface DatasetScheduleEntry {
-  id: string;
-  dataset_id: string;
-  schedule_type: string;
-  next_run_time?: string;
-  is_active: boolean;
-  parameters?: Json;
-  dataset?: {
-    name: string;
-  };
-}
+};

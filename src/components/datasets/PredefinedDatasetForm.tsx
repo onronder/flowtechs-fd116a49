@@ -135,14 +135,33 @@ export default function PredefinedDatasetForm({
     try {
       console.log("Form values:", values);
       
-      // Create the dataset with the correct property names
-      const result = await createPredefinedDataset({
+      // Find the template from our list to get additional info if needed
+      const selectedTemplate = availableTemplates.find(
+        template => template.name === values.templateName
+      );
+      
+      if (!selectedTemplate) {
+        console.error("Template not found:", values.templateName);
+        throw new Error(`Template "${values.templateName}" not found`);
+      }
+      
+      console.log("Selected template:", selectedTemplate);
+      
+      // Prepare the payload for API - now using template name directly
+      const payload = {
         name: values.name,
         description: values.description || "",
         sourceId: values.sourceId,
-        templateId: values.templateName, // Using the template name as ID for edge functions
-      });
+        templateId: values.templateName, // Using the edge function name as template_id
+      };
+      
+      console.log("Creating dataset with payload:", payload);
+      
+      // Create the dataset
+      const result = await createPredefinedDataset(payload);
 
+      console.log("Dataset creation result:", result);
+      
       toast({
         title: "Dataset Created",
         description: "Your dataset has been created successfully.",
@@ -159,7 +178,7 @@ export default function PredefinedDatasetForm({
       console.error("Error creating dataset:", error);
       toast({
         title: "Error",
-        description: "Failed to create dataset. Please try again.",
+        description: "Failed to create dataset. Please try again: " + (error instanceof Error ? error.message : String(error)),
         variant: "destructive",
       });
     } finally {
