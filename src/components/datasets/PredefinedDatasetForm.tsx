@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -39,6 +39,60 @@ const formSchema = z.object({
   }),
 });
 
+// Define the predefined templates that map to our edge functions
+const PREDEFINED_TEMPLATES = [
+  {
+    name: "pre_customer_acquisition_timeline",
+    display_name: "Customer Acquisition Timeline",
+    description: "Track new customer sign-ups over time to analyze growth patterns."
+  },
+  {
+    name: "pre_recent_orders_dashboard",
+    display_name: "Recent Orders Dashboard",
+    description: "A dashboard of recent orders from your Shopify store with sorting and filtering capabilities."
+  },
+  {
+    name: "pre_order_fulfillment_status",
+    display_name: "Order Fulfillment Status",
+    description: "Track the fulfillment status of orders including shipping information and delivery status."
+  },
+  {
+    name: "pre_sales_by_geographic_region",
+    display_name: "Sales by Geographic Region",
+    description: "Analyze sales performance across different geographic regions to identify market trends."
+  },
+  {
+    name: "pre_discount_usage_summary",
+    display_name: "Discount Usage Summary",
+    description: "Monitor the usage and effectiveness of discount codes and promotions."
+  },
+  {
+    name: "pre_product_catalog_snapshot",
+    display_name: "Product Catalog Snapshot",
+    description: "A complete snapshot of your product catalog including pricing, inventory, and categorization info."
+  },
+  {
+    name: "pre_product_collection_membership",
+    display_name: "Product Collection Membership",
+    description: "See which products belong to which collections to better organize your catalog."
+  },
+  {
+    name: "pre_top_products_by_revenue",
+    display_name: "Top Products by Revenue",
+    description: "Identify your best-selling products based on revenue to optimize your inventory."
+  },
+  {
+    name: "pre_inventory_status_overview",
+    display_name: "Inventory Status Overview",
+    description: "Get a comprehensive view of current inventory levels across products and locations."
+  },
+  {
+    name: "pre_recent_customer_activity",
+    display_name: "Recent Customer Activity",
+    description: "Monitor recent customer actions including orders, account updates, and engagement."
+  }
+];
+
 interface PredefinedDatasetFormProps {
   source: any;
   templates?: any[];
@@ -57,7 +111,14 @@ export default function PredefinedDatasetForm({
   onComplete,
 }: PredefinedDatasetFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [availableTemplates, setAvailableTemplates] = useState(PREDEFINED_TEMPLATES);
   const { toast } = useToast();
+
+  // Use the hardcoded templates directly since we've moved to individual edge functions
+  useEffect(() => {
+    console.log("Source type:", source?.source_type);
+    // If we want to filter templates by source type in the future, we can do it here
+  }, [source]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -198,9 +259,9 @@ export default function PredefinedDatasetForm({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {templates.map((template) => (
+                  {availableTemplates.map((template) => (
                     <SelectItem key={template.name} value={template.name}>
-                      {template.display_name || template.name}
+                      {template.display_name}
                     </SelectItem>
                   ))}
                 </SelectContent>
