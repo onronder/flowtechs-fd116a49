@@ -60,15 +60,17 @@ export default function Datasets() {
 
       data.forEach(dataset => {
         initialExecutionTimes[dataset.id] = dataset.last_execution_time || null;
-        // Use the dataset's last_execution_id to determine if it's running
-        // If there is a last_execution_id but no last_execution_time, it's likely still running
-        const isDatasetRunning = 
-          dataset.last_execution_id && (!dataset.last_execution_time || 
-          dataset.last_execution_status === 'running' || 
-          dataset.last_execution_status === 'pending');
+        
+        // Check if the dataset is running based on the execution ID and time
+        const isDatasetRunning = dataset.last_execution_id && 
+          (!dataset.last_execution_time || 
+          // Check execution status from dataset executions table if available
+          (dataset.execution_status && ['running', 'pending'].includes(dataset.execution_status)));
+          
         initialRunningStates[dataset.id] = isDatasetRunning;
-        // Check for error state based on available data
-        const hasErrors = dataset.last_execution_status === 'failed';
+        
+        // Check for error state based on execution status if available
+        const hasErrors = dataset.execution_status === 'failed';
         initialErrorStates[dataset.id] = hasErrors;
       });
 
@@ -169,8 +171,8 @@ export default function Datasets() {
   const handleResetStuckExecutions = async () => {
     try {
       setIsResetting(true);
-      // Explicitly passing an empty object to avoid the argument error
-      await resetStuckExecutions({});
+      // Pass an empty string instead of an empty object to satisfy the type requirements
+      await resetStuckExecutions("");
       toast({
         title: "Reset Initiated",
         description: "The process to reset stuck executions has been initiated.",
