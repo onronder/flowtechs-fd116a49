@@ -1,6 +1,7 @@
 
+// pre_customer_acquisition_timeline/index.ts
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { corsHeaders, handleCors, successResponse, errorResponse } from '../shopify/_shared/cors.ts';
+import { corsHeaders, handleCors, successResponse, errorResponse } from './cors.ts';
 import { ShopifyClient } from '../shopify/predefined/customers/pre_customer_acquisition_timeline/query.ts';
 import { supabase } from '../_shared/supabaseClient.ts';
 

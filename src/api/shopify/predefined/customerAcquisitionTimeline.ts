@@ -47,7 +47,7 @@ export async function fetchCustomerAcquisitionTimeline(
     
     // Call the edge function
     const { data, error } = await supabase.functions.invoke(
-      'shopify/predefined/customers/pre_customer_acquisition_timeline',
+      'pre_customer_acquisition_timeline',
       {
         body: {
           credentials,
