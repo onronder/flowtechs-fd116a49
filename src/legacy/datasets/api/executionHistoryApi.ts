@@ -36,7 +36,15 @@ export async function getExecutionDetails(executionId: string): Promise<DatasetE
       throw error;
     }
     
-    return data;
+    // Ensure status is cast to the correct type
+    if (data) {
+      return {
+        ...data,
+        status: data.status as DatasetExecution['status']
+      };
+    }
+    
+    return null;
   } catch (error) {
     console.error("Failed to get execution details:", error);
     throw error;
