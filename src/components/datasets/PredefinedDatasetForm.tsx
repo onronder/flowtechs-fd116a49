@@ -72,13 +72,13 @@ export default function PredefinedDatasetForm({
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
-      // Create the dataset with the correct dataset_type
+      // Create the dataset with the correct property names
       const result = await createPredefinedDataset({
         name: values.name,
         description: values.description || "",
         sourceId: values.sourceId,
         templateId: values.templateName, // Using camelCase property names
-        dataset_type: "predefined", // Use a valid dataset type from your schema
+        // Not including dataset_type as it's not in the PredefinedDataset type
       });
 
       toast({
