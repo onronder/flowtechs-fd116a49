@@ -35,9 +35,12 @@ export async function getDatasetSchedules(datasetId?: string): Promise<DatasetSc
         id,
         dataset_id,
         schedule_type,
+        cron_expression,
         next_run_time,
         is_active,
         parameters,
+        created_at,
+        updated_at,
         dataset:dataset_id(name)
       `)
       .order("next_run_time", { ascending: true });
@@ -49,7 +52,7 @@ export async function getDatasetSchedules(datasetId?: string): Promise<DatasetSc
     const { data, error } = await query;
       
     if (error) throw error;
-    return data || [];
+    return data as DatasetScheduleEntry[];
   } catch (error) {
     console.error("Error fetching schedules:", error);
     return [];

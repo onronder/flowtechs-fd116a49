@@ -41,6 +41,20 @@ export type DatasetExecution = {
   api_call_count?: number;
   created_at?: string;
   updated_at?: string;
+  dataset?: {
+    created_at: string | null;
+    custom_fields: any;
+    custom_query: string | null;
+    dataset_type: string;
+    description: string | null;
+    id: string;
+    name: string;
+    source_id: string;
+    template_id: string;
+    parameters: any;
+    updated_at: string;
+    user_id: string;
+  };
 };
 
 export type DatasetBase = {

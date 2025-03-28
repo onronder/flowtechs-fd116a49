@@ -64,10 +64,14 @@ export async function getExecutionDetails(executionId: string): Promise<DatasetE
       throw datasetError;
     }
     
+    // Cast the status to ensure it matches the expected type
+    const status = execution.status as 'pending' | 'running' | 'completed' | 'failed';
+    
     // Combine the data manually
-    const result = {
+    const result: DatasetExecution = {
       ...execution,
-      dataset: dataset || null
+      status: status,
+      dataset: dataset || undefined
     };
     
     console.log(`Retrieved execution details for ID: ${executionId}`);
