@@ -1,10 +1,10 @@
 
 import React from "react";
-import { PreviewButton } from "./actions/PreviewButton";
-import { RunButton } from "./actions/RunButton";
+import { Button } from "@/components/ui/button";
+import { Eye, Play, Loader2 } from "lucide-react";
 import { DatasetActionsMenu } from "./actions/DatasetActionsMenu";
-import { useDatasetExecution } from "./actions/useDatasetExecution";
 import { DatasetExportAction } from "./actions/DatasetExportAction";
+import { useRunDatasetJob } from "@/hooks/useRunDatasetJob";
 
 interface DatasetActionsProps {
   datasetId: string;
@@ -40,45 +40,71 @@ export default function DatasetActions({
   errorState = false,
   datasetName = "dataset"
 }: DatasetActionsProps) {
-  // Use the custom hook to handle execution logic
-  const { isExecuting, handleRunClick } = useDatasetExecution({
-    datasetId,
-    onExecutionStarted,
-    onRefresh
-  });
+  // Use the new hook for dataset execution
+  const { run, loading, error } = useRunDatasetJob();
   
   // For debugging
   React.useEffect(() => {
     console.log(`DatasetActions: datasetId=${datasetId}, isRunning=${isRunning}, lastExecutionId=${lastExecutionId || 'none'}`);
   }, [isRunning, datasetId, lastExecutionId]);
   
-  // Handler for clicking the run button that accepts an event parameter
-  const handleRunButtonClick = () => {
-    console.log("Set running state to true for dataset:", datasetId);
+  // Handler for running the dataset with the new execution engine
+  const handleRunButtonClick = async () => {
+    console.log("Running new dataset engine for:", datasetId);
+    // Notify parent that we're running
     onRunDataset();
-    handleRunClick();
-  };
-  
-  // Create handlers with consistent signatures without event parameters
-  const handlePreviewClick = () => {
-    onViewPreview();
+    
+    try {
+      // Run the dataset using the new hook
+      const executionId = await run(datasetId);
+      
+      // If we got an execution ID, notify the parent
+      if (executionId && onExecutionStarted) {
+        onExecutionStarted(executionId);
+      }
+      
+      // Refresh the dataset list if needed
+      if (onRefresh) {
+        onRefresh();
+      }
+    } catch (error) {
+      console.error("Error running dataset:", error);
+    }
   };
   
   return (
     <div className="flex justify-between items-center w-full">
-      <PreviewButton 
-        onClick={handlePreviewClick}
+      {/* Preview button */}
+      <Button 
+        variant="outline" 
+        size="sm" 
+        onClick={onViewPreview}
         disabled={!lastExecutionId}
-      />
+      >
+        <Eye className="h-4 w-4 mr-1" />
+        Preview
+      </Button>
       
       <div className="flex space-x-2">
-        <RunButton 
+        {/* Run button */}
+        <Button 
+          variant={errorState ? "destructive" : "default"}
+          size="sm"
           onClick={handleRunButtonClick}
-          isRunning={isRunning}
-          isExecuting={isExecuting}
-          errorState={errorState}
-        />
+          disabled={loading || isRunning}
+          data-testid="run-dataset-button"
+          id="run-dataset-button"
+          name="run-dataset-button"
+        >
+          {loading || isRunning ? (
+            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+          ) : (
+            <Play className="h-4 w-4 mr-1" />
+          )}
+          {loading || isRunning ? "Running..." : (errorState ? "Retry" : "Run")}
+        </Button>
         
+        {/* Export action */}
         {lastExecutionId && (
           <DatasetExportAction
             executionId={lastExecutionId}
@@ -86,6 +112,7 @@ export default function DatasetActions({
           />
         )}
         
+        {/* Dataset actions menu */}
         <DatasetActionsMenu
           onViewPreview={onViewPreview}
           onScheduleDataset={onScheduleDataset}

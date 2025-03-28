@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -30,10 +31,10 @@ const formSchema = z.object({
     message: "Name must be at least 2 characters.",
   }),
   description: z.string().optional(),
-  source_id: z.string().min(1, {
+  sourceId: z.string().min(1, {
     message: "Please select a source.",
   }),
-  template_name: z.string().min(1, {
+  templateName: z.string().min(1, {
     message: "Please select a template.",
   }),
 });
@@ -59,8 +60,8 @@ export default function PredefinedDatasetForm({
     defaultValues: {
       name: "",
       description: "",
-      source_id: "",
-      template_name: "",
+      sourceId: "",
+      templateName: "",
     },
   });
 
@@ -71,8 +72,8 @@ export default function PredefinedDatasetForm({
       const result = await createPredefinedDataset({
         name: values.name,
         description: values.description || "",
-        source_id: values.source_id,
-        template_name: values.template_name,
+        source_id: values.sourceId,
+        template_name: values.templateName,
         dataset_type: "predefined", // Use a valid dataset type from your schema
       });
 
@@ -136,7 +137,7 @@ export default function PredefinedDatasetForm({
 
         <FormField
           control={form.control}
-          name="source_id"
+          name="sourceId"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Data Source</FormLabel>
@@ -167,7 +168,7 @@ export default function PredefinedDatasetForm({
 
         <FormField
           control={form.control}
-          name="template_name"
+          name="templateName"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Template</FormLabel>
