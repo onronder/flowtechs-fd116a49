@@ -108,7 +108,7 @@ export default function DatasetPreview({ executionId, isOpen, onClose }: Dataset
         <PreviewStuckExecution
           executionId={currentExecutionId!}
           startTime={previewData.execution.startTime}
-          onRetry={checkForStuckExecution}
+          onReset={checkForStuckExecution}
         />
       );
     }
