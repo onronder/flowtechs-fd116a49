@@ -8,15 +8,35 @@ import {
   TooltipProvider, 
   TooltipTrigger 
 } from "@/components/ui/tooltip";
+import { useRunDatasetJob } from "@/hooks/useRunDatasetJob";
 
 interface RunButtonProps {
-  onClick: () => void;
+  datasetId: string;
+  onExecutionStarted: (executionId: string) => void;
   isRunning: boolean;
   isExecuting: boolean;
   errorState: boolean;
 }
 
-export function RunButton({ onClick, isRunning, isExecuting, errorState }: RunButtonProps) {
+export function RunButton({ 
+  datasetId, 
+  onExecutionStarted, 
+  isRunning, 
+  isExecuting, 
+  errorState 
+}: RunButtonProps) {
+  const { run, loading } = useRunDatasetJob();
+  
+  const handleRunClick = async () => {
+    const executionId = await run(datasetId);
+    if (executionId) {
+      onExecutionStarted(executionId);
+    }
+  };
+  
+  // Combined loading state from both sources
+  const isLoading = loading || isRunning || isExecuting;
+  
   return (
     <TooltipProvider>
       <Tooltip>
@@ -24,20 +44,20 @@ export function RunButton({ onClick, isRunning, isExecuting, errorState }: RunBu
           <Button 
             variant={errorState ? "destructive" : "default"}
             size="sm"
-            onClick={onClick}
-            disabled={isRunning || isExecuting}
+            onClick={handleRunClick}
+            disabled={isLoading}
             data-testid="run-dataset-button"
             id="run-dataset-button"
             name="run-dataset-button"
           >
-            {(isRunning || isExecuting) ? (
+            {isLoading ? (
               <Loader2 className="h-4 w-4 mr-1 animate-spin" />
             ) : errorState ? (
               <AlertCircle className="h-4 w-4 mr-1" />
             ) : (
               <Play className="h-4 w-4 mr-1" />
             )}
-            {isRunning || isExecuting ? 
+            {isLoading ? 
               (isExecuting ? "Starting..." : "Running...") : 
               (errorState ? "Retry" : "Run")}
           </Button>
