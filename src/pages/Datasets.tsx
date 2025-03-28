@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -11,7 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Settings } from "lucide-react";
+import { Plus, Settings, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   fetchUserDatasets,
@@ -32,6 +31,12 @@ import {
 import { useMediaQuery } from "@/hooks/use-mobile";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { updateDatasetExecutionFlow } from "@/api/datasets/execution/migrationHelper";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function Datasets() {
   const [datasets, setDatasets] = useState<any[]>([]);
@@ -61,11 +66,9 @@ export default function Datasets() {
       data.forEach(dataset => {
         initialExecutionTimes[dataset.id] = dataset.last_execution_time || null;
         
-        // Simplify running state check - just check if there's an execution ID but no time
         const isDatasetRunning = dataset.last_execution_id && !dataset.last_execution_time;
         initialRunningStates[dataset.id] = isDatasetRunning;
         
-        // Initialize error state to false
         initialErrorStates[dataset.id] = false;
       });
 
@@ -87,6 +90,7 @@ export default function Datasets() {
   useEffect(() => {
     fetchDatasets();
 
+    /*
     const migrateDatasets = async () => {
       try {
         const result = await updateDatasetExecutionFlow();
@@ -100,6 +104,7 @@ export default function Datasets() {
     };
 
     migrateDatasets();
+    */
   }, [fetchDatasets]);
 
   const handleOpenModal = () => {
@@ -115,9 +120,11 @@ export default function Datasets() {
   };
 
   const handleViewPreview = (datasetId: string, executionId: string) => {
-    setSelectedDatasetId(datasetId);
-    setSelectedExecutionId(executionId);
-    setIsPreviewModalOpen(true);
+    toast({
+      title: "Legacy Feature",
+      description: "Dataset preview is currently under maintenance. New implementation coming soon.",
+      variant: "default",
+    });
   };
 
   const handleClosePreviewModal = () => {
@@ -127,7 +134,11 @@ export default function Datasets() {
   };
 
   const handleRunDataset = (datasetId: string) => {
-    setIsRunning(prev => ({ ...prev, [datasetId]: true }));
+    toast({
+      title: "Legacy Feature",
+      description: "Dataset execution is currently under maintenance. New implementation coming soon.",
+      variant: "default",
+    });
   };
 
   const handleExecutionStarted = (datasetId: string, executionId: string) => {
@@ -164,25 +175,11 @@ export default function Datasets() {
   };
 
   const handleResetStuckExecutions = async () => {
-    try {
-      setIsResetting(true);
-      // Pass empty string for all datasets
-      const result = await resetStuckExecutions("");
-      toast({
-        title: "Reset Initiated",
-        description: "The process to reset stuck executions has been initiated.",
-      });
-      fetchDatasets();
-    } catch (error) {
-      console.error("Error resetting stuck executions:", error);
-      toast({
-        title: "Error",
-        description: "Failed to reset stuck executions. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsResetting(false);
-    }
+    toast({
+      title: "Legacy Feature",
+      description: "Reset functionality is currently under maintenance. New implementation coming soon.",
+      variant: "default",
+    });
   };
 
   return (
@@ -190,9 +187,19 @@ export default function Datasets() {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold">Datasets</h1>
         <div className="flex space-x-2">
-          <Button variant="outline" size="sm" onClick={handleResetStuckExecutions} disabled={isResetting}>
-            {isResetting ? "Resetting..." : "Reset Stuck Executions"}
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" disabled={true}>
+                  <AlertTriangle className="h-4 w-4 mr-2 text-amber-500" />
+                  Reset Stuck Executions
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Legacy system under cleanup</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <Button size="sm" onClick={handleOpenModal}>
             <Plus className="h-4 w-4 mr-2" />
             New Dataset
@@ -252,20 +259,31 @@ export default function Datasets() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <DatasetActions
-                        datasetId={dataset.id}
-                        datasetName={dataset.name}
-                        lastExecutionId={dataset.last_execution_id}
-                        isRunning={isRunning[dataset.id] || false}
-                        errorState={errorState[dataset.id] || false}
-                        schedule={dataset.schedule}
-                        onViewPreview={() => handleViewPreview(dataset.id, dataset.last_execution_id)}
-                        onRunDataset={() => handleRunDataset(dataset.id)}
-                        onExecutionStarted={(executionId) => handleExecutionStarted(dataset.id, executionId)}
-                        onScheduleDataset={() => handleScheduleDataset(dataset.id)}
-                        onDeleteDataset={() => handleDeleteDataset(dataset.id)}
-                        onRefresh={handleRefreshList}
-                      />
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="inline-block">
+                              <DatasetActions
+                                datasetId={dataset.id}
+                                datasetName={dataset.name}
+                                lastExecutionId={dataset.last_execution_id}
+                                isRunning={isRunning[dataset.id] || false}
+                                errorState={errorState[dataset.id] || false}
+                                schedule={dataset.schedule}
+                                onViewPreview={() => handleViewPreview(dataset.id, dataset.last_execution_id)}
+                                onRunDataset={() => handleRunDataset(dataset.id)}
+                                onExecutionStarted={(executionId) => handleExecutionStarted(dataset.id, executionId)}
+                                onScheduleDataset={() => handleScheduleDataset(dataset.id)}
+                                onDeleteDataset={() => handleDeleteDataset(dataset.id)}
+                                onRefresh={handleRefreshList}
+                              />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Legacy execution system under cleanup</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -292,6 +310,7 @@ export default function Datasets() {
         onDatasetCreated={handleDatasetCreated}
       />
 
+      {/*
       {selectedDatasetId && selectedExecutionId && (
         <DatasetPreviewModal
           isOpen={isPreviewModalOpen}
@@ -303,6 +322,7 @@ export default function Datasets() {
           children={<></>}
         />
       )}
+      */}
     </div>
   );
 }
