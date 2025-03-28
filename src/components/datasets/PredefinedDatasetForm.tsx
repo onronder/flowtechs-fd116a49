@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createPredefinedDataset } from "@/api/datasetsApi";
+import { createPredefinedDataset } from "@/api/datasets/datasetCreationApi";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -133,13 +133,14 @@ export default function PredefinedDatasetForm({
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
+      console.log("Form values:", values);
+      
       // Create the dataset with the correct property names
       const result = await createPredefinedDataset({
         name: values.name,
         description: values.description || "",
         sourceId: values.sourceId,
-        templateId: values.templateName, // Using camelCase property names
-        // Not including dataset_type as it's not in the PredefinedDataset type
+        templateId: values.templateName, // Using the template name as ID for edge functions
       });
 
       toast({

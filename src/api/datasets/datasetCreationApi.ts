@@ -15,6 +15,9 @@ export async function createPredefinedDataset(datasetData: PredefinedDataset) {
   try {
     const userId = await getCurrentUserId();
     
+    // Insert the user dataset with template_id as the name of the edge function
+    // This works because we're now using the function name as the ID
+    // instead of trying to reference a UUID from query_templates
     const { data, error } = await supabase
       .from("user_datasets")
       .insert({
@@ -22,7 +25,7 @@ export async function createPredefinedDataset(datasetData: PredefinedDataset) {
         description: datasetData.description || "",
         source_id: datasetData.sourceId,
         dataset_type: "predefined",
-        template_id: datasetData.templateId,
+        template_id: datasetData.templateId, // Using edge function name as template_id
         user_id: userId
       })
       .select();
