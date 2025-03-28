@@ -53,15 +53,18 @@ export default function Datasets() {
       const data = await fetchUserDatasets();
       setDatasets(data);
 
-      // Initialize last execution times and running states
       const initialExecutionTimes: Record<string, string | null> = {};
       const initialRunningStates: Record<string, boolean> = {};
       const initialErrorStates: Record<string, boolean> = {};
 
       data.forEach(dataset => {
         initialExecutionTimes[dataset.id] = dataset.last_execution_time || null;
-        initialRunningStates[dataset.id] = dataset.is_running || false;
-        initialErrorStates[dataset.id] = dataset.has_errors || false;
+        const isDatasetRunning = 
+          dataset.last_execution_status === 'running' || 
+          dataset.last_execution_status === 'pending';
+        initialRunningStates[dataset.id] = isDatasetRunning;
+        const hasErrors = dataset.last_execution_status === 'failed';
+        initialErrorStates[dataset.id] = hasErrors;
       });
 
       setLastExecutionTimes(initialExecutionTimes);
@@ -85,9 +88,8 @@ export default function Datasets() {
     const migrateDatasets = async () => {
       try {
         const result = await updateDatasetExecutionFlow();
-        if (result.updated > 0) {
+        if (result && result.updated > 0) {
           console.log(`Migrated ${result.updated} datasets to the direct API execution flow`);
-          // If any migrations occurred, refresh the dataset list
           fetchDatasets();
         }
       } catch (error) {
@@ -95,7 +97,6 @@ export default function Datasets() {
       }
     };
 
-    // Run the migration
     migrateDatasets();
   }, [fetchDatasets]);
 
@@ -288,12 +289,17 @@ export default function Datasets() {
         onDatasetCreated={handleDatasetCreated}
       />
 
-      <DatasetPreviewModal
-        isOpen={isPreviewModalOpen}
-        onClose={handleClosePreviewModal}
-        datasetId={selectedDatasetId}
-        executionId={selectedExecutionId}
-      />
+      {selectedDatasetId && selectedExecutionId && (
+        <DatasetPreviewModal
+          isOpen={isPreviewModalOpen}
+          onClose={handleClosePreviewModal}
+          title={datasets.find(d => d.id === selectedDatasetId)?.name || "Dataset"}
+          executionId={selectedExecutionId}
+          datasetType={datasets.find(d => d.id === selectedDatasetId)?.dataset_type}
+          templateName={datasets.find(d => d.id === selectedDatasetId)?.template_name}
+          children={<></>}
+        />
+      )}
     </div>
   );
 }

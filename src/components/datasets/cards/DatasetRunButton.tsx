@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Loader2 } from "lucide-react";
@@ -41,8 +40,13 @@ export default function DatasetRunButton({
         setDatasetType(data.dataset_type);
         
         // Extract edge function name if it's a direct_api dataset
-        if (data.dataset_type === "direct_api" && data.parameters?.edge_function) {
-          setEdgeFunction(data.parameters.edge_function);
+        if (data.dataset_type === "direct_api" && data.parameters) {
+          // Safe access to parameters with proper type checking
+          const params = data.parameters;
+          // Check if params is an object and contains edge_function
+          if (typeof params === 'object' && params !== null && 'edge_function' in params) {
+            setEdgeFunction(params.edge_function as string);
+          }
         }
       } catch (error) {
         console.error("Error fetching dataset details:", error);
@@ -106,7 +110,7 @@ export default function DatasetRunButton({
       
       // Invoke the edge function
       const { error: invokeError } = await supabase.functions.invoke(
-        edgeFunction!,
+        edgeFunction,
         {
           body: {
             credentials: source.config,
