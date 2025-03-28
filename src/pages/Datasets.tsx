@@ -62,16 +62,13 @@ export default function Datasets() {
         initialExecutionTimes[dataset.id] = dataset.last_execution_time || null;
         
         // Check if the dataset is running based on the execution ID and time
-        const isDatasetRunning = dataset.last_execution_id && 
-          (!dataset.last_execution_time || 
-          // Check execution status from dataset executions table if available
-          (dataset.execution_status && ['running', 'pending'].includes(dataset.execution_status)));
+        const isDatasetRunning = dataset.last_execution_id && !dataset.last_execution_time;
           
         initialRunningStates[dataset.id] = isDatasetRunning;
         
-        // Check for error state based on execution status if available
-        const hasErrors = dataset.execution_status === 'failed';
-        initialErrorStates[dataset.id] = hasErrors;
+        // We currently don't have a reliable way to check for error state
+        // So we'll just initialize it to false
+        initialErrorStates[dataset.id] = false;
       });
 
       setLastExecutionTimes(initialExecutionTimes);
