@@ -7,15 +7,6 @@ import { supabase } from "@/integrations/supabase/client";
 export async function updateDatasetExecutionFlow() {
   try {
     // Get datasets that use the old predefined templates but need direct API
-    const directApiTemplateIds = [
-      'customer-acquisition-timeline',
-      'recent-orders-dashboard',
-      'order-fulfillment-status',
-      'sales-by-geographic-region',
-      'inventory-status-overview'
-    ];
-    
-    // Map template IDs to their edge functions
     const templateToEdgeFunction: Record<string, string> = {
       'customer-acquisition-timeline': 'pre_customer_acquisition_timeline',
       'recent-orders-dashboard': 'pre_recent_orders_dashboard',
@@ -34,24 +25,29 @@ export async function updateDatasetExecutionFlow() {
     };
     
     // Find datasets using the old predefined type that should be direct_api
+    // Use template_id::text to ensure we're comparing strings, not UUIDs
     const { data: outdatedDatasets, error } = await supabase
       .from("user_datasets")
       .select("id, name, template_id")
-      .eq("dataset_type", "predefined")
-      .in("template_id", directApiTemplateIds);
+      .eq("dataset_type", "predefined");
       
     if (error) {
       console.error("Error checking for outdated datasets:", error);
       return { updated: 0, error: error.message };
     }
     
-    console.log(`Found ${outdatedDatasets?.length || 0} datasets to migrate to direct API flow`);
+    // Filter the datasets that have template_id matching our keys
+    const datasetsToMigrate = outdatedDatasets?.filter(
+      dataset => dataset.template_id && Object.keys(templateToEdgeFunction).includes(dataset.template_id)
+    ) || [];
+    
+    console.log(`Found ${datasetsToMigrate.length} datasets to migrate to direct API flow`);
     
     let updatedCount = 0;
     
     // Update each dataset to use the direct_api flow
-    if (outdatedDatasets && outdatedDatasets.length > 0) {
-      for (const dataset of outdatedDatasets) {
+    if (datasetsToMigrate.length > 0) {
+      for (const dataset of datasetsToMigrate) {
         const templateId = dataset.template_id as string;
         const edgeFunction = templateToEdgeFunction[templateId];
         const displayName = templateToDisplayName[templateId];

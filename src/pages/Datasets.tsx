@@ -61,13 +61,11 @@ export default function Datasets() {
       data.forEach(dataset => {
         initialExecutionTimes[dataset.id] = dataset.last_execution_time || null;
         
-        // Check if the dataset is running based on the execution ID and time
+        // Simplify running state check - just check if there's an execution ID but no time
         const isDatasetRunning = dataset.last_execution_id && !dataset.last_execution_time;
-          
         initialRunningStates[dataset.id] = isDatasetRunning;
         
-        // We currently don't have a reliable way to check for error state
-        // So we'll just initialize it to false
+        // Initialize error state to false
         initialErrorStates[dataset.id] = false;
       });
 
@@ -168,7 +166,7 @@ export default function Datasets() {
   const handleResetStuckExecutions = async () => {
     try {
       setIsResetting(true);
-      // Pass an empty string instead of an empty object to satisfy the type requirements
+      // Pass an empty string to satisfy the type requirement
       await resetStuckExecutions("");
       toast({
         title: "Reset Initiated",
