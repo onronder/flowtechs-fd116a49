@@ -1,5 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { Json } from "@/types/supabase";
 
 // Common types for dataset APIs
 export type PredefinedDataset = {
@@ -31,27 +32,27 @@ export type DatasetExecution = {
   dataset_id: string;
   user_id: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
-  start_time: string;
-  end_time?: string;
-  row_count?: number;
-  execution_time_ms?: number;
-  error_message?: string;
-  metadata: Record<string, any>;
-  data?: any;
-  api_call_count?: number;
+  start_time: string | null;
+  end_time?: string | null;
+  row_count?: number | null;
+  execution_time_ms?: number | null;
+  error_message?: string | null;
+  metadata: Json | null;
+  data?: Json | null;
+  api_call_count?: number | null;
   created_at?: string;
   updated_at?: string;
   dataset?: {
     created_at: string | null;
-    custom_fields: any;
+    custom_fields: Json | null;
     custom_query: string | null;
     dataset_type: string;
     description: string | null;
     id: string;
     name: string;
     source_id: string;
-    template_id: string;
-    parameters: any;
+    template_id: string | null;
+    parameters: Json | null;
     updated_at: string;
     user_id: string;
   };
@@ -82,8 +83,8 @@ export type DatasetScheduleEntry = {
   schedule_type: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'custom';
   cron_expression: string;
   is_active: boolean;
-  next_run_time?: string;
-  parameters?: Record<string, any>;
+  next_run_time?: string | null;
+  parameters?: Json | null;
   created_at: string;
   updated_at: string;
   dataset?: {

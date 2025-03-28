@@ -67,7 +67,8 @@ export async function getExecutionDetails(executionId: string): Promise<DatasetE
     // Cast the status to ensure it matches the expected type
     const status = execution.status as 'pending' | 'running' | 'completed' | 'failed';
     
-    // Combine the data manually
+    // Combine the data manually - both execution and dataset objects 
+    // already have the right types from Supabase
     const result: DatasetExecution = {
       ...execution,
       status: status,
