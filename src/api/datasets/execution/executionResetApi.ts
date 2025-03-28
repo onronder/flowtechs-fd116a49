@@ -71,3 +71,56 @@ export async function resetStuckExecutions(datasetId?: string, executionId?: str
     throw error;
   }
 }
+
+/**
+ * Reset a specific execution by ID
+ * @param executionId The execution ID to reset
+ * @returns Object with the result of the reset operation
+ */
+export async function resetSpecificExecution(executionId: string) {
+  try {
+    if (!executionId) {
+      throw new Error("Execution ID is required");
+    }
+
+    console.log(`Resetting specific execution: ${executionId}`);
+    
+    // Get the current execution status
+    const { data: execution, error: fetchError } = await supabase
+      .from("dataset_executions")
+      .select("id, status, start_time")
+      .eq("id", executionId)
+      .single();
+    
+    if (fetchError) {
+      console.error(`Error fetching execution ${executionId}:`, fetchError);
+      throw fetchError;
+    }
+    
+    if (!execution) {
+      throw new Error(`Execution ${executionId} not found`);
+    }
+    
+    // Update the execution status to 'failed'
+    const { error: updateError } = await supabase
+      .from("dataset_executions")
+      .update({
+        status: "failed",
+        end_time: new Date().toISOString(),
+        error_message: "Execution was manually reset"
+      })
+      .eq("id", executionId);
+    
+    if (updateError) {
+      console.error(`Error updating execution ${executionId}:`, updateError);
+      throw updateError;
+    }
+    
+    console.log(`Successfully reset execution ${executionId} from ${execution.status} to failed`);
+    
+    return { success: true, message: "Execution reset successfully" };
+  } catch (error) {
+    console.error("Error resetting specific execution:", error);
+    throw error;
+  }
+}

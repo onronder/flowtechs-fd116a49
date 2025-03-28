@@ -1,108 +1,57 @@
 
+import React from "react";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { resetSpecificExecution } from "@/api/datasets/execution/executionResetApi";
 import { useToast } from "@/hooks/use-toast";
 
 interface PreviewStuckExecutionProps {
   executionId: string;
-  startTime: string;
-  onRetry: () => void;
+  onReset: () => void;
 }
 
 export default function PreviewStuckExecution({
   executionId,
-  startTime,
-  onRetry
+  onReset
 }: PreviewStuckExecutionProps) {
-  const [isResetting, setIsResetting] = useState(false);
   const { toast } = useToast();
-  
-  // Calculate how long ago the execution started
-  const getTimeAgo = () => {
-    const start = new Date(startTime).getTime();
-    const now = new Date().getTime();
-    const diffMinutes = Math.floor((now - start) / (1000 * 60));
-    
-    if (diffMinutes < 60) {
-      return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`;
-    } else {
-      const hours = Math.floor(diffMinutes / 60);
-      return `${hours} hour${hours !== 1 ? 's' : ''}`;
-    }
-  };
-  
+  const [isResetting, setIsResetting] = React.useState(false);
+
   const handleReset = async () => {
     try {
       setIsResetting(true);
-      
-      const result = await resetSpecificExecution(executionId);
-      
+      await resetSpecificExecution(executionId);
       toast({
-        title: result.success ? "Execution Reset" : "Reset Not Required",
-        description: result.message,
-        variant: result.success ? "default" : "destructive"
+        title: "Execution Reset",
+        description: "The execution has been reset. You can now run it again.",
       });
-      
-      if (result.success) {
-        // After successfully resetting, try loading the preview again
-        setTimeout(() => {
-          onRetry();
-        }, 1000);
-      }
+      onReset();
     } catch (error) {
+      console.error("Error resetting execution:", error);
       toast({
-        title: "Reset Failed",
-        description: error instanceof Error ? error.message : "Failed to reset execution",
-        variant: "destructive"
+        title: "Error",
+        description: "Failed to reset the execution. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setIsResetting(false);
     }
   };
-  
+
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 max-w-md">
-        <div className="flex items-center justify-center mb-4 text-amber-600">
-          <AlertTriangle size={32} />
-        </div>
-        
-        <h3 className="text-lg font-medium text-amber-800 mb-2">
-          Execution Appears Stuck
-        </h3>
-        
-        <p className="text-amber-700 mb-4">
-          This dataset execution has been in progress for {getTimeAgo()} (started at {new Date(startTime).toLocaleTimeString()}).
-          It may have encountered an issue.
-        </p>
-        
-        <div className="flex justify-center space-x-3 mt-4">
-          <Button
-            variant="outline"
-            onClick={onRetry}
-            className="border-amber-300 hover:bg-amber-50 text-amber-700"
-          >
-            Check Again
-          </Button>
-          
-          <Button 
-            onClick={handleReset}
-            disabled={isResetting}
-            className="bg-amber-600 hover:bg-amber-700 text-white"
-          >
-            {isResetting ? (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Resetting...
-              </>
-            ) : (
-              "Reset Execution"
-            )}
-          </Button>
-        </div>
-      </div>
+    <div className="flex flex-col items-center justify-center p-8 text-center">
+      <AlertTriangle className="h-12 w-12 text-amber-500 mb-4" />
+      <h3 className="text-lg font-medium mb-2">Execution Appears to be Stuck</h3>
+      <p className="text-muted-foreground mb-6">
+        This execution has been running for an extended period and may be stuck.
+        You can reset it to try running the dataset again.
+      </p>
+      <Button 
+        onClick={handleReset} 
+        disabled={isResetting}
+      >
+        {isResetting ? "Resetting..." : "Reset Execution"}
+      </Button>
     </div>
   );
 }

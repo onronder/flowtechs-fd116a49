@@ -166,8 +166,8 @@ export default function Datasets() {
   const handleResetStuckExecutions = async () => {
     try {
       setIsResetting(true);
-      // Pass an empty string to satisfy the type requirement
-      await resetStuckExecutions("");
+      // Pass empty string for all datasets
+      const result = await resetStuckExecutions("");
       toast({
         title: "Reset Initiated",
         description: "The process to reset stuck executions has been initiated.",

@@ -25,7 +25,7 @@ export async function updateDatasetExecutionFlow() {
     };
     
     // Find datasets using the old predefined type that should be direct_api
-    // Use template_id::text to ensure we're comparing strings, not UUIDs
+    // Don't use the template_id::text conversion as it's causing issues
     const { data: outdatedDatasets, error } = await supabase
       .from("user_datasets")
       .select("id, name, template_id")
