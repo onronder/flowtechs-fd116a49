@@ -8,29 +8,24 @@ import {
   TooltipProvider, 
   TooltipTrigger 
 } from "@/components/ui/tooltip";
-import { useRunDatasetJob } from "@/hooks/useRunDatasetJob";
 
 interface RunButtonProps {
-  datasetId: string;
-  onExecutionStarted: (executionId: string) => void;
+  datasetId?: string; // Make optional since we're not using it directly anymore
+  onExecutionStarted?: (executionId: string) => void; // Make optional
   isRunning: boolean;
   isExecuting: boolean;
   errorState: boolean;
-  onClick: () => void;
+  onClick: () => void; // Add onClick handler
 }
 
 export function RunButton({ 
-  datasetId, 
-  onExecutionStarted, 
   isRunning, 
   isExecuting, 
   errorState,
   onClick
 }: RunButtonProps) {
-  const { run, loading } = useRunDatasetJob();
-  
   // Combined loading state from both sources
-  const isLoading = loading || isRunning || isExecuting;
+  const isLoading = isRunning || isExecuting;
   
   return (
     <TooltipProvider>

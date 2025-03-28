@@ -1,8 +1,8 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { ExecutionHistoryItem, DatasetExecution } from "../../../api/datasets/datasetsApiTypes";
+import { DatasetExecution } from "../datasetsApiTypes";
 
-export async function getDatasetExecutionHistory(datasetId: string): Promise<ExecutionHistoryItem[]> {
+export async function getDatasetExecutionHistory(datasetId: string): Promise<any[]> {
   try {
     const { data, error } = await supabase
       .from("dataset_executions")
