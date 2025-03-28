@@ -40,17 +40,21 @@ const formSchema = z.object({
 });
 
 interface PredefinedDatasetFormProps {
-  sources: any[];
-  templates: any[];
-  onSuccess: (datasetId: string) => void;
-  onCancel: () => void;
+  source: any;
+  templates?: any[];
+  onSuccess?: (datasetId: string) => void;
+  onCancel?: () => void;
+  onBack?: () => void;
+  onComplete?: () => void;
 }
 
 export default function PredefinedDatasetForm({
-  sources,
-  templates,
+  source,
+  templates = [],
   onSuccess,
   onCancel,
+  onBack,
+  onComplete,
 }: PredefinedDatasetFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -60,7 +64,7 @@ export default function PredefinedDatasetForm({
     defaultValues: {
       name: "",
       description: "",
-      sourceId: "",
+      sourceId: source?.id || "",
       templateName: "",
     },
   });
@@ -72,7 +76,7 @@ export default function PredefinedDatasetForm({
       const result = await createPredefinedDataset({
         name: values.name,
         description: values.description || "",
-        source_id: values.sourceId,
+        sourceId: values.sourceId,
         template_name: values.templateName,
         dataset_type: "predefined", // Use a valid dataset type from your schema
       });
@@ -82,7 +86,13 @@ export default function PredefinedDatasetForm({
         description: "Your dataset has been created successfully.",
       });
 
-      onSuccess(result.id);
+      if (onSuccess) {
+        onSuccess(result.id);
+      }
+      
+      if (onComplete) {
+        onComplete();
+      }
     } catch (error) {
       console.error("Error creating dataset:", error);
       toast({
@@ -94,6 +104,14 @@ export default function PredefinedDatasetForm({
       setIsSubmitting(false);
     }
   }
+
+  const handleCancel = () => {
+    if (onCancel) {
+      onCancel();
+    } else if (onBack) {
+      onBack();
+    }
+  };
 
   return (
     <Form {...form}>
@@ -151,11 +169,9 @@ export default function PredefinedDatasetForm({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {sources.map((source) => (
-                    <SelectItem key={source.id} value={source.id}>
-                      {source.name}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value={source.id}>
+                    {source.name}
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <FormDescription>
@@ -198,7 +214,7 @@ export default function PredefinedDatasetForm({
         />
 
         <div className="flex justify-end space-x-2">
-          <Button variant="outline" onClick={onCancel} type="button">
+          <Button variant="outline" onClick={handleCancel} type="button">
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting}>
