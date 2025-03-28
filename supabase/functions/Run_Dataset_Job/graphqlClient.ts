@@ -89,6 +89,157 @@ export async function executeDependentQuery(
   return results;
 }
 
+export async function executeDependentQueryWithState(
+  shop: string, 
+  token: string, 
+  datasetId: string, 
+  primaryQuery: string, 
+  secondaryQuery: string,
+  idPath: string = "node.id"
+): Promise<any[]> {
+  console.log(`Executing stateful dependent query for dataset ID: ${datasetId}`);
+  
+  // Get existing job progress
+  const { data: jobProgress, error } = await supabase
+    .from("dataset_job_queue")
+    .select("*")
+    .eq("dataset_id", datasetId)
+    .eq("status", "in_progress")
+    .maybeSingle();
+  
+  // Get cursor or other state from the job progress
+  let cursor = jobProgress?.metadata?.cursor || null;
+  let processedIds = jobProgress?.metadata?.processed_ids || [];
+  const allResults = [];
+  let hasNextPage = true;
+  
+  console.log(`Job state: cursor=${cursor}, processed=${processedIds.length} ids`);
+  
+  try {
+    while (hasNextPage) {
+      // Replace cursor placeholder in primary query
+      const cursorValue = cursor ? `"${cursor}"` : "null";
+      const primaryQueryWithCursor = primaryQuery.replace('$after', cursorValue);
+      
+      // Execute primary query with cursor
+      const primaryData = await executeGraphQLQuery(shop, token, primaryQueryWithCursor);
+      
+      // Extract connection data for pagination
+      const connection = findConnectionInData(primaryData);
+      if (!connection) {
+        console.error("Failed to find connection data in primary query result");
+        break;
+      }
+      
+      // Update pagination state
+      const pageInfo = connection.pageInfo;
+      cursor = pageInfo.endCursor;
+      hasNextPage = pageInfo.hasNextPage;
+      
+      // Extract IDs from current page
+      const pageIds = extractIds(primaryData, idPath);
+      console.log(`Extracted ${pageIds.length} IDs from current page`);
+      
+      // Filter out already processed IDs
+      const newIds = pageIds.filter(id => !processedIds.includes(id));
+      console.log(`Found ${newIds.length} new IDs to process`);
+      
+      // Process new IDs
+      for (const id of newIds) {
+        // Replace ID placeholder in secondary query
+        const query = secondaryQuery.replace('$id', JSON.stringify(id));
+        
+        try {
+          const result = await executeGraphQLQuery(shop, token, query);
+          allResults.push(result);
+          processedIds.push(id);
+          
+          // Update job progress periodically
+          if (processedIds.length % 5 === 0 || !hasNextPage) {
+            await updateJobProgress(datasetId, cursor, processedIds, hasNextPage);
+          }
+        } catch (error) {
+          console.error(`Error executing secondary query for ID ${id}:`, error);
+          // Continue with other IDs even if one fails
+        }
+      }
+      
+      console.log(`Page complete. Cursor: ${cursor}, HasNextPage: ${hasNextPage}`);
+      
+      // If we've processed all items and there's no next page
+      if (!hasNextPage) {
+        console.log("No more pages to process");
+        await updateJobProgress(datasetId, cursor, processedIds, false, 'completed');
+        break;
+      }
+    }
+    
+    console.log(`Completed dependent query execution. Processed ${allResults.length} results`);
+    return allResults;
+  } catch (error) {
+    // Update job progress with error state
+    console.error("Error in executeDependentQueryWithState:", error);
+    await updateJobProgress(datasetId, cursor, processedIds, true, 'failed', error.message);
+    throw error;
+  }
+}
+
+// Helper function to update job progress
+async function updateJobProgress(
+  datasetId: string, 
+  cursor: string | null, 
+  processedIds: string[], 
+  hasNextPage: boolean,
+  status = 'in_progress',
+  errorMessage?: string
+) {
+  const { error } = await supabase
+    .from("dataset_job_queue")
+    .upsert({
+      dataset_id: datasetId,
+      status: status,
+      metadata: {
+        cursor,
+        processed_ids: processedIds,
+        has_next_page: hasNextPage,
+        updated_at: new Date().toISOString()
+      },
+      error_message: errorMessage,
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: 'dataset_id'
+    });
+  
+  if (error) {
+    console.error("Error updating job progress:", error);
+  }
+}
+
+// Helper function to find connection object in GraphQL response
+function findConnectionInData(data: any): { edges: any[], pageInfo: { hasNextPage: boolean, endCursor: string | null } } | null {
+  if (!data) return null;
+  
+  // Search for common connection patterns
+  for (const key in data) {
+    const value = data[key];
+    
+    if (value && typeof value === 'object') {
+      // Check if this is a connection object with pageInfo
+      if (value.edges && Array.isArray(value.edges) && value.pageInfo) {
+        return value;
+      }
+      
+      // Check nested objects recursively
+      const nestedConnection = findConnectionInData(value);
+      if (nestedConnection) {
+        return nestedConnection;
+      }
+    }
+  }
+  
+  return null;
+}
+
 // Helper function to extract IDs from the primary query response
 function extractIds(data: any, idPath: string = "node.id"): string[] {
   console.log("Extracting IDs using path:", idPath);

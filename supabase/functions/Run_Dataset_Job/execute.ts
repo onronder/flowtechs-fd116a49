@@ -1,6 +1,6 @@
 
 import { resolveDataset } from "./resolver.ts";
-import { executeGraphQLQuery, executeDependentQuery } from "./graphqlClient.ts";
+import { executeGraphQLQuery, executeDependentQuery, executeDependentQueryWithState } from "./graphqlClient.ts";
 import { writeExecutionResult } from "./resultWriter.ts";
 import { supabase } from "./_shared/supabaseClient.ts";
 import { DatasetExecutionResult } from "./types.ts";
@@ -37,6 +37,7 @@ export async function runDatasetJob(datasetId: string): Promise<DatasetExecution
       queryTemplate,
       primaryQuery,
       secondaryQuery,
+      idPath,
       userId
     } = await resolveDataset(datasetId);
     
@@ -58,8 +59,8 @@ export async function runDatasetJob(datasetId: string): Promise<DatasetExecution
       result = await executeGraphQLQuery(shop, shopifyToken, queryTemplate);
       rowCount = estimateRowCount(result);
     } else if (type === "dependent") {
-      console.log("Executing dependent query");
-      result = await executeDependentQuery(shop, shopifyToken, primaryQuery, secondaryQuery);
+      console.log("Executing dependent query with state tracking");
+      result = await executeDependentQueryWithState(shop, shopifyToken, datasetId, primaryQuery, secondaryQuery, idPath);
       rowCount = Array.isArray(result) ? result.length : 1;
     } else if (type === "custom") {
       console.log("Executing custom query");
