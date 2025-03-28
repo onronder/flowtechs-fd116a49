@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { ExecutionHistoryItem, DatasetExecution } from "../../datasetsApiTypes";
+import { ExecutionHistoryItem, DatasetExecution } from "../../../api/datasets/datasetsApiTypes";
 
 export async function getDatasetExecutionHistory(datasetId: string): Promise<ExecutionHistoryItem[]> {
   try {

@@ -16,6 +16,7 @@ interface RunButtonProps {
   isRunning: boolean;
   isExecuting: boolean;
   errorState: boolean;
+  onClick: () => void;
 }
 
 export function RunButton({ 
@@ -23,16 +24,10 @@ export function RunButton({
   onExecutionStarted, 
   isRunning, 
   isExecuting, 
-  errorState 
+  errorState,
+  onClick
 }: RunButtonProps) {
   const { run, loading } = useRunDatasetJob();
-  
-  const handleRunClick = async () => {
-    const executionId = await run(datasetId);
-    if (executionId) {
-      onExecutionStarted(executionId);
-    }
-  };
   
   // Combined loading state from both sources
   const isLoading = loading || isRunning || isExecuting;
@@ -44,7 +39,7 @@ export function RunButton({
           <Button 
             variant={errorState ? "destructive" : "default"}
             size="sm"
-            onClick={handleRunClick}
+            onClick={onClick}
             disabled={isLoading}
             data-testid="run-dataset-button"
             id="run-dataset-button"
