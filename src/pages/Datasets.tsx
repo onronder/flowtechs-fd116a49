@@ -1,172 +1,299 @@
-
-import { useState, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/button";
-import { Plus, RefreshCw, AlertTriangle } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import DatasetCard from "@/components/datasets/DatasetCard";
-import EmptyDatasetsState from "@/components/datasets/EmptyDatasetsState";
-import { fetchUserDatasets, fetchRecentOrdersDashboard } from "@/api/datasetsApi";
-import LoadingSpinner from "@/components/ui/loading-spinner";
-import { resetStuckExecutions } from "@/api/datasets/execution/executionResetApi";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Plus, Settings } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  fetchUserDatasets,
+  deleteDataset,
+  resetStuckExecutions,
+} from "@/api/datasetsApi";
+import DatasetActions from "@/components/datasets/DatasetActions";
+import NewDatasetModal from "@/components/datasets/NewDatasetModal";
+import DatasetPreviewModal from "@/components/datasets/DatasetPreviewModal";
+import { format } from "date-fns";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useMediaQuery } from "@/hooks/use-mobile";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { updateDatasetExecutionFlow } from "@/api/datasets/execution/migrationHelper";
 
 export default function Datasets() {
-  const [datasets, setDatasets] = useState([]);
+  const [datasets, setDatasets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
+  const [selectedExecutionId, setSelectedExecutionId] = useState<string | null>(null);
+  const [isRunning, setIsRunning] = useState<Record<string, boolean>>({});
+  const [errorState, setErrorState] = useState<Record<string, boolean>>({});
+  const [lastExecutionTimes, setLastExecutionTimes] = useState<Record<string, string | null>>({});
+  const [isResetting, setIsResetting] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const isMobile = useMediaQuery("(max-width: 768px)");
 
-  const loadDatasets = useCallback(async () => {
+  const fetchDatasets = useCallback(async () => {
     try {
-      console.log("Loading datasets...");
       setLoading(true);
-      setLoadError(null);
-      
       const data = await fetchUserDatasets();
-      console.log(`Loaded ${data.length} datasets`);
-      
-      // Reset any stuck executions
-      if (data.length > 0) {
-        try {
-          for (const dataset of data) {
-            const { resetCount } = await resetStuckExecutions(dataset.id);
-            if (resetCount > 0) {
-              console.log(`Reset ${resetCount} stuck executions for dataset ${dataset.id}`);
-            }
-          }
-        } catch (resetError) {
-          console.error("Error resetting stuck executions:", resetError);
-          // Continue loading datasets even if reset fails
-        }
-      }
-      
-      // Check for datasets that use the direct API access
-      const enhancedData = data.map(dataset => {
-        if (dataset.dataset_type === 'direct_api' && 
-            dataset.parameters && 
-            typeof dataset.parameters === 'object' && 
-            'edge_function' in dataset.parameters && 
-            dataset.parameters.edge_function === 'pre_recent_orders_dashboard') {
-          return {
-            ...dataset,
-            _specialHandling: {
-              previewFunction: fetchRecentOrdersDashboard,
-              displayName: (typeof dataset.parameters === 'object' && 
-                            'template_name' in dataset.parameters) 
-                            ? dataset.parameters.template_name 
-                            : 'Recent Orders Dashboard'
-            }
-          };
-        }
-        return dataset;
+      setDatasets(data);
+
+      // Initialize last execution times and running states
+      const initialExecutionTimes: Record<string, string | null> = {};
+      const initialRunningStates: Record<string, boolean> = {};
+      const initialErrorStates: Record<string, boolean> = {};
+
+      data.forEach(dataset => {
+        initialExecutionTimes[dataset.id] = dataset.last_execution_time || null;
+        initialRunningStates[dataset.id] = dataset.is_running || false;
+        initialErrorStates[dataset.id] = dataset.has_errors || false;
       });
-      
-      setDatasets(enhancedData);
+
+      setLastExecutionTimes(initialExecutionTimes);
+      setIsRunning(initialRunningStates);
+      setErrorState(initialErrorStates);
     } catch (error) {
-      console.error("Error loading datasets:", error);
-      setLoadError("Failed to load datasets. Please try again.");
+      console.error("Error fetching datasets:", error);
       toast({
         title: "Error",
         description: "Failed to load datasets. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
-      setIsRefreshing(false);
     }
   }, [toast]);
 
   useEffect(() => {
-    loadDatasets();
-  }, [loadDatasets]);
-  
-  // Function to force refresh datasets
-  const handleRefresh = useCallback(() => {
-    console.log("Manually refreshing datasets...");
-    setIsRefreshing(true);
-    loadDatasets();
-  }, [loadDatasets]);
+    fetchDatasets();
 
-  // Retry loading if there was an error
-  const handleRetry = useCallback(() => {
-    console.log("Retrying dataset load after error");
-    loadDatasets();
-  }, [loadDatasets]);
+    const migrateDatasets = async () => {
+      try {
+        const result = await updateDatasetExecutionFlow();
+        if (result.updated > 0) {
+          console.log(`Migrated ${result.updated} datasets to the direct API execution flow`);
+          // If any migrations occurred, refresh the dataset list
+          fetchDatasets();
+        }
+      } catch (error) {
+        console.error("Error migrating datasets:", error);
+      }
+    };
 
-  // Handler for successful dataset creation or deletion
-  const handleDatasetChange = useCallback(() => {
-    console.log("Dataset changed (created/deleted), refreshing list...");
-    handleRefresh();
-  }, [handleRefresh]);
+    // Run the migration
+    migrateDatasets();
+  }, [fetchDatasets]);
 
-  // Navigate to create dataset page
-  const handleCreateNew = useCallback(() => {
-    navigate("/datasets/create");
-  }, [navigate]);
+  const handleOpenModal = () => {
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+  };
+
+  const handleDatasetCreated = () => {
+    fetchDatasets();
+  };
+
+  const handleViewPreview = (datasetId: string, executionId: string) => {
+    setSelectedDatasetId(datasetId);
+    setSelectedExecutionId(executionId);
+    setIsPreviewModalOpen(true);
+  };
+
+  const handleClosePreviewModal = () => {
+    setIsPreviewModalOpen(false);
+    setSelectedDatasetId(null);
+    setSelectedExecutionId(null);
+  };
+
+  const handleRunDataset = (datasetId: string) => {
+    setIsRunning(prev => ({ ...prev, [datasetId]: true }));
+  };
+
+  const handleExecutionStarted = (datasetId: string, executionId: string) => {
+    setLastExecutionTimes(prev => ({ ...prev, [datasetId]: new Date().toISOString() }));
+    setIsRunning(prev => ({ ...prev, [datasetId]: true }));
+    setErrorState(prev => ({ ...prev, [datasetId]: false }));
+    fetchDatasets();
+  };
+
+  const handleScheduleDataset = (datasetId: string) => {
+    navigate(`/datasets/${datasetId}/schedule`);
+  };
+
+  const handleDeleteDataset = async (datasetId: string) => {
+    try {
+      await deleteDataset(datasetId);
+      setDatasets(prev => prev.filter(dataset => dataset.id !== datasetId));
+      toast({
+        title: "Dataset Deleted",
+        description: "The dataset has been successfully deleted.",
+      });
+    } catch (error) {
+      console.error("Error deleting dataset:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete the dataset. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRefreshList = () => {
+    fetchDatasets();
+  };
+
+  const handleResetStuckExecutions = async () => {
+    try {
+      setIsResetting(true);
+      await resetStuckExecutions();
+      toast({
+        title: "Reset Initiated",
+        description: "The process to reset stuck executions has been initiated.",
+      });
+      fetchDatasets();
+    } catch (error) {
+      console.error("Error resetting stuck executions:", error);
+      toast({
+        title: "Error",
+        description: "Failed to reset stuck executions. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   return (
-    <div className="h-full">
-      <div className="mb-6 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-semibold">Datasets</h1>
-          <p className="text-muted-foreground">Manage your data extractions</p>
-        </div>
-        
+    <div className="h-full space-y-4">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-semibold">Datasets</h1>
         <div className="flex space-x-2">
-          <Button 
-            variant="outline" 
-            onClick={handleRefresh}
-            disabled={isRefreshing || loading}
-            className="gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-            {isRefreshing ? "Refreshing..." : "Refresh"}
+          <Button variant="outline" size="sm" onClick={handleResetStuckExecutions} disabled={isResetting}>
+            {isResetting ? "Resetting..." : "Reset Stuck Executions"}
           </Button>
-          <Button onClick={handleCreateNew}>
-            <Plus className="mr-2 h-4 w-4" />
+          <Button size="sm" onClick={handleOpenModal}>
+            <Plus className="h-4 w-4 mr-2" />
             New Dataset
           </Button>
         </div>
       </div>
 
-      {loadError && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            {loadError}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="ml-2 mt-1" 
-              onClick={handleRetry}
-            >
-              Retry
-            </Button>
-          </AlertDescription>
-        </Alert>
+      {loading ? (
+        <div className="relative overflow-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[200px]">Name</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Source</TableHead>
+                <TableHead>Last Executed</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton /></TableCell>
+                  <TableCell><Skeleton /></TableCell>
+                  <TableCell><Skeleton /></TableCell>
+                  <TableCell><Skeleton /></TableCell>
+                  <TableCell className="text-right"><Skeleton /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : datasets.length > 0 ? (
+        <ScrollArea>
+          <div className="relative overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[200px]">Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Last Executed</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {datasets.map(dataset => (
+                  <TableRow key={dataset.id}>
+                    <TableCell className="font-medium">{dataset.name}</TableCell>
+                    <TableCell>{dataset.dataset_type}</TableCell>
+                    <TableCell>{dataset.source?.source_type}</TableCell>
+                    <TableCell>
+                      {lastExecutionTimes[dataset.id] ? (
+                        format(new Date(lastExecutionTimes[dataset.id]!), "MMM dd, yyyy hh:mm a")
+                      ) : (
+                        "Never"
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DatasetActions
+                        datasetId={dataset.id}
+                        datasetName={dataset.name}
+                        lastExecutionId={dataset.last_execution_id}
+                        isRunning={isRunning[dataset.id] || false}
+                        errorState={errorState[dataset.id] || false}
+                        schedule={dataset.schedule}
+                        onViewPreview={() => handleViewPreview(dataset.id, dataset.last_execution_id)}
+                        onRunDataset={() => handleRunDataset(dataset.id)}
+                        onExecutionStarted={(executionId) => handleExecutionStarted(dataset.id, executionId)}
+                        onScheduleDataset={() => handleScheduleDataset(dataset.id)}
+                        onDeleteDataset={() => handleDeleteDataset(dataset.id)}
+                        onRefresh={handleRefreshList}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </ScrollArea>
+      ) : (
+        <div className="text-center py-10">
+          <h2 className="text-xl font-semibold mb-4">No Datasets Created Yet</h2>
+          <p className="text-muted-foreground mb-6">
+            Get started by creating your first dataset.
+          </p>
+          <Button size="sm" onClick={handleOpenModal}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create New Dataset
+          </Button>
+        </div>
       )}
 
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <LoadingSpinner size="lg" />
-        </div>
-      ) : datasets.length === 0 ? (
-        <EmptyDatasetsState onCreateNew={handleCreateNew} />
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {datasets.map(dataset => (
-            <DatasetCard 
-              key={dataset.id}
-              dataset={dataset}
-              onRefresh={handleDatasetChange}
-            />
-          ))}
-        </div>
-      )}
+      <NewDatasetModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onDatasetCreated={handleDatasetCreated}
+      />
+
+      <DatasetPreviewModal
+        isOpen={isPreviewModalOpen}
+        onClose={handleClosePreviewModal}
+        datasetId={selectedDatasetId}
+        executionId={selectedExecutionId}
+      />
     </div>
   );
 }

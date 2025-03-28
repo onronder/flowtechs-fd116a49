@@ -1,5 +1,4 @@
 
-// src/components/datasets/PredefinedDatasetForm.tsx
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { fetchPredefinedTemplates, createPredefinedDataset } from "@/api/datasetsApi";
+import { fetchPredefinedTemplates } from "@/api/datasetsApi";
 import { supabase } from "@/integrations/supabase/client";
 
 interface PredefinedDatasetFormProps {
@@ -34,10 +33,24 @@ export default function PredefinedDatasetForm({ source, onBack, onComplete }: Pr
       setLoading(true);
       const data = await fetchPredefinedTemplates();
       
-      // Update templates to include a "Recent Orders Dashboard" template if source is Shopify
+      // Update templates to include the predefined special case templates
       if (source.source_type === 'shopify') {
-        // Create custom template objects with required properties to match the regular template type
+        // Create custom template objects with required properties
         const customTemplates = [
+          {
+            id: 'customer-acquisition-timeline',
+            display_name: 'Customer Acquisition Timeline',
+            description: 'Track customer acquisition over time with first order conversion metrics.',
+            name: 'customer_acquisition_timeline',
+            type: 'predefined',
+            resource_type: 'customers',
+            query_template: '', // Not used for direct API
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            field_list: null,
+            is_direct_api: true 
+          },
           {
             id: 'recent-orders-dashboard',
             display_name: 'Recent Orders Dashboard',
@@ -50,35 +63,49 @@ export default function PredefinedDatasetForm({ source, onBack, onComplete }: Pr
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             field_list: null,
-            is_direct_api: true // Custom property to identify direct API templates
+            is_direct_api: true
           },
           {
-            id: 'product-catalog-snapshot',
-            display_name: 'Product Catalog Snapshot',
-            description: 'A complete snapshot of your product catalog including pricing, inventory, and categorization info.',
-            name: 'product_catalog_snapshot',
+            id: 'order-fulfillment-status',
+            display_name: 'Order Fulfillment Status',
+            description: 'Track the fulfillment status of orders including shipping and delivery information.',
+            name: 'order_fulfillment_status',
             type: 'predefined',
-            resource_type: 'products',
-            query_template: '', // Not used for direct API
+            resource_type: 'orders',
+            query_template: '',
             is_active: true,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             field_list: null,
-            is_direct_api: true // Custom property to identify direct API templates
+            is_direct_api: true
           },
           {
-            id: 'product-collection-membership',
-            display_name: 'Product Collection Membership',
-            description: 'Retrieve products along with their associated collections to analyze and manage categorization.',
-            name: 'product_collection_membership',
+            id: 'sales-by-geographic-region',
+            display_name: 'Sales by Geographic Region',
+            description: 'Analyze order distribution and sales by country, province, and city.',
+            name: 'sales_by_geographic_region',
             type: 'predefined',
-            resource_type: 'products',
-            query_template: '', // Not used for direct API
+            resource_type: 'orders',
+            query_template: '',
             is_active: true,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             field_list: null,
-            is_direct_api: true // Custom property to identify direct API templates
+            is_direct_api: true
+          },
+          {
+            id: 'inventory-status-overview',
+            display_name: 'Inventory Status Overview',
+            description: 'Get a snapshot of your current inventory levels across all products and variants.',
+            name: 'inventory_status_overview',
+            type: 'predefined',
+            resource_type: 'products',
+            query_template: '',
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            field_list: null,
+            is_direct_api: true
           }
         ];
         
@@ -129,13 +156,19 @@ export default function PredefinedDatasetForm({ source, onBack, onComplete }: Pr
       
       if (selectedTemplateObj?.is_direct_api) {
         // For direct API templates, create a special dataset entry
-        let edgeFunction = 'pre_recent_orders_dashboard'; // Default
+        let edgeFunction = '';
         
         // Determine which edge function to use based on the template
-        if (selectedTemplateObj.id === 'product-catalog-snapshot') {
-          edgeFunction = 'pre_product_catalog_snapshot';
-        } else if (selectedTemplateObj.id === 'product-collection-membership') {
-          edgeFunction = 'pre_product_collection_membership';
+        if (selectedTemplateObj.id === 'customer-acquisition-timeline') {
+          edgeFunction = 'pre_customer_acquisition_timeline';
+        } else if (selectedTemplateObj.id === 'recent-orders-dashboard') {
+          edgeFunction = 'pre_recent_orders_dashboard';
+        } else if (selectedTemplateObj.id === 'order-fulfillment-status') {
+          edgeFunction = 'pre_order_fulfillment_status';
+        } else if (selectedTemplateObj.id === 'sales-by-geographic-region') {
+          edgeFunction = 'pre_sales_by_geographic_region';
+        } else if (selectedTemplateObj.id === 'inventory-status-overview') {
+          edgeFunction = 'pre_inventory_status_overview';
         }
         
         const { data, error } = await supabase
@@ -157,12 +190,19 @@ export default function PredefinedDatasetForm({ source, onBack, onComplete }: Pr
         
       } else {
         // Use the standard createPredefinedDataset for other templates
-        await createPredefinedDataset({
-          name,
-          description,
-          sourceId: source.id,
-          templateId: selectedTemplate
-        });
+        const { data, error } = await supabase
+          .from("user_datasets")
+          .insert({
+            name,
+            description,
+            source_id: source.id,
+            dataset_type: "predefined",
+            template_id: selectedTemplate,
+            user_id: (await supabase.auth.getUser()).data.user?.id
+          })
+          .select();
+          
+        if (error) throw error;
       }
       
       onComplete();
