@@ -36,11 +36,15 @@ export async function getExecutionDetails(executionId: string): Promise<DatasetE
       throw error;
     }
     
-    // Ensure status is cast to the correct type
+    // Ensure status and metadata are properly handled
     if (data) {
       return {
         ...data,
-        status: data.status as DatasetExecution['status']
+        status: data.status as DatasetExecution['status'],
+        // Handle metadata by ensuring it's a proper object
+        metadata: typeof data.metadata === 'string' 
+          ? JSON.parse(data.metadata) 
+          : (data.metadata || {})
       };
     }
     
