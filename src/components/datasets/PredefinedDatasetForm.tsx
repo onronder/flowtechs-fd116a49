@@ -77,7 +77,7 @@ export default function PredefinedDatasetForm({
         name: values.name,
         description: values.description || "",
         sourceId: values.sourceId,
-        template_name: values.templateName,
+        templateId: values.templateName, // Using camelCase property names
         dataset_type: "predefined", // Use a valid dataset type from your schema
       });
 
